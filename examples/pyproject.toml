@@ -1,0 +1,8 @@
+[project]
+name = "project"
+version = "0.1.0"
+dependencies = [
+    '''wrong-backtracking-basic-a''',
+    '''wrong-backtracking-basic-b''',
+]
+requires-python = ">=3.12"

@@ -1,0 +1,39 @@
+version = 1
+revision = 2
+requires-python = ">=3.12"
+
+[[package]]
+name = "project"
+version = "0.1.0"
+source = { virtual = "." }
+dependencies = [
+    { name = "wrong-backtracking-basic-a" },
+    { name = "wrong-backtracking-basic-b" },
+]
+
+[package.metadata]
+requires-dist = [
+    { name = "wrong-backtracking-basic-a" },
+    { name = "wrong-backtracking-basic-b" },
+]
+
+[[package]]
+name = "wrong-backtracking-basic-a"
+version = "1.0.0"
+source = { registry = "http://127.0.0.1:3141/simple-html" }
+sdist = { url = "http://127.0.0.1:3141/files/wrong_backtracking_basic_a-1.0.0.tar.gz", hash = "sha256:b4abd2c802ca129d5855225fe456f2a36068c50d0ae545e37a8e08ef0f580b38" }
+wheels = [
+    { url = "http://127.0.0.1:3141/files/wrong_backtracking_basic_a-1.0.0-py3-none-any.whl", hash = "sha256:d669cb8614076ad7fc83f46b97abb94d86ada4ad5341d070874e96640ef808ad" },
+]
+
+[[package]]
+name = "wrong-backtracking-basic-b"
+version = "2.0.9"
+source = { registry = "http://127.0.0.1:3141/simple-html" }
+dependencies = [
+    { name = "wrong-backtracking-basic-a" },
+]
+sdist = { url = "http://127.0.0.1:3141/files/wrong_backtracking_basic_b-2.0.9.tar.gz", hash = "sha256:aec746d9adae60458015ad7c11b1b9c589031928c07d9c13f1dff23d473b2480" }
+wheels = [
+    { url = "http://127.0.0.1:3141/files/wrong_backtracking_basic_b-2.0.9-py3-none-any.whl", hash = "sha256:30c0b2450c13c06d70ccb8804e41d3be9dacc911e27f30ac58b7880d8fe8e705" },
+]
