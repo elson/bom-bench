@@ -1,5 +1,5 @@
 # Overview
-Generate and lock multiple `uv` projects from a set of scenarios provided by `packse`.
+Generate and lock multiple `uv` projects from a set of `packse` scenarios.
 
 # Goal
 - This repo contains a script for generating `pyproject.toml` files from packse scenario data.
