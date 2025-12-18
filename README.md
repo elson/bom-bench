@@ -1,10 +1,11 @@
 # Overview
 
-This is a spike for generating multiple, independent `uv` projects from a set of scenarios provided by `packse`.
+Generate and lock multiple `uv` projects from a set of scenarios provided by `packse`.
 
 # Goal
 - This repo contains a script for generating `pyproject.toml` files from packse scenario data.
-- The generator reads scenario data from `./scenarios.json`, filters scenarios with `universal = true` (excluding any with "example" in the name), and writes `pyproject.toml` files to `./output/{SCENARIO_NAME}/` directories.
+- The generator reads scenario data from `./scenarios.json`, filters scenarios with `universal = true` (excluding examples), and writes `pyproject.toml` files to `./output/{SCENARIO_NAME}/` directories.
+- If `--lock` param is used, attempt `uv lock` on each project and record the results.
 
 # Usage
 
@@ -37,7 +38,7 @@ Each scenario directory (`./output/{SCENARIO_NAME}/`) contains:
 **Always generated:**
 - `pyproject.toml` - Project configuration with:
   - Project name and version (fixed as "project" and "0.1.0")
-  - Dependencies from the scenario's root requirements (with full scenario-prefixed package names)
+  - Dependencies from the scenario's root requirements
   - Optional `requires-python` specification
   - Optional `[tool.uv]` section with `required-environments` for universal resolution scenarios
 
@@ -47,8 +48,8 @@ Each scenario directory (`./output/{SCENARIO_NAME}/`) contains:
 
 # Implementation Details
 - Python 3.12 compatible
-- No external dependencies required (uses standard library `json` module)
+- No external dependencies required
 - Runnable with `uv run` via inline script metadata
-- Dependencies use full scenario-prefixed names (e.g., `wrong-backtracking-basic-a` not just `a`)
-- Processes only scenarios with `resolver_options.universal = true`
+- Dependencies use full scenario-prefixed names for compatibility with `packse serve` (e.g., `wrong-backtracking-basic-a` not `a`)
+- Processes only scenarios with `resolver_options.universal: true`
 - Excludes scenarios with "example" in the name
