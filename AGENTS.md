@@ -17,7 +17,7 @@
 # Developer workflows
 - Use `uv` to manage environments and runs where possible.
 - Create or manage a venv with `uv venv`.
-- Make scripts runnable via `uv run` by declaring inline script metadata per `README.md` (this will allow `uv` to automatically install the necessary dependencies without needing to specify them on the command line).
+- Declare any non-stdlib dependencies using inline script metadata (allows `uv` to automatically install dependencies without needing to specify them every time on the command line).
 - Run commands inside the `uv` environment using `uv run`, for example:
 
 ```bash
@@ -34,7 +34,7 @@ uv run generate-tomls.py --lock
 
 # Project-specific conventions
 - Target interpreter: Python 3.12 — keep syntax and stdlib usage compatible.
-- Minimal dependencies: prefer stdlib; currently uses only standard `json` module (no external dependencies).
+- Minimal dependencies, prefer stdlib.
 - Output files:
   - `./output/{SCENARIO_NAME}/pyproject.toml` (always)
   - `./output/{SCENARIO_NAME}/uv.lock` (with --lock)
