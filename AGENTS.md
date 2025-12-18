@@ -9,7 +9,6 @@
 - `./scenarios.json` - JSON file containing packse scenario data, generated from the `./scenarios/` data using `packse inspect --no-hash > scenarios.json`.
 - `./scenarios/` - a set of toml files describing various python packaging scenarios, downloaded using the `packse fetch` CLI command. If this doesn't exist, run `packse fetch --dest downloads --force` to recreate it.
 - `./output/` - destination for the generated projects.
-- `./examples/` - temporary sample files taken from the main `uv` git repository pertaining to generating test data from the scenarios above. These are here to provide example code and context to the AI coding assistant, they will be deleted in the future.
 
 # Available tools
 - `uv` Python package manager and build tool
