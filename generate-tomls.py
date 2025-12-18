@@ -80,15 +80,19 @@ def process_scenario(scenario: dict, output_base: Path) -> bool:
         True if the scenario was processed, False if skipped
     """
     try:
-        # Check if universal = true
-        resolver_options = scenario.get("resolver_options", {})
-        if not resolver_options.get("universal", False):
-            return False
-
         # Get scenario name
         scenario_name = scenario.get("name")
         if not scenario_name:
             print("Warning: Scenario has no name field, skipping", file=sys.stderr)
+            return False
+
+        # Skip scenarios with "example" in the name
+        if "example" in scenario_name.lower():
+            return False
+
+        # Check if universal = true
+        resolver_options = scenario.get("resolver_options", {})
+        if not resolver_options.get("universal", False):
             return False
 
         # Generate pyproject.toml content

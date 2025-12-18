@@ -32,7 +32,9 @@ uv run python generate-tomls.py
 - Target interpreter: Python 3.12 — keep syntax and stdlib usage compatible.
 - Minimal dependencies: prefer stdlib; currently uses only standard `json` module (no external dependencies).
 - Output files: `./output/{SCENARIO_NAME}/pyproject.toml`
-- Filtering rule: only process scenarios with `resolver_options.universal = true`.
+- Filtering rules:
+  - Only process scenarios with `resolver_options.universal = true`
+  - Exclude scenarios with "example" in the name
 - Dependency naming: use full scenario-prefixed package names from `root.requires[].requirement` field.
 
 # Patterns & examples
