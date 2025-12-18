@@ -5,7 +5,7 @@
 - See `./README.md` for context.
 
 # Key files and folders
-- `./generate-tomls.py` - script file that reads from scenarios.json.
+- `./main.py` - main entrypoint, script file that reads from scenarios.json.
 - `./scenarios.json` - JSON file containing packse scenario data, generated from the `./scenarios/` data using `packse inspect --no-hash > scenarios.json`.
 - `./scenarios/` - a set of toml files describing various python packaging scenarios, downloaded using the `packse fetch` CLI command. If this doesn't exist, run `packse fetch --dest downloads --force` to recreate it.
 - `./output/` - destination for the generated projects.
@@ -17,19 +17,19 @@
 # Developer workflows
 - Use `uv` to manage environments and runs where possible.
 - Create or manage a venv with `uv venv`.
-- Declare any non-stdlib dependencies using inline script metadata (allows `uv` to automatically install dependencies without needing to specify them every time on the command line).
+- Declare any non-stdlib dependencies in the `pyproject.toml` file
 - Run commands inside the `uv` environment using `uv run`, for example:
 
 ```bash
 # Generate pyproject.toml files
-uv run generate-tomls.py
+uv run main.py
 
 # Generate pyproject.toml files and lock files (requires packse server running)
-uv run generate-tomls.py --lock
+uv run main.py --lock
 ```
 
 # Testing
-- Test your work by running the script using `uv run`, checking the output, and iterating towards a solution.
+- Test your work by running the script using `uv run main.py` (and `--lock` if relevant), checking the output, and iterating towards a solution.
 - To test lock file generation, ensure packse server is running at http://127.0.0.1:3141 first.
 
 # Project-specific conventions
@@ -40,7 +40,7 @@ uv run generate-tomls.py --lock
   - `./output/{SCENARIO_NAME}/uv.lock` (with --lock)
   - `./output/{SCENARIO_NAME}/uv-lock-output.txt` (with --lock)
 - Filtering rules:
-  - Only process scenarios with `resolver_options.universal = true`
+  - Only process scenarios with `resolver_options.universal: true`
   - Exclude scenarios with "example" in the name
 - Dependency naming: use full scenario-prefixed package names from `root.requires[].requirement` field (which is the default in scenarios.json).
 
