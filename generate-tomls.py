@@ -1,31 +1,29 @@
 #!/usr/bin/env python3
 # /// script
 # requires-python = ">=3.12"
-# dependencies = [
-#     "tomli>=2.0.0",
-# ]
+# dependencies = []
 # ///
 
 """
-Generate pyproject.toml files from packse scenario TOML files.
+Generate pyproject.toml files from packse scenarios.
 
 This script:
-1. Discovers all .toml files in the scenarios/ directory
+1. Reads scenario data from scenarios.json
 2. Filters for scenarios with universal = true
 3. Generates pyproject.toml files in output/{SCENARIO_NAME}/ directories
 """
 
+import json
 import sys
-import tomli
 from pathlib import Path
 
 
-def generate_pyproject_toml(scenario_data: dict) -> str:
+def generate_pyproject_toml(scenario: dict) -> str:
     """
     Generate a pyproject.toml file content from scenario data.
 
     Args:
-        scenario_data: Parsed TOML data from a scenario file
+        scenario: Scenario data from scenarios.json
 
     Returns:
         String content for the pyproject.toml file
@@ -35,13 +33,16 @@ def generate_pyproject_toml(scenario_data: dict) -> str:
     lines.append('version = "0.1.0"')
 
     # Add dependencies if present
-    root = scenario_data.get("root", {})
+    root = scenario.get("root", {})
     requires = root.get("requires", [])
 
     if requires:
         lines.append("dependencies = [")
-        for req in requires:
-            lines.append(f'  "{req}",')
+        for req_obj in requires:
+            # Use the "requirement" field which includes the full package name with scenario prefix
+            requirement = req_obj.get("requirement", "")
+            # Use single quotes to avoid issues with double quotes in markers
+            lines.append(f"  '{requirement}',")
         lines.append("]")
     else:
         lines.append("dependencies = []")
@@ -52,8 +53,8 @@ def generate_pyproject_toml(scenario_data: dict) -> str:
         lines.append(f'requires-python = "{requires_python}"')
 
     # Add tool.uv.required-environments if present
-    resolver_options = scenario_data.get("resolver_options", {})
-    required_environments = resolver_options.get("required_environments", [])
+    resolver_options = scenario.get("resolver_options", {})
+    required_environments = resolver_options.get("required_environments")
 
     if required_environments:
         lines.append("")
@@ -67,35 +68,31 @@ def generate_pyproject_toml(scenario_data: dict) -> str:
     return "\n".join(lines) + "\n"
 
 
-def process_scenario_file(toml_path: Path, output_base: Path) -> bool:
+def process_scenario(scenario: dict, output_base: Path) -> bool:
     """
-    Process a single scenario TOML file.
+    Process a single scenario from scenarios.json.
 
     Args:
-        toml_path: Path to the scenario TOML file
+        scenario: Scenario data dictionary
         output_base: Base directory for output files
 
     Returns:
-        True if the file was processed, False if skipped
+        True if the scenario was processed, False if skipped
     """
     try:
-        # Read and parse the TOML file
-        with open(toml_path, "rb") as f:
-            scenario_data = tomli.load(f)
-
         # Check if universal = true
-        resolver_options = scenario_data.get("resolver_options", {})
+        resolver_options = scenario.get("resolver_options", {})
         if not resolver_options.get("universal", False):
             return False
 
         # Get scenario name
-        scenario_name = scenario_data.get("name")
+        scenario_name = scenario.get("name")
         if not scenario_name:
-            print(f"Warning: Scenario at {toml_path} has no name field, skipping")
+            print("Warning: Scenario has no name field, skipping", file=sys.stderr)
             return False
 
         # Generate pyproject.toml content
-        pyproject_content = generate_pyproject_toml(scenario_data)
+        pyproject_content = generate_pyproject_toml(scenario)
 
         # Create output directory
         output_dir = output_base / scenario_name
@@ -109,40 +106,46 @@ def process_scenario_file(toml_path: Path, output_base: Path) -> bool:
         return True
 
     except Exception as e:
-        print(f"Error processing {toml_path}: {e}", file=sys.stderr)
+        print(f"Error processing scenario '{scenario.get('name', 'unknown')}': {e}", file=sys.stderr)
         return False
 
 
 def main():
     """Main entry point for the script."""
     # Define paths
-    scenarios_dir = Path("scenarios")
+    scenarios_file = Path("scenarios.json")
     output_dir = Path("output")
 
-    # Check if scenarios directory exists
-    if not scenarios_dir.exists():
-        print(f"Error: {scenarios_dir} directory not found", file=sys.stderr)
-        print("Run: packse fetch --dest scenarios --force", file=sys.stderr)
+    # Check if scenarios.json exists
+    if not scenarios_file.exists():
+        print(f"Error: {scenarios_file} not found", file=sys.stderr)
+        print("Run: packse fetch to generate scenarios.json", file=sys.stderr)
         sys.exit(1)
+
+    # Read and parse scenarios.json
+    try:
+        with open(scenarios_file) as f:
+            data = json.load(f)
+    except json.JSONDecodeError as e:
+        print(f"Error: Failed to parse {scenarios_file}: {e}", file=sys.stderr)
+        sys.exit(1)
+
+    scenarios = data.get("scenarios", [])
+    if not scenarios:
+        print(f"Warning: No scenarios found in {scenarios_file}")
+        return
+
+    print(f"Found {len(scenarios)} scenarios")
 
     # Create output directory if it doesn't exist
     output_dir.mkdir(exist_ok=True)
 
-    # Find all TOML files
-    toml_files = list(scenarios_dir.rglob("*.toml"))
-
-    if not toml_files:
-        print(f"Warning: No TOML files found in {scenarios_dir}")
-        return
-
-    print(f"Found {len(toml_files)} TOML files")
-
-    # Process each TOML file
+    # Process each scenario
     processed_count = 0
     skipped_count = 0
 
-    for toml_file in toml_files:
-        if process_scenario_file(toml_file, output_dir):
+    for scenario in scenarios:
+        if process_scenario(scenario, output_dir):
             processed_count += 1
         else:
             skipped_count += 1
@@ -150,7 +153,7 @@ def main():
     print(f"\nSummary:")
     print(f"  Processed: {processed_count}")
     print(f"  Skipped: {skipped_count}")
-    print(f"  Total: {len(toml_files)}")
+    print(f"  Total: {len(scenarios)}")
 
 
 if __name__ == "__main__":

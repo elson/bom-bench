@@ -5,9 +5,10 @@
 - See `./README.md` for context.
 
 # Key files and folders
-- `./generate-tomls.py` - script file.
-- `./output/` - destination for the generated projects.
+- `./generate-tomls.py` - script file that reads from scenarios.json.
+- `./scenarios.json` - JSON file containing packse scenario data, generated from the `./scenarios/` data using `packse inspect --no-hash > scenarios.json`.
 - `./scenarios/` - a set of toml files describing various python packaging scenarios, downloaded using the `packse fetch` CLI command. If this doesn't exist, run `packse fetch --dest downloads --force` to recreate it.
+- `./output/` - destination for the generated projects.
 - `./examples/` - temporary sample files taken from the main `uv` git repository pertaining to generating test data from the scenarios above. These are here to provide example code and context to the AI coding assistant, they will be deleted in the future.
 
 # Available tools
@@ -30,21 +31,23 @@ uv run python generate-tomls.py
 
 # Project-specific conventions
 - Target interpreter: Python 3.12 — keep syntax and stdlib usage compatible.
-- Minimal dependencies: prefer stdlib; add dependencies only when necessary and declare them via inline script metadata or `pyproject.toml` used by `uv`.
-- Output files: `./output/{SCENARIO_NAME}/pyproject.toml` 
-- Filtering rule: only process scenarios with `universal = true`.
+- Minimal dependencies: prefer stdlib; currently uses only standard `json` module (no external dependencies).
+- Output files: `./output/{SCENARIO_NAME}/pyproject.toml`
+- Filtering rule: only process scenarios with `resolver_options.universal = true`.
+- Dependency naming: use full scenario-prefixed package names from `root.requires[].requirement` field.
 
 # Patterns & examples
-- Discovery: iterate `scenarios/**/*.toml`, parse, check `universal`, and derive `SCENARIO_NAME` from filename or a scenario field.
+- Discovery: read `scenarios.json`, iterate through `scenarios` array, check `resolver_options.universal`, use `name` field for output directory.
+- Dependencies: extract from `root.requires[].requirement` (e.g., "wrong-backtracking-basic-a==1.0.0").
 
 # Integration points
 - `packse` CLI: scenarios are fetched with `packse`; using `packse` to inspect or validate scenarios is acceptable.
 - `uv`: prefer `uv` tooling for venvs, installs, and running scripts; it centralizes environment management.
 
 # What to avoid
-- The files in `./scenarios` are temporary and will be deleted at a later date. Do not use these files (e.g. `lock.mustache` file) directly in the final script implementation, they are provided as inspiration only. If you need to, create copies of any portions of the files that are useful.
-- Do not process scenarios missing `universal = true`.
-- Avoid heavy dependencies unless needed for reliable template rendering or TOML parsing.
+- Do not read from `./scenarios/` TOML files; always use `scenarios.json` as the data source.
+- Do not process scenarios where `resolver_options.universal != true`.
+- Avoid adding external dependencies; the script currently uses only stdlib and should remain that way unless absolutely necessary.
 
 # If you change behavior
 - Update `README.md` to reflect new flags, outputs, runtime requirements and additional usage instructions.
