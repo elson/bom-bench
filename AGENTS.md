@@ -5,15 +5,14 @@
 - See `./README.md` for context.
 
 # Key files and folders
-- `./main.py` - main entrypoint, script file that reads from scenarios.json.
-- `./scenarios.json` - JSON file containing packse scenario data, generated from the `./scenarios/` data using `packse inspect --no-hash > scenarios.json`.
-- `./scenarios/` - a set of toml files describing various python packaging scenarios, downloaded using the `packse fetch` CLI command. If this doesn't exist, run `packse fetch --dest downloads --force` to recreate it.
+- `./main.py` - main entrypoint script that uses the packse Python API to load and process scenarios.
+- `./scenarios/` - a set of toml files describing various python packaging scenarios. The script automatically fetches these using `packse.fetch.fetch()` if the directory doesn't exist.
 - `./output/` - destination for the generated projects.
 
 # Available tools
 - `uv` Python package manager and build tool
-- `packse` - CLI tool for downloading scenario files, viewing details, building the packages, and serving a package index. Run `packse --help` for  usage details.
-- 
+- `packse` - Python package and CLI tool. The script uses the Python API (`packse.fetch`, `packse.inspect`) to fetch and load scenarios programmatically.
+
 # Developer workflows
 - Use `uv` to manage environments and runs where possible.
 - Create or manage a venv with `uv venv`.
@@ -34,7 +33,7 @@ uv run main.py --lock
 
 # Project-specific conventions
 - Target interpreter: Python 3.12 — keep syntax and stdlib usage compatible.
-- Minimal dependencies, prefer stdlib.
+- Dependencies: Uses `packse` package (declared in `pyproject.toml`).
 - Output files:
   - `./output/{SCENARIO_NAME}/pyproject.toml` (always)
   - `./output/{SCENARIO_NAME}/uv.lock` (with --lock)
@@ -42,20 +41,22 @@ uv run main.py --lock
 - Filtering rules:
   - Only process scenarios with `resolver_options.universal: true`
   - Exclude scenarios with "example" in the name
-- Dependency naming: use full scenario-prefixed package names from `root.requires[].requirement` field (which is the default in scenarios.json).
+- Dependency naming: use full scenario-prefixed package names without hash suffixes from `root.requires[].requirement` field (obtained via `packse.inspect.variables_for_templates(..., no_hash=True)`).
 
 # Patterns & examples
-- Discovery: read `scenarios.json`, iterate through `scenarios` array, check `resolver_options.universal`, use `name` field for output directory.
-- Dependencies: extract from `root.requires[].requirement` (e.g., "wrong-backtracking-basic-a==1.0.0").
+- Auto-fetch: Check if `./scenarios/` exists; if not, call `packse.fetch.fetch(dest=scenarios_dir)` to download scenarios.
+- Discovery: Use `packse.inspect.find_scenario_files(scenarios_dir)` to discover scenario files, then `packse.inspect.variables_for_templates(scenario_files, no_hash=True)` to load scenario data.
+- Iteration: Iterate through `template_vars['scenarios']` array, check `resolver_options.universal`, use `name` field for output directory.
+- Dependencies: Extract from `root.requires[].requirement` (e.g., "wrong-backtracking-basic-a==1.0.0").
 
 # Integration points
-- `packse` CLI: scenarios are fetched with `packse`; using `packse` to inspect or validate scenarios is acceptable.
+- `packse` Python API: scenarios are fetched using `packse.fetch.fetch()` and loaded using `packse.inspect` module.
 - `uv`: prefer `uv` tooling for venvs, installs, and running scripts; it centralizes environment management.
 
 # What to avoid
-- Do not read from `./scenarios/` TOML files; always use `scenarios.json` as the data source.
+- Do not manually read TOML files from `./scenarios/`; always use the packse API (`packse.inspect.variables_for_templates()`).
 - Do not process scenarios where `resolver_options.universal != true`.
-- Avoid adding external dependencies; the script currently uses only stdlib and should remain that way unless absolutely necessary.
+- Keep external dependencies minimal; currently only `packse` is required.
 
 # If you change behavior
 - Update `README.md` to reflect new flags, outputs, runtime requirements and additional usage instructions.

@@ -3,7 +3,7 @@ Generate and lock multiple `uv` projects from a set of `packse` scenarios.
 
 # Goal
 - This repo contains a script for generating `pyproject.toml` files from packse scenario data.
-- The generator reads scenario data from `./scenarios.json`, selects scenarios with `universal: true` (excluding examples), and writes `pyproject.toml` files to `./output/{SCENARIO_NAME}/` directories.
+- The generator uses the packse Python API to load scenario data, selects scenarios with `universal: true` (excluding examples), and writes `pyproject.toml` files to `./output/{SCENARIO_NAME}/` directories.
 - If `--lock` param is used, attempt `uv lock` on each project and record the results.
 
 # Usage
@@ -13,7 +13,7 @@ Generate and lock multiple `uv` projects from a set of `packse` scenarios.
 uv run main.py
 ```
 
-The script requires `scenarios.json` to be present in the current directory. If the file is not found, you can fetch scenarios using packse.
+The script will automatically fetch scenarios from the packse repository if the `./scenarios/` directory doesn't exist. The scenarios are loaded programmatically using `packse.inspect.variables_for_templates()`.
 
 ## Generate lock files
 To also generate `uv.lock` files for each scenario (requires a running packse server at `http://127.0.0.1:3141`):
@@ -44,8 +44,10 @@ Each scenario directory (`./output/{SCENARIO_NAME}/`) contains:
 
 # Implementation Details
 - Python 3.12 compatible
-- No external dependencies required
-- Runnable with `uv run` 
-- Dependencies in generated rojects use full scenario-prefixed names for compatibility with `packse serve` (e.g., `wrong-backtracking-basic-a` not `a`)
+- Uses `packse` Python package to fetch and load scenario data programmatically
+- Runnable with `uv run`
+- Automatically fetches scenarios using `packse.fetch.fetch()` if `./scenarios/` directory doesn't exist
+- Loads scenarios using `packse.inspect.variables_for_templates()` with `no_hash=True`
+- Dependencies in generated projects use full scenario-prefixed names without hash suffixes for compatibility with `packse serve` (e.g., `wrong-backtracking-basic-a` not `a`)
 - Processes only scenarios with `resolver_options.universal: true`
 - Excludes scenarios with "example" in the name
