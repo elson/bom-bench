@@ -1,6 +1,6 @@
 .venv/
 .claude/
 
-scenarios.json
+# temp files
 scenarios/
 output/

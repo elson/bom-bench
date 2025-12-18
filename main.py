@@ -4,17 +4,20 @@
 Generate pyproject.toml files from packse scenarios.
 
 This script:
-1. Reads scenario data from scenarios.json
-2. Filters for scenarios with universal = true
-3. Generates pyproject.toml files in output/{SCENARIO_NAME}/ directories
-4. Optionally generates lock files with --lock flag
+1. Fetches scenario data using packse API (if not already present)
+2. Loads scenarios from the scenarios directory
+3. Filters for scenarios with universal = true
+4. Generates pyproject.toml files in output/{SCENARIO_NAME}/ directories
+5. Optionally generates lock files with --lock flag
 """
 
 import argparse
-import json
 import subprocess
 import sys
 from pathlib import Path
+
+import packse.fetch
+import packse.inspect
 
 
 def generate_pyproject_toml(scenario: dict) -> str:
@@ -22,7 +25,7 @@ def generate_pyproject_toml(scenario: dict) -> str:
     Generate a pyproject.toml file content from scenario data.
 
     Args:
-        scenario: Scenario data from scenarios.json
+        scenario: Scenario data from packse API
 
     Returns:
         String content for the pyproject.toml file
@@ -176,29 +179,38 @@ def main():
     args = parser.parse_args()
 
     # Define paths
-    scenarios_file = Path("scenarios.json")
+    scenarios_dir = Path("scenarios")
     output_dir = Path("output")
 
-    # Check if scenarios.json exists
-    if not scenarios_file.exists():
-        print(f"Error: {scenarios_file} not found", file=sys.stderr)
-        print("Run: packse fetch to generate scenarios.json", file=sys.stderr)
-        sys.exit(1)
+    # Check if scenarios directory exists, if not fetch scenarios
+    if not scenarios_dir.exists():
+        print(f"Directory \"{scenarios_dir}\" not found. Fetching...")
+        try:
+            packse.fetch.fetch(dest=scenarios_dir)
+            print(f"Successfully fetched scenarios ✓\n")
+        except Exception as e:
+            print(f"Error: Failed to fetch scenarios: {e}", file=sys.stderr)
+            sys.exit(1)
 
-    # Read and parse scenarios.json
+    # Load scenarios using packse API
     try:
-        with open(scenarios_file) as f:
-            data = json.load(f)
-    except json.JSONDecodeError as e:
-        print(f"Error: Failed to parse {scenarios_file}: {e}", file=sys.stderr)
+        scenario_files = list(packse.inspect.find_scenario_files(scenarios_dir))
+        if not scenario_files:
+            print(f"Warning: No scenario files found in {scenarios_dir}")
+            return
+
+        # Generate template variables which includes full scenario data with name prefixes
+        template_vars = packse.inspect.variables_for_templates(scenario_files, no_hash=True)
+        scenarios = template_vars.get("scenarios", [])
+
+        if not scenarios:
+            print(f"Warning: No scenarios loaded")
+            return
+
+        print(f"Found {len(scenarios)} scenarios")
+    except Exception as e:
+        print(f"Error: Failed to load scenarios: {e}", file=sys.stderr)
         sys.exit(1)
-
-    scenarios = data.get("scenarios", [])
-    if not scenarios:
-        print(f"Warning: No scenarios found in {scenarios_file}")
-        return
-
-    print(f"Found {len(scenarios)} scenarios")
 
     # Create output directory if it doesn't exist
     output_dir.mkdir(exist_ok=True)
