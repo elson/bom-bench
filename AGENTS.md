@@ -21,21 +21,28 @@
 - Run commands inside the `uv` environment using `uv run`, for example:
 
 ```bash
-uv venv
-source .venv/bin/activate
-uv run python generate-tomls.py
+# Generate pyproject.toml files
+uv run generate-tomls.py
+
+# Generate pyproject.toml files and lock files (requires packse server running)
+uv run generate-tomls.py --lock
 ```
+
 # Testing
 - Test your work by running the script using `uv run`, checking the output, and iterating towards a solution.
+- To test lock file generation, ensure packse server is running at http://127.0.0.1:3141 first.
 
 # Project-specific conventions
 - Target interpreter: Python 3.12 — keep syntax and stdlib usage compatible.
 - Minimal dependencies: prefer stdlib; currently uses only standard `json` module (no external dependencies).
-- Output files: `./output/{SCENARIO_NAME}/pyproject.toml`
+- Output files:
+  - `./output/{SCENARIO_NAME}/pyproject.toml` (always)
+  - `./output/{SCENARIO_NAME}/uv.lock` (with --lock)
+  - `./output/{SCENARIO_NAME}/uv-lock-output.txt` (with --lock)
 - Filtering rules:
   - Only process scenarios with `resolver_options.universal = true`
   - Exclude scenarios with "example" in the name
-- Dependency naming: use full scenario-prefixed package names from `root.requires[].requirement` field.
+- Dependency naming: use full scenario-prefixed package names from `root.requires[].requirement` field (which is the default in scenarios.json).
 
 # Patterns & examples
 - Discovery: read `scenarios.json`, iterate through `scenarios` array, check `resolver_options.universal`, use `name` field for output directory.

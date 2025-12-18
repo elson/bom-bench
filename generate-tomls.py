@@ -11,9 +11,12 @@ This script:
 1. Reads scenario data from scenarios.json
 2. Filters for scenarios with universal = true
 3. Generates pyproject.toml files in output/{SCENARIO_NAME}/ directories
+4. Optionally generates lock files with --lock flag
 """
 
+import argparse
 import json
+import subprocess
 import sys
 from pathlib import Path
 
@@ -68,6 +71,55 @@ def generate_pyproject_toml(scenario: dict) -> str:
     return "\n".join(lines) + "\n"
 
 
+def run_uv_lock(scenario_dir: Path, scenario_name: str) -> tuple[bool, int]:
+    """
+    Run uv lock for a scenario and capture output.
+
+    Args:
+        scenario_dir: Directory containing the pyproject.toml
+        scenario_name: Name of the scenario (for logging)
+
+    Returns:
+        Tuple of (success: bool, exit_code: int)
+    """
+    output_file = scenario_dir / "uv-lock-output.txt"
+
+    try:
+        # Run uv lock with the specified index URL
+        result = subprocess.run(
+            ["uv", "lock", "--index-url", "http://127.0.0.1:3141/simple-html"],
+            cwd=scenario_dir,
+            capture_output=True,
+            text=True,
+            timeout=120  # 2 minute timeout per lock
+        )
+
+        # Write output to file
+        with open(output_file, "w") as f:
+            f.write(f"Exit code: {result.returncode}\n\n")
+            f.write("=== STDOUT ===\n")
+            f.write(result.stdout)
+            f.write("\n\n=== STDERR ===\n")
+            f.write(result.stderr)
+
+        success = result.returncode == 0
+        return success, result.returncode
+
+    except subprocess.TimeoutExpired:
+        with open(output_file, "w") as f:
+            f.write("Exit code: TIMEOUT\n\n")
+            f.write("Error: Command timed out after 120 seconds\n")
+        print(f"  Timeout: {scenario_name}", file=sys.stderr)
+        return False, -1
+
+    except Exception as e:
+        with open(output_file, "w") as f:
+            f.write(f"Exit code: ERROR\n\n")
+            f.write(f"Error: {str(e)}\n")
+        print(f"  Error running uv lock for {scenario_name}: {e}", file=sys.stderr)
+        return False, -1
+
+
 def process_scenario(scenario: dict, output_base: Path) -> bool:
     """
     Process a single scenario from scenarios.json.
@@ -116,6 +168,17 @@ def process_scenario(scenario: dict, output_base: Path) -> bool:
 
 def main():
     """Main entry point for the script."""
+    # Parse command line arguments
+    parser = argparse.ArgumentParser(
+        description="Generate pyproject.toml files from packse scenarios"
+    )
+    parser.add_argument(
+        "--lock",
+        action="store_true",
+        help="Generate lock files for each scenario using uv lock"
+    )
+    args = parser.parse_args()
+
     # Define paths
     scenarios_file = Path("scenarios.json")
     output_dir = Path("output")
@@ -147,17 +210,44 @@ def main():
     # Process each scenario
     processed_count = 0
     skipped_count = 0
+    processed_scenarios = []
 
     for scenario in scenarios:
         if process_scenario(scenario, output_dir):
             processed_count += 1
+            processed_scenarios.append(scenario)
         else:
             skipped_count += 1
 
-    print(f"\nSummary:")
+    print(f"\nGeneration Summary:")
     print(f"  Processed: {processed_count}")
     print(f"  Skipped: {skipped_count}")
     print(f"  Total: {len(scenarios)}")
+
+    # If --lock flag is set, generate lock files
+    if args.lock:
+        print(f"\nGenerating lock files for {processed_count} scenarios...")
+        lock_success = 0
+        lock_failure = 0
+
+        for scenario in processed_scenarios:
+            scenario_name = scenario["name"]
+            scenario_dir = output_dir / scenario_name
+            print(f"  Locking: {scenario_name}...", end=" ", flush=True)
+
+            success, exit_code = run_uv_lock(scenario_dir, scenario_name)
+
+            if success:
+                print("✓")
+                lock_success += 1
+            else:
+                print(f"✗ (exit code: {exit_code})")
+                lock_failure += 1
+
+        print(f"\nLock Summary:")
+        print(f"  Success: {lock_success}")
+        print(f"  Failed: {lock_failure}")
+        print(f"  Total: {processed_count}")
 
 
 if __name__ == "__main__":
