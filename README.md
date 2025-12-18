@@ -3,7 +3,7 @@
 This is a spike for generating multiple, independent `uv` projects from a set of scenarios provided by `packse`.
 
 # Goal
-- This repo contains a script for generating `pyproject.toml` files from scenario TOMLs in `./downloads/`.
+- This repo contains a script for generating `pyproject.toml` files from scenario TOMLs in `./scenarios/`.
 - The generator filters scenarios with `universal = true`, renders the `pyproject.toml` files using a template, and writes outputs to `./output/{SCENARIO_NAME}/`.
 
 # Usage

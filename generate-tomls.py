@@ -10,7 +10,7 @@
 Generate pyproject.toml files from packse scenario TOML files.
 
 This script:
-1. Discovers all .toml files in the downloads/ directory
+1. Discovers all .toml files in the scenarios/ directory
 2. Filters for scenarios with universal = true
 3. Generates pyproject.toml files in output/{SCENARIO_NAME}/ directories
 """
@@ -116,23 +116,23 @@ def process_scenario_file(toml_path: Path, output_base: Path) -> bool:
 def main():
     """Main entry point for the script."""
     # Define paths
-    downloads_dir = Path("downloads")
+    scenarios_dir = Path("scenarios")
     output_dir = Path("output")
 
-    # Check if downloads directory exists
-    if not downloads_dir.exists():
-        print(f"Error: {downloads_dir} directory not found", file=sys.stderr)
-        print("Run: packse fetch --dest downloads --force", file=sys.stderr)
+    # Check if scenarios directory exists
+    if not scenarios_dir.exists():
+        print(f"Error: {scenarios_dir} directory not found", file=sys.stderr)
+        print("Run: packse fetch --dest scenarios --force", file=sys.stderr)
         sys.exit(1)
 
     # Create output directory if it doesn't exist
     output_dir.mkdir(exist_ok=True)
 
     # Find all TOML files
-    toml_files = list(downloads_dir.rglob("*.toml"))
+    toml_files = list(scenarios_dir.rglob("*.toml"))
 
     if not toml_files:
-        print(f"Warning: No TOML files found in {downloads_dir}")
+        print(f"Warning: No TOML files found in {scenarios_dir}")
         return
 
     print(f"Found {len(toml_files)} TOML files")

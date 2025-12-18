@@ -7,7 +7,7 @@
 # Key files and folders
 - `./generate-tomls.py` - script file.
 - `./output/` - destination for the generated projects.
-- `./downloads/` - a set of toml files describing various python packaging scenarios, downloaded using the `packse fetch` CLI command. If this doesn't exist, run `packse fetch --dest downloads --force` to recreate it.
+- `./scenarios/` - a set of toml files describing various python packaging scenarios, downloaded using the `packse fetch` CLI command. If this doesn't exist, run `packse fetch --dest downloads --force` to recreate it.
 - `./examples/` - temporary sample files taken from the main `uv` git repository pertaining to generating test data from the scenarios above. These are here to provide example code and context to the AI coding assistant, they will be deleted in the future.
 
 # Available tools
@@ -35,14 +35,14 @@ uv run python generate-tomls.py
 - Filtering rule: only process scenarios with `universal = true`.
 
 # Patterns & examples
-- Discovery: iterate `downloads/**/*.toml`, parse, check `universal`, and derive `SCENARIO_NAME` from filename or a scenario field.
+- Discovery: iterate `scenarios/**/*.toml`, parse, check `universal`, and derive `SCENARIO_NAME` from filename or a scenario field.
 
 # Integration points
 - `packse` CLI: scenarios are fetched with `packse`; using `packse` to inspect or validate scenarios is acceptable.
 - `uv`: prefer `uv` tooling for venvs, installs, and running scripts; it centralizes environment management.
 
 # What to avoid
-- The files in `./downloads` are temporary and will be deleted at a later date. Do not use these files (e.g. `lock.mustache` file) directly in the final script implementation, they are provided as inspiration only. If you need to, create copies of any portions of the files that are useful.
+- The files in `./scenarios` are temporary and will be deleted at a later date. Do not use these files (e.g. `lock.mustache` file) directly in the final script implementation, they are provided as inspiration only. If you need to, create copies of any portions of the files that are useful.
 - Do not process scenarios missing `universal = true`.
 - Avoid heavy dependencies unless needed for reliable template rendering or TOML parsing.
 
