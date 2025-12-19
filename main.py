@@ -121,7 +121,7 @@ def run_uv_lock(scenario_dir: Path, scenario_name: str) -> tuple[bool, int]:
 
 def process_scenario(scenario: dict, output_base: Path) -> bool:
     """
-    Process a single scenario from scenarios.json.
+    Process a single scenario.
 
     Args:
         scenario: Scenario data dictionary
