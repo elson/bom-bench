@@ -1,6 +1,8 @@
 .venv/
 .claude/
 
-# temp files
-scenarios/
-output/
+# Data sources (packse, pnpm-tests, gradle-testkit, etc.)
+data/*/
+
+# Generated outputs per package manager (uv, pip, pnpm, gradle, etc.)
+output/*/
