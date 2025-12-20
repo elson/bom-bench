@@ -1,15 +1,25 @@
 [project]
 name            = "bom-bench"
-version         = "0.1.0"
-description     = "Generate and lock multiple uv projects from a set of `packse` scenarios."
+version         = "0.2.0"
+description     = "Generate package manager manifests and lock files from test scenarios for benchmarking SCA tools"
 readme          = "README.md"
 requires-python = ">=3.12"
 dependencies    = [
     "packse>=0.3.54",
 ]
 
+[project.scripts]
+bom-bench = "bom_bench.cli:main"
+
 [dependency-groups]
 dev = [
     "pytest>=9.0.2",
     "pytest-cov>=7.0.0",
 ]
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/bom_bench"]
