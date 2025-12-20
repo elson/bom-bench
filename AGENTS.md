@@ -60,3 +60,55 @@ uv run main.py --lock
 
 # If you change behavior
 - Update `README.md` to reflect new flags, outputs, runtime requirements and additional usage instructions.
+
+## bom-bench Module Architecture
+
+### Core Modules
+
+**cli.py** - CLI orchestration and entry point
+- Argument parsing and validation
+- Multi-PM orchestration
+- Progress reporting
+
+**config.py** - Configuration constants
+- Default paths and settings
+- Data source to PM mappings
+
+### Data Layer (`data/`)
+
+**base.py** - DataSource ABC
+**loader.py** - Scenario loading logic
+**sources/** - Data source implementations
+- packse.py ✅ - Python packaging scenarios
+- pnpm_tests.py 📝 - pnpm test fixtures (stub)
+- gradle_testkit.py 📝 - Gradle tests (stub)
+
+### Package Managers (`package_managers/`)
+
+**base.py** - PackageManager ABC
+**Implementations:**
+- uv.py ✅ - UV package manager
+- pip.py 📝 - Pip (stub)
+- pnpm.py 📝 - pnpm (stub)
+- gradle.py 📝 - Gradle (stub)
+
+### Generators (`generators/`)
+
+**uv/** ✅ - UV manifest generation
+**pnpm/** 📝 - package.json generation (stub)
+**gradle/** 📝 - build.gradle generation (stub)
+
+### Models (`models/`)
+
+**scenario.py** - Scenario data models
+**result.py** - Processing and lock results
+**package_manager.py** - PM metadata
+**data_source.py** - Data source metadata
+
+### Benchmarking (`benchmarking/`)  📝 Stubs
+
+**runner.py** - SCA tool execution framework
+**collectors.py** - Result collection and normalization
+**reporters.py** - Benchmark report generation
+
+For detailed extension guides, see CONTRIBUTING.md
