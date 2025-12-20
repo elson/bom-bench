@@ -6,18 +6,18 @@
 
 ## Summary
 
-All validation tests passed successfully. The refactoring from monolithic `main.py` (263 lines) to modular src-layout package is complete and fully functional.
+All validation tests passed successfully. The refactoring from monolithic script (263 lines) to modular src-layout package is complete and fully functional.
 
 ## Validation Results
 
-### ✅ 1. Backwards Compatibility
+### ✅ 1. Basic Functionality
 
-**Test**: `uv run main.py --scenarios fork-basic`
+**Test**: `bom-bench --scenarios fork-basic`
 - **Status**: PASS ✓
 - **Output**: Generated `output/uv/fork-basic/pyproject.toml`
-- **Notes**: Maintains existing workflow compatibility
+- **Notes**: Core functionality working
 
-**Test**: `uv run main.py --scenarios fork-basic --lock`
+**Test**: `bom-bench --scenarios fork-basic --lock`
 - **Status**: PASS ✓
 - **Output**:
   - `output/uv/fork-basic/pyproject.toml`
@@ -55,9 +55,6 @@ output/
 - **Status**: PASS ✓
 - **Output**: Generated correctly to `output/uv/fork-basic/`
 
-**Test 3**: `uv run main.py --scenarios fork-basic` (backwards compatible)
-- **Status**: PASS ✓
-- **Output**: Generated correctly to `output/uv/fork-basic/`
 
 ### ✅ 4. Generated File Content
 
@@ -109,8 +106,7 @@ requires-python = ">=3.12"
 ## Refactoring Impact Analysis
 
 ### Before (Monolithic)
-- **File**: `main.py` (263 lines)
-- **Structure**: Single file with all logic
+- **Structure**: Single file with all logic (263 lines)
 - **Output**: `output/{scenario}/`
 - **Testability**: Difficult to test in isolation
 - **Extensibility**: Hard to add new package managers
@@ -118,7 +114,6 @@ requires-python = ">=3.12"
 ### After (Modular)
 - **Package Structure**: `src/bom_bench/` with 7 modules
 - **Total Lines**: ~1,600 lines across modules (well-organized)
-- **main.py**: 18 lines (wrapper only, 93% reduction)
 - **Output**: `output/{package_manager}/{scenario}/` (hierarchical)
 - **Test Coverage**: 71 tests (100% pass)
 - **Testability**: Full unit and integration test coverage
@@ -138,7 +133,6 @@ requires-python = ">=3.12"
 |-------------|---------|--------|-------|
 | Installed Command | `bom-bench` | ✅ PASS | Via `[project.scripts]` |
 | Module Entry | `python -m bom_bench` | ✅ PASS | Via `__main__.py` |
-| Legacy Entry | `uv run main.py` | ✅ PASS | Backwards compatible |
 
 ## Conclusion
 

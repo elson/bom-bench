@@ -5,9 +5,13 @@
 - See `./README.md` for context.
 
 # Key files and folders
-- `./main.py` - main entrypoint script that uses the packse Python API to load and process scenarios.
-- `./scenarios/` - a set of toml files describing various python packaging scenarios. The script automatically fetches these using `packse.fetch.fetch()` if the directory doesn't exist.
-- `./output/` - destination for the generated projects.
+- `./src/bom_bench/` - main package with modular architecture
+  - `cli.py` - CLI orchestration and entry points
+  - `data/` - data source abstraction layer
+  - `package_managers/` - package manager plugins
+  - `models/` - data models
+- `./data/` - data sources (packse, etc.) - fetched automatically if needed
+- `./output/` - destination for generated projects (hierarchical: `output/{pm}/{scenario}/`)
 
 # Available tools
 - `uv` Python package manager and build tool
@@ -21,14 +25,18 @@
 
 ```bash
 # Generate pyproject.toml files
-uv run main.py
+bom-bench
 
-# Generate pyproject.toml files and lock files (requires packse server running)
-uv run main.py --lock
+# Generate with lock files (requires packse server running)
+bom-bench --lock
+
+# Or use module entry point
+uv run python -m bom_bench --lock
 ```
 
 # Testing
-- Test your work by running the script using `uv run main.py` (and `--lock` if relevant), checking the output, and iterating towards a solution.
+- Test your work by running `bom-bench` (or `python -m bom_bench`) and checking the output
+- Run the test suite: `uv run pytest tests/ -v`
 - To test lock file generation, ensure packse server is running at http://127.0.0.1:3141 first.
 
 # Project-specific conventions

@@ -45,9 +45,6 @@ bom-bench --lock
 
 # Generate for specific scenarios
 bom-bench --scenarios fork-basic,local-simple
-
-# Backwards compatible (legacy entry point)
-uv run main.py --lock
 ```
 
 ### Advanced Usage
@@ -140,10 +137,9 @@ bom-bench/
 #### 3. CLI
 **Purpose**: Orchestrate scenario loading, manifest generation, and locking.
 
-Three entry points:
+Two entry points:
 - `bom-bench` - Installed command
 - `python -m bom_bench` - Module entry
-- `uv run main.py` - Backwards compatible
 
 ## Output Structure
 
