@@ -120,12 +120,15 @@ class Expected:
     packages: List[ExpectedPackage] = field(default_factory=list)
     """List of expected packages in the resolution"""
 
+    satisfiable: bool = True
+    """Whether the scenario is expected to be satisfiable"""
+
     @classmethod
     def from_dict(cls, data: Dict[str, Any]) -> "Expected":
         """Create Expected from dictionary.
 
         Args:
-            data: Dictionary with 'packages' key
+            data: Dictionary with 'packages' and optional 'satisfiable' keys
 
         Returns:
             Expected instance
@@ -135,7 +138,10 @@ class Expected:
             for p in data.get("packages", [])
         ]
 
-        return cls(packages=packages)
+        return cls(
+            packages=packages,
+            satisfiable=data.get("satisfiable", True)
+        )
 
 
 @dataclass

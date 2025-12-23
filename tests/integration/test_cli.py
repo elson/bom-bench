@@ -228,7 +228,7 @@ class TestSBOMGeneration:
             Requirement,
             ResolverOptions,
         )
-        from bom_bench.models.result import ProcessingStatus
+        from bom_bench.models.result import ProcessingStatus, LockResult, LockStatus
         from bom_bench.generators.sbom.cyclonedx import generate_cyclonedx_sbom
         from bom_bench.models.scenario import ExpectedPackage
 
@@ -271,16 +271,34 @@ version = "2.0.0"
             # Generate SBOM from the lock file
             from bom_bench.package_managers import get_package_manager
             pm = get_package_manager("uv")
-            sbom_path = pm.generate_sbom_from_lock(scenario, output_dir)
+
+            # Create mock successful lock result
+            lock_result = LockResult(
+                scenario_name=scenario.name,
+                package_manager=pm.name,
+                status=LockStatus.SUCCESS,
+                exit_code=0,
+                output_file=output_dir / "uv-lock-output.txt",
+                lock_file=lock_file,
+                duration_seconds=0.1
+            )
+
+            sbom_path = pm.generate_sbom_result_file(scenario, output_dir, lock_result)
 
             assert sbom_path is not None
             assert sbom_path.exists()
 
-            # Verify SBOM content
+            # Verify SBOM result structure
             import json
             with open(sbom_path) as f:
-                sbom = json.load(f)
+                result = json.load(f)
 
+            # Check top-level structure
+            assert "satisfiable" in result
+            assert result["satisfiable"] is True
+            assert "sbom" in result
+
+            sbom = result["sbom"]
             assert sbom["bomFormat"] == "CycloneDX"
             assert len(sbom["components"]) == 2
 
@@ -289,14 +307,15 @@ version = "2.0.0"
             assert "package-a" in component_names
             assert "package-b" in component_names
 
-    def test_no_sbom_without_lock_file(self, cli):
-        """Test that SBOM is not generated when lock file doesn't exist."""
+    def test_sbom_result_on_lock_failure(self, cli):
+        """Test that SBOM result file is generated with satisfiable=false when lock fails."""
         from bom_bench.models.scenario import (
             Scenario,
             Root,
             Requirement,
             ResolverOptions,
         )
+        from bom_bench.models.result import LockResult, LockStatus
 
         scenario = Scenario(
             name="test-scenario",
@@ -312,13 +331,35 @@ version = "2.0.0"
             output_dir = Path(tmpdir) / "test-output"
             output_dir.mkdir()
 
-            # Try to generate SBOM without lock file
+            # Create mock failed lock result (no lock file)
             from bom_bench.package_managers import get_package_manager
             pm = get_package_manager("uv")
-            sbom_path = pm.generate_sbom_from_lock(scenario, output_dir)
 
-            # Should return None when lock file doesn't exist
-            assert sbom_path is None
+            lock_result = LockResult(
+                scenario_name=scenario.name,
+                package_manager=pm.name,
+                status=LockStatus.FAILED,
+                exit_code=1,
+                output_file=output_dir / "uv-lock-output.txt",
+                lock_file=None,
+                duration_seconds=0.1
+            )
+
+            sbom_path = pm.generate_sbom_result_file(scenario, output_dir, lock_result)
+
+            # Should still generate a result file
+            assert sbom_path is not None
+            assert sbom_path.exists()
+
+            # Verify result structure
+            import json
+            with open(sbom_path) as f:
+                result = json.load(f)
+
+            # Check that satisfiable is false and sbom is omitted
+            assert "satisfiable" in result
+            assert result["satisfiable"] is False
+            assert "sbom" not in result
 
     def test_sbom_file_structure(self, cli):
         """Test the structure of generated SBOM file."""
@@ -328,6 +369,7 @@ version = "2.0.0"
             Requirement,
             ResolverOptions,
         )
+        from bom_bench.models.result import LockResult, LockStatus
 
         scenario = Scenario(
             name="test-sbom",
@@ -362,14 +404,33 @@ version = "2.31.0"
             # Generate SBOM
             from bom_bench.package_managers import get_package_manager
             pm = get_package_manager("uv")
-            sbom_path = pm.generate_sbom_from_lock(scenario, output_dir)
+
+            # Create mock successful lock result
+            lock_result = LockResult(
+                scenario_name=scenario.name,
+                package_manager=pm.name,
+                status=LockStatus.SUCCESS,
+                exit_code=0,
+                output_file=output_dir / "uv-lock-output.txt",
+                lock_file=lock_file,
+                duration_seconds=0.1
+            )
+
+            sbom_path = pm.generate_sbom_result_file(scenario, output_dir, lock_result)
 
             assert sbom_path.exists()
 
-            # Verify SBOM structure
+            # Verify SBOM result structure
             import json
             with open(sbom_path) as f:
-                sbom = json.load(f)
+                result = json.load(f)
+
+            # Check top-level structure
+            assert "satisfiable" in result
+            assert result["satisfiable"] is True
+            assert "sbom" in result
+
+            sbom = result["sbom"]
 
             # Check required fields
             assert "bomFormat" in sbom

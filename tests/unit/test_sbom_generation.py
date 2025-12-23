@@ -10,6 +10,7 @@ from bom_bench.generators.sbom.cyclonedx import (
     normalize_package_name,
     create_purl,
     generate_cyclonedx_sbom,
+    generate_sbom_result,
 )
 from bom_bench.models.scenario import ExpectedPackage
 
@@ -73,10 +74,11 @@ class TestCycloneDXGeneration:
         """Test generating SBOM with no packages."""
         with tempfile.TemporaryDirectory() as tmpdir:
             output_path = Path(tmpdir) / "expected.cdx.json"
-            result = generate_cyclonedx_sbom(
+            result = generate_sbom_result(
                 scenario_name="test-scenario",
-                expected_packages=[],
-                output_path=output_path
+                output_path=output_path,
+                packages=[],
+                satisfiable=True
             )
 
             assert result.exists()
@@ -84,8 +86,14 @@ class TestCycloneDXGeneration:
 
             # Validate JSON structure
             with open(result) as f:
-                sbom = json.load(f)
+                data = json.load(f)
 
+            # Check top-level structure
+            assert "satisfiable" in data
+            assert data["satisfiable"] is True
+            assert "sbom" in data
+
+            sbom = data["sbom"]
             assert sbom["bomFormat"] == "CycloneDX"
             assert sbom["specVersion"] == "1.6"
             assert "metadata" in sbom
@@ -102,18 +110,25 @@ class TestCycloneDXGeneration:
 
         with tempfile.TemporaryDirectory() as tmpdir:
             output_path = Path(tmpdir) / "expected.cdx.json"
-            result = generate_cyclonedx_sbom(
+            result = generate_sbom_result(
                 scenario_name="test-scenario",
-                expected_packages=packages,
-                output_path=output_path
+                output_path=output_path,
+                packages=packages,
+                satisfiable=True
             )
 
             assert result.exists()
 
             # Validate JSON structure
             with open(result) as f:
-                sbom = json.load(f)
+                data = json.load(f)
 
+            # Check top-level structure
+            assert "satisfiable" in data
+            assert data["satisfiable"] is True
+            assert "sbom" in data
+
+            sbom = data["sbom"]
             assert sbom["bomFormat"] == "CycloneDX"
             assert sbom["specVersion"] == "1.6"
             assert len(sbom["components"]) == 2
@@ -138,14 +153,22 @@ class TestCycloneDXGeneration:
 
         with tempfile.TemporaryDirectory() as tmpdir:
             output_path = Path(tmpdir) / "expected.cdx.json"
-            result = generate_cyclonedx_sbom(
+            result = generate_sbom_result(
                 scenario_name="my-test-scenario",
-                expected_packages=packages,
-                output_path=output_path
+                output_path=output_path,
+                packages=packages,
+                satisfiable=True
             )
 
             with open(result) as f:
-                sbom = json.load(f)
+                data = json.load(f)
+
+            # Check top-level structure
+            assert "satisfiable" in data
+            assert data["satisfiable"] is True
+            assert "sbom" in data
+
+            sbom = data["sbom"]
 
             # Check metadata
             assert "metadata" in sbom
@@ -171,14 +194,22 @@ class TestCycloneDXGeneration:
 
         with tempfile.TemporaryDirectory() as tmpdir:
             output_path = Path(tmpdir) / "expected.cdx.json"
-            result = generate_cyclonedx_sbom(
+            result = generate_sbom_result(
                 scenario_name="test-scenario",
-                expected_packages=packages,
-                output_path=output_path
+                output_path=output_path,
+                packages=packages,
+                satisfiable=True
             )
 
             with open(result) as f:
-                sbom = json.load(f)
+                data = json.load(f)
+
+            # Check top-level structure
+            assert "satisfiable" in data
+            assert data["satisfiable"] is True
+            assert "sbom" in data
+
+            sbom = data["sbom"]
 
             # Components may be sorted, so check both exist with normalized names
             component_names = {comp["name"] for comp in sbom["components"]}
@@ -197,10 +228,11 @@ class TestCycloneDXGeneration:
             assert not nested_path.parent.exists()
 
             packages = [ExpectedPackage(name="test", version="1.0.0")]
-            result = generate_cyclonedx_sbom(
+            result = generate_sbom_result(
                 scenario_name="test",
-                expected_packages=packages,
-                output_path=nested_path
+                output_path=nested_path,
+                packages=packages,
+                satisfiable=True
             )
 
             assert nested_path.parent.exists()
@@ -212,10 +244,11 @@ class TestCycloneDXGeneration:
 
         with tempfile.TemporaryDirectory() as tmpdir:
             output_path = Path(tmpdir) / "expected.cdx.json"
-            result = generate_cyclonedx_sbom(
+            result = generate_sbom_result(
                 scenario_name="test",
-                expected_packages=packages,
-                output_path=output_path
+                output_path=output_path,
+                packages=packages,
+                satisfiable=True
             )
 
             # Should not raise exception
@@ -224,5 +257,10 @@ class TestCycloneDXGeneration:
 
             # Basic validation
             assert isinstance(data, dict)
-            assert "bomFormat" in data
-            assert "components" in data
+            assert "satisfiable" in data
+            assert data["satisfiable"] is True
+            assert "sbom" in data
+
+            sbom = data["sbom"]
+            assert "bomFormat" in sbom
+            assert "components" in sbom

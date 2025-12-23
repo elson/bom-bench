@@ -1,8 +1,9 @@
 """CycloneDX SBOM generator for expected packages."""
 
+import json
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import List
+from typing import Dict, List, Optional, Any
 
 from cyclonedx.model import ExternalReference, ExternalReferenceType, XsUri
 from cyclonedx.model.bom import Bom
@@ -48,9 +49,8 @@ def create_purl(package: ExpectedPackage) -> PackageURL:
 
 def generate_cyclonedx_sbom(
     scenario_name: str,
-    expected_packages: List[ExpectedPackage],
-    output_path: Path
-) -> Path:
+    expected_packages: List[ExpectedPackage]
+) -> Dict[str, Any]:
     """Generate CycloneDX 1.6 SBOM from expected packages.
 
     Creates a minimal CycloneDX SBOM containing the expected packages
@@ -60,10 +60,9 @@ def generate_cyclonedx_sbom(
     Args:
         scenario_name: Name of scenario (for metadata)
         expected_packages: List of expected packages
-        output_path: Where to write expected.cdx.json
 
     Returns:
-        Path to generated SBOM file
+        Dictionary containing the SBOM data (ordered)
 
     Raises:
         Exception: If SBOM generation or validation fails
@@ -115,14 +114,74 @@ def generate_cyclonedx_sbom(
     for component_ref in component_refs:
         bom.dependencies.add(Dependency(ref=component_ref))
 
-    # Ensure output directory exists
-    output_path.parent.mkdir(parents=True, exist_ok=True)
-
     # Generate JSON output using CycloneDX 1.6 format
     outputter = JsonV1Dot6(bom)
     json_output = outputter.output_as_string()
 
-    # Write to file
+    # Parse and reformat to ensure proper ordering and formatting
+    sbom_dict = json.loads(json_output)
+
+    # Reorder to put metadata and dependencies first
+    ordered_sbom = {}
+    if "bomFormat" in sbom_dict:
+        ordered_sbom["bomFormat"] = sbom_dict["bomFormat"]
+    if "specVersion" in sbom_dict:
+        ordered_sbom["specVersion"] = sbom_dict["specVersion"]
+    if "version" in sbom_dict:
+        ordered_sbom["version"] = sbom_dict["version"]
+    if "$schema" in sbom_dict:
+        ordered_sbom["$schema"] = sbom_dict["$schema"]
+    if "metadata" in sbom_dict:
+        ordered_sbom["metadata"] = sbom_dict["metadata"]
+    if "dependencies" in sbom_dict:
+        ordered_sbom["dependencies"] = sbom_dict["dependencies"]
+    if "components" in sbom_dict:
+        ordered_sbom["components"] = sbom_dict["components"]
+
+    # Add any remaining fields
+    for key, value in sbom_dict.items():
+        if key not in ordered_sbom:
+            ordered_sbom[key] = value
+
+    return ordered_sbom
+
+
+def generate_sbom_result(
+    scenario_name: str,
+    output_path: Path,
+    packages: Optional[List[ExpectedPackage]] = None,
+    satisfiable: bool = True
+) -> Path:
+    """Generate SBOM result file with satisfiable status.
+
+    Creates a JSON file containing:
+    - satisfiable: Whether the scenario was satisfiable (lock succeeded)
+    - sbom: CycloneDX SBOM (only if satisfiable and packages provided)
+
+    Args:
+        scenario_name: Name of scenario (for metadata)
+        output_path: Where to write expected.cdx.json
+        packages: List of resolved packages (None if lock failed)
+        satisfiable: Whether resolution was satisfiable
+
+    Returns:
+        Path to generated file
+
+    Raises:
+        Exception: If file generation fails
+    """
+    # Ensure output directory exists
+    output_path.parent.mkdir(parents=True, exist_ok=True)
+
+    result: Dict[str, Any] = {"satisfiable": satisfiable}
+
+    # Only include SBOM if satisfiable and packages is not None (empty list is ok)
+    if satisfiable and packages is not None:
+        sbom = generate_cyclonedx_sbom(scenario_name, packages)
+        result["sbom"] = sbom
+
+    # Write formatted JSON
+    json_output = json.dumps(result, indent=2)
     output_path.write_text(json_output)
 
     return output_path
