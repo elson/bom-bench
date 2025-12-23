@@ -7,6 +7,7 @@ from typing import List
 from cyclonedx.model import ExternalReference, ExternalReferenceType, XsUri
 from cyclonedx.model.bom import Bom
 from cyclonedx.model.component import Component, ComponentType
+from cyclonedx.model.dependency import Dependency
 from cyclonedx.output.json import JsonV1Dot6
 from packageurl import PackageURL
 
@@ -86,6 +87,9 @@ def generate_cyclonedx_sbom(
     )
     bom.metadata.component.external_references.add(bom_bench_ref)
 
+    # Track component references for dependency graph
+    component_refs = []
+
     # Add components from expected packages
     for package in expected_packages:
         purl = create_purl(package)
@@ -98,6 +102,18 @@ def generate_cyclonedx_sbom(
         )
 
         bom.components.add(component)
+        component_refs.append(component.bom_ref)
+
+    # Build dependency graph
+    # Root component depends on all library components
+    root_dependency = Dependency(ref=metadata_component.bom_ref)
+    for component_ref in component_refs:
+        root_dependency.dependencies.add(Dependency(ref=component_ref))
+    bom.dependencies.add(root_dependency)
+
+    # Add empty dependency entries for each library component
+    for component_ref in component_refs:
+        bom.dependencies.add(Dependency(ref=component_ref))
 
     # Ensure output directory exists
     output_path.parent.mkdir(parents=True, exist_ok=True)
