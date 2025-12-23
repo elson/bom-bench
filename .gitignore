@@ -1,5 +1,11 @@
-.venv/
+# Temp working files
+NOTES.md
+
+# AI tools
 .claude/
+
+# Python virtual env
+.venv/
 
 # Python cache and build artifacts
 __pycache__/
