@@ -6,7 +6,7 @@ from pathlib import Path
 import pytest
 from click.testing import CliRunner
 
-from bom_bench.cli import BomBenchCLI, run
+from bom_bench.cli import BomBenchCLI, cli, run
 
 
 class TestClickCLI:
@@ -17,11 +17,15 @@ class TestClickCLI:
         """Create Click CLI runner."""
         return CliRunner()
 
-    def test_default_args(self, runner):
-        """Test CLI with default arguments."""
-        # Note: This will fail because it tries to actually run,
-        # but we're testing the interface can be invoked
-        result = runner.invoke(run, ["--help"])
+    def test_cli_help(self, runner):
+        """Test main CLI help."""
+        result = runner.invoke(cli, ["--help"])
+        assert result.exit_code == 0
+        assert "Generate package manager manifests" in result.output
+
+    def test_run_command_help(self, runner):
+        """Test run command help."""
+        result = runner.invoke(cli, ["run", "--help"])
         assert result.exit_code == 0
         assert "Generate manifests and lock files" in result.output
 
@@ -55,6 +59,24 @@ class TestClickCLI:
         result = runner.invoke(run, ["-v", "-q"])
         assert result.exit_code != 0
         assert "mutually exclusive" in result.output.lower()
+
+    def test_clean_command_stub(self, runner):
+        """Test clean command is available but not implemented."""
+        result = runner.invoke(cli, ["clean", "--help"])
+        assert result.exit_code == 0
+        assert "Clean output directory" in result.output
+
+    def test_validate_command_stub(self, runner):
+        """Test validate command is available but not implemented."""
+        result = runner.invoke(cli, ["validate", "--help"])
+        assert result.exit_code == 0
+        assert "Validate SBOM file" in result.output
+
+    def test_info_command_stub(self, runner):
+        """Test info command is available but not implemented."""
+        result = runner.invoke(cli, ["info", "--help"])
+        assert result.exit_code == 0
+        assert "Show configuration" in result.output
 
 
 class TestPackageManagerParsing:

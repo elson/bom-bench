@@ -261,7 +261,16 @@ class BomBenchCLI:
             return 1
 
 
-@click.command()
+@click.group(invoke_without_command=True)
+@click.pass_context
+def cli(ctx):
+    """Generate package manager manifests and SBOMs for benchmarking SCA tools."""
+    # If no subcommand, invoke 'run' as default
+    if ctx.invoked_subcommand is None:
+        ctx.invoke(run)
+
+
+@cli.command(name="run")
 @click.option(
     "--pm", "--package-managers",
     "package_managers",
@@ -303,7 +312,7 @@ class BomBenchCLI:
 )
 def run(package_managers, scenarios, output_dir, no_universal_filter,
         verbose, quiet, log_level):
-    """Generate manifests and lock files from test scenarios."""
+    """Generate manifests and lock files (default command)."""
     # Validate mutually exclusive flags
     if sum([verbose, quiet, log_level is not None]) > 1:
         raise click.UsageError("--verbose, --quiet, and --log-level are mutually exclusive")
@@ -312,8 +321,8 @@ def run(package_managers, scenarios, output_dir, no_universal_filter,
     setup_logging(verbose=verbose, quiet=quiet, log_level=log_level)
 
     # Execute business logic
-    cli = BomBenchCLI()
-    exit_code = cli.execute(
+    bom_bench_cli = BomBenchCLI()
+    exit_code = bom_bench_cli.execute(
         package_managers=package_managers,
         scenarios=scenarios,
         output_dir=output_dir,
@@ -323,9 +332,30 @@ def run(package_managers, scenarios, output_dir, no_universal_filter,
     raise SystemExit(exit_code)
 
 
+@cli.command(name="clean")
+@click.option("--pm", multiple=True, help="Clean specific package managers only")
+@click.option("--dry-run", is_flag=True, help="Show what would be deleted")
+def clean(pm, dry_run):
+    """Clean output directory (future implementation)."""
+    raise click.ClickException("clean command not yet implemented")
+
+
+@cli.command(name="validate")
+@click.argument("sbom_path", type=click.Path(exists=True, path_type=Path))
+def validate(sbom_path):
+    """Validate SBOM file against schema (future implementation)."""
+    raise click.ClickException("validate command not yet implemented")
+
+
+@cli.command(name="info")
+def info():
+    """Show configuration and version information (future implementation)."""
+    raise click.ClickException("info command not yet implemented")
+
+
 def main():
     """Entry point for bom-bench command."""
-    run()
+    cli()
 
 
 if __name__ == "__main__":
