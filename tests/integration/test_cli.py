@@ -20,14 +20,8 @@ class TestCLIParsing:
         """Test parsing with no arguments."""
         args = cli.parse_args([])
         assert args.package_managers == "uv"
-        assert args.lock is False
         assert args.scenarios is None
         assert args.no_universal_filter is False
-
-    def test_parse_lock_flag(self, cli):
-        """Test parsing --lock flag."""
-        args = cli.parse_args(["--lock"])
-        assert args.lock is True
 
     def test_parse_package_managers(self, cli):
         """Test parsing --package-managers flag."""
@@ -226,19 +220,19 @@ class TestSBOMGeneration:
         """Create CLI instance."""
         return BomBenchCLI()
 
-    def test_sbom_generated_with_expected_data(self, cli):
-        """Test that SBOM is generated when scenario has expected data."""
+    def test_sbom_generated_from_lock_file(self, cli):
+        """Test that SBOM is generated from lock file after successful locking."""
         from bom_bench.models.scenario import (
             Scenario,
             Root,
             Requirement,
             ResolverOptions,
-            Expected,
-            ExpectedPackage,
         )
         from bom_bench.models.result import ProcessingStatus
+        from bom_bench.generators.sbom.cyclonedx import generate_cyclonedx_sbom
+        from bom_bench.models.scenario import ExpectedPackage
 
-        # Create scenario with expected data
+        # Create minimal scenario
         scenario = Scenario(
             name="test-scenario",
             root=Root(
@@ -247,24 +241,39 @@ class TestSBOMGeneration:
             ),
             resolver_options=ResolverOptions(universal=True),
             source="packse",
-            expected=Expected(
-                packages=[
-                    ExpectedPackage(name="package-a", version="1.0.0"),
-                    ExpectedPackage(name="package-b", version="2.0.0"),
-                ]
-            ),
         )
 
         with tempfile.TemporaryDirectory() as tmpdir:
             output_base = Path(tmpdir)
+            output_dir = output_base / "uv" / "test-scenario"
+            output_dir.mkdir(parents=True)
 
-            result = cli.process_scenario(scenario, "uv", output_base)
+            # Create a mock lock file
+            lock_content = """version = 1
+requires-python = ">=3.12"
 
-            assert result.status == ProcessingStatus.SUCCESS
-            assert result.output_dir.exists()
+[[package]]
+name = "project"
+version = "0.1.0"
+source = { virtual = "." }
 
-            # Check that SBOM was created
-            sbom_path = result.output_dir / "expected.cdx.json"
+[[package]]
+name = "package-a"
+version = "1.0.0"
+
+[[package]]
+name = "package-b"
+version = "2.0.0"
+"""
+            lock_file = output_dir / "uv.lock"
+            lock_file.write_text(lock_content)
+
+            # Generate SBOM from the lock file
+            from bom_bench.package_managers import get_package_manager
+            pm = get_package_manager("uv")
+            sbom_path = pm.generate_sbom_from_lock(scenario, output_dir)
+
+            assert sbom_path is not None
             assert sbom_path.exists()
 
             # Verify SBOM content
@@ -275,20 +284,19 @@ class TestSBOMGeneration:
             assert sbom["bomFormat"] == "CycloneDX"
             assert len(sbom["components"]) == 2
 
-            # Check that expected packages are in SBOM
+            # Check that packages from lock file are in SBOM
             component_names = {comp["name"] for comp in sbom["components"]}
             assert "package-a" in component_names
             assert "package-b" in component_names
 
-    def test_no_sbom_without_expected_data(self, cli):
-        """Test that SBOM is not generated when scenario lacks expected data."""
+    def test_no_sbom_without_lock_file(self, cli):
+        """Test that SBOM is not generated when lock file doesn't exist."""
         from bom_bench.models.scenario import (
             Scenario,
             Root,
             Requirement,
             ResolverOptions,
         )
-        from bom_bench.models.result import ProcessingStatus
 
         scenario = Scenario(
             name="test-scenario",
@@ -298,20 +306,19 @@ class TestSBOMGeneration:
             ),
             resolver_options=ResolverOptions(universal=True),
             source="packse",
-            expected=None,  # No expected data
         )
 
         with tempfile.TemporaryDirectory() as tmpdir:
-            output_base = Path(tmpdir)
+            output_dir = Path(tmpdir) / "test-output"
+            output_dir.mkdir()
 
-            result = cli.process_scenario(scenario, "uv", output_base)
+            # Try to generate SBOM without lock file
+            from bom_bench.package_managers import get_package_manager
+            pm = get_package_manager("uv")
+            sbom_path = pm.generate_sbom_from_lock(scenario, output_dir)
 
-            assert result.status == ProcessingStatus.SUCCESS
-            assert result.output_dir.exists()
-
-            # Check that SBOM was NOT created
-            sbom_path = result.output_dir / "expected.cdx.json"
-            assert not sbom_path.exists()
+            # Should return None when lock file doesn't exist
+            assert sbom_path is None
 
     def test_sbom_file_structure(self, cli):
         """Test the structure of generated SBOM file."""
@@ -320,8 +327,6 @@ class TestSBOMGeneration:
             Root,
             Requirement,
             ResolverOptions,
-            Expected,
-            ExpectedPackage,
         )
 
         scenario = Scenario(
@@ -332,18 +337,33 @@ class TestSBOMGeneration:
             ),
             resolver_options=ResolverOptions(universal=True),
             source="packse",
-            expected=Expected(
-                packages=[
-                    ExpectedPackage(name="requests", version="2.31.0"),
-                ]
-            ),
         )
 
         with tempfile.TemporaryDirectory() as tmpdir:
-            output_base = Path(tmpdir)
-            result = cli.process_scenario(scenario, "uv", output_base)
+            output_dir = Path(tmpdir) / "test-output"
+            output_dir.mkdir()
 
-            sbom_path = result.output_dir / "expected.cdx.json"
+            # Create a mock lock file with requests package
+            lock_content = """version = 1
+requires-python = ">=3.8"
+
+[[package]]
+name = "project"
+version = "0.1.0"
+source = { virtual = "." }
+
+[[package]]
+name = "requests"
+version = "2.31.0"
+"""
+            lock_file = output_dir / "uv.lock"
+            lock_file.write_text(lock_content)
+
+            # Generate SBOM
+            from bom_bench.package_managers import get_package_manager
+            pm = get_package_manager("uv")
+            sbom_path = pm.generate_sbom_from_lock(scenario, output_dir)
+
             assert sbom_path.exists()
 
             # Verify SBOM structure

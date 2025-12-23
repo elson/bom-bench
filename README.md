@@ -13,10 +13,10 @@ Generate package manager manifests and lock files from test scenarios for benchm
 - ✅ **Multi-Package Manager Architecture**: Plugin-based system ready for UV, pip, pnpm, Gradle
 - ✅ **Data Source Abstraction**: Supports packse scenarios (Python), extensible to pnpm-tests, gradle-testkit
 - ✅ **Hierarchical Output**: Organized by package manager: `output/{pm}/{scenario}/`
-- ✅ **Lock File Generation**: Automated dependency resolution and locking
-- ✅ **Groundtruth SBOM Generation**: CycloneDX 1.6 SBOMs for benchmarking SCA tools
+- ✅ **Automatic Lock File Generation**: Dependency resolution and locking enabled by default
+- ✅ **SBOM Generation from Lock Files**: CycloneDX 1.6 SBOMs generated from resolved dependencies
 - ✅ **Comprehensive CLI**: Multiple entry points, rich filtering options
-- ✅ **Fully Tested**: 88 unit and integration tests
+- ✅ **Fully Tested**: 87 unit and integration tests
 - ⏳ **SCA Benchmarking** (Planned): Run Grype, Trivy, Snyk, OSV-Scanner against generated outputs
 
 ## Quick Start
@@ -38,11 +38,8 @@ pip install -e .
 ### Basic Usage
 
 ```bash
-# Generate manifests for default PM (UV)
+# Generate manifests, lock files, and SBOMs for default PM (UV)
 bom-bench
-
-# Generate with lock files
-bom-bench --lock
 
 # Generate for specific scenarios
 bom-bench --scenarios fork-basic,local-simple
@@ -64,7 +61,7 @@ bom-bench --output-dir /path/to/output
 bom-bench --no-universal-filter
 
 # Module entry point
-python -m bom_bench --lock
+python -m bom_bench
 ```
 
 ## Architecture
@@ -98,6 +95,9 @@ bom-bench/
 │   │   ├── pnpm/           # pnpm generators (stub)
 │   │   └── gradle/         # Gradle generators (stub)
 │   │
+│   ├── parsers/            # Lock file parsers
+│   │   └── uv_lock.py      # UV lock parser ✅
+│   │
 │   ├── models/             # Data models
 │   │   ├── scenario.py     # Scenario dataclasses
 │   │   └── result.py       # Result models
@@ -107,7 +107,7 @@ bom-bench/
 │       ├── collectors.py   # Result collection
 │       └── reporters.py    # Report generation
 │
-├── tests/                  # Test suite (88 tests)
+├── tests/                  # Test suite (87 tests)
 │   ├── unit/              # Unit tests
 │   └── integration/       # Integration tests
 │
@@ -152,14 +152,14 @@ output/
 └── uv/
     ├── fork-basic/
     │   ├── pyproject.toml       # Project manifest
-    │   ├── uv.lock              # Lock file (with --lock)
+    │   ├── uv.lock              # Lock file (always generated)
     │   ├── uv-lock-output.txt   # Command output log
-    │   └── expected.cdx.json    # Expected SBOM (CycloneDX 1.6)
+    │   └── expected.cdx.json    # SBOM from lock file (CycloneDX 1.6)
     └── local-simple/
         └── ...
 ```
 
-**SBOM Generation**: When scenarios include expected package data from packse, bom-bench automatically generates a CycloneDX 1.6 SBOM (`expected.cdx.json`) containing the groundtruth package list. This serves as a reference for benchmarking SCA tool accuracy.
+**SBOM Generation**: After successful dependency resolution, bom-bench automatically generates a CycloneDX 1.6 SBOM (`expected.cdx.json`) from the lock file. This SBOM contains all resolved packages and serves as a reference for benchmarking SCA tool accuracy.
 
 ### Future (Multi-PM)
 
@@ -251,7 +251,7 @@ ruff format src/bom_bench/
 | UV Package Manager | ✅ Complete | Fully functional |
 | Packse Data Source | ✅ Complete | Fully functional |
 | CLI | ✅ Complete | All entry points working |
-| Tests | ✅ Complete | 71 tests, 100% pass |
+| Tests | ✅ Complete | 87 tests, 100% pass |
 | Pip Support | 📝 Stub | Implementation guide provided |
 | pnpm Support | 📝 Stub | Implementation guide provided |
 | Gradle Support | 📝 Stub | Implementation guide provided |

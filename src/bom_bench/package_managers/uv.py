@@ -12,6 +12,7 @@ from bom_bench.generators.uv import generate_pyproject_toml
 from bom_bench.models.result import LockResult, LockStatus
 from bom_bench.models.scenario import Scenario
 from bom_bench.package_managers.base import PackageManager
+from bom_bench.parsers.uv_lock import parse_uv_lock
 
 
 class UVPackageManager(PackageManager):
@@ -65,39 +66,55 @@ class UVPackageManager(PackageManager):
         manifest_path = output_dir / "pyproject.toml"
         manifest_path.write_text(content)
 
-        # Generate expected SBOM if expected data exists
-        if scenario.expected and scenario.expected.packages:
-            self.generate_expected_sbom(scenario, output_dir)
+        # Always run lock to generate uv.lock
+        lock_result = self.run_lock(output_dir, scenario.name)
+
+        # Generate SBOM from lock file if locking succeeded
+        if lock_result.status == LockStatus.SUCCESS:
+            self.generate_sbom_from_lock(scenario, output_dir)
 
         return manifest_path
 
-    def generate_expected_sbom(
+    def generate_sbom_from_lock(
         self,
         scenario: Scenario,
         output_dir: Path
     ) -> Optional[Path]:
-        """Generate expected.cdx.json from scenario expected data.
+        """Generate SBOM from uv.lock file.
 
-        Creates a CycloneDX SBOM containing the expected packages from
-        the scenario. This serves as groundtruth data for benchmarking.
+        Parses the uv.lock file and creates a CycloneDX SBOM containing
+        the resolved packages. This provides accurate dependency information
+        for benchmarking SCA tools.
 
         Args:
-            scenario: Scenario with expected package data
-            output_dir: Directory to write SBOM
+            scenario: Scenario being processed
+            output_dir: Directory containing uv.lock
 
         Returns:
-            Path to generated SBOM, or None if no expected data
+            Path to generated SBOM, or None if lock file doesn't exist
         """
-        if not scenario.expected or not scenario.expected.packages:
+        lock_file = output_dir / "uv.lock"
+
+        if not lock_file.exists():
             return None
 
-        sbom_path = output_dir / "expected.cdx.json"
+        try:
+            # Parse lock file to get resolved packages
+            packages = parse_uv_lock(lock_file)
 
-        return generate_cyclonedx_sbom(
-            scenario_name=scenario.name,
-            expected_packages=scenario.expected.packages,
-            output_path=sbom_path
-        )
+            if not packages:
+                return None
+
+            # Generate SBOM from resolved packages
+            sbom_path = output_dir / "expected.cdx.json"
+            return generate_cyclonedx_sbom(
+                scenario_name=scenario.name,
+                expected_packages=packages,
+                output_path=sbom_path
+            )
+        except Exception as e:
+            print(f"Warning: Failed to generate SBOM from lock file: {e}", file=sys.stderr)
+            return None
 
     def run_lock(
         self,

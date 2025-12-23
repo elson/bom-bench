@@ -38,11 +38,8 @@ class BomBenchCLI:
             formatter_class=argparse.RawDescriptionHelpFormatter,
             epilog="""
 Examples:
-  # Generate for default package manager (uv)
+  # Generate manifests and lock files for default package manager (uv)
   bom-bench
-
-  # Generate with lock files
-  bom-bench --lock
 
   # Generate for multiple package managers
   bom-bench --package-managers uv,pip
@@ -61,12 +58,6 @@ Examples:
             type=str,
             default=DEFAULT_PACKAGE_MANAGER,
             help=f"Comma-separated list of package managers to use, or 'all' (default: {DEFAULT_PACKAGE_MANAGER})",
-        )
-
-        parser.add_argument(
-            "--lock",
-            action="store_true",
-            help="Generate lock files for each scenario",
         )
 
         parser.add_argument(
@@ -304,32 +295,8 @@ Examples:
                     if result.status == ProcessingStatus.FAILED:
                         print(f"  Error: {scenario.name}: {result.error_message}", file=sys.stderr)
 
-                # Generate lock files if requested
-                if parsed_args.lock and summary.processed > 0:
-                    print(f"\nGenerating lock files for {summary.processed} scenarios...")
-
-                    for scenario in scenarios:
-                        # Skip if scenario wasn't processed successfully
-                        output_dir = pm.get_output_dir(parsed_args.output_dir, scenario.name)
-                        if not output_dir.exists():
-                            continue
-
-                        print(f"  Locking: {scenario.name}...", end=" ", flush=True)
-
-                        lock_result = pm.run_lock(
-                            output_dir,
-                            scenario.name
-                        )
-                        summary.add_lock_result(lock_result)
-
-                        # Print result
-                        if lock_result.status.value == "success":
-                            print("✓")
-                        else:
-                            print(f"✗ ({lock_result.status.value})")
-
-                # Print summary
-                summary.print_summary(include_lock=parsed_args.lock)
+                # Print summary (lock files are generated automatically)
+                summary.print_summary(include_lock=False)
                 print()
 
             return 0
