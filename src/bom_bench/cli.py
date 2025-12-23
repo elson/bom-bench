@@ -199,6 +199,11 @@ Examples:
 
             print(f"Generated: {manifest_path}")
 
+            # Log SBOM generation if it exists
+            sbom_path = output_dir / "expected.cdx.json"
+            if sbom_path.exists():
+                print(f"Generated expected SBOM: {sbom_path}")
+
             return ProcessingResult(
                 scenario_name=scenario.name,
                 status=ProcessingStatus.SUCCESS,

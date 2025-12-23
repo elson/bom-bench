@@ -14,8 +14,9 @@ Generate package manager manifests and lock files from test scenarios for benchm
 - ✅ **Data Source Abstraction**: Supports packse scenarios (Python), extensible to pnpm-tests, gradle-testkit
 - ✅ **Hierarchical Output**: Organized by package manager: `output/{pm}/{scenario}/`
 - ✅ **Lock File Generation**: Automated dependency resolution and locking
+- ✅ **Groundtruth SBOM Generation**: CycloneDX 1.6 SBOMs for benchmarking SCA tools
 - ✅ **Comprehensive CLI**: Multiple entry points, rich filtering options
-- ✅ **Fully Tested**: 71 unit and integration tests
+- ✅ **Fully Tested**: 88 unit and integration tests
 - ⏳ **SCA Benchmarking** (Planned): Run Grype, Trivy, Snyk, OSV-Scanner against generated outputs
 
 ## Quick Start
@@ -93,6 +94,7 @@ bom-bench/
 │   │
 │   ├── generators/         # Manifest generators
 │   │   ├── uv/             # UV generators ✅
+│   │   ├── sbom/           # SBOM generators ✅
 │   │   ├── pnpm/           # pnpm generators (stub)
 │   │   └── gradle/         # Gradle generators (stub)
 │   │
@@ -105,7 +107,7 @@ bom-bench/
 │       ├── collectors.py   # Result collection
 │       └── reporters.py    # Report generation
 │
-├── tests/                  # Test suite (71 tests)
+├── tests/                  # Test suite (88 tests)
 │   ├── unit/              # Unit tests
 │   └── integration/       # Integration tests
 │
@@ -149,12 +151,15 @@ Two entry points:
 output/
 └── uv/
     ├── fork-basic/
-    │   ├── pyproject.toml      # Project manifest
+    │   ├── pyproject.toml       # Project manifest
     │   ├── uv.lock              # Lock file (with --lock)
-    │   └── uv-lock-output.txt   # Command output log
+    │   ├── uv-lock-output.txt   # Command output log
+    │   └── expected.cdx.json    # Expected SBOM (CycloneDX 1.6)
     └── local-simple/
         └── ...
 ```
+
+**SBOM Generation**: When scenarios include expected package data from packse, bom-bench automatically generates a CycloneDX 1.6 SBOM (`expected.cdx.json`) containing the groundtruth package list. This serves as a reference for benchmarking SCA tool accuracy.
 
 ### Future (Multi-PM)
 

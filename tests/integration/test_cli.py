@@ -216,3 +216,155 @@ class TestCLIProcessing:
 
             assert result.status == ProcessingStatus.FAILED
             assert "not found" in result.error_message.lower()
+
+
+class TestSBOMGeneration:
+    """Test SBOM generation in CLI."""
+
+    @pytest.fixture
+    def cli(self):
+        """Create CLI instance."""
+        return BomBenchCLI()
+
+    def test_sbom_generated_with_expected_data(self, cli):
+        """Test that SBOM is generated when scenario has expected data."""
+        from bom_bench.models.scenario import (
+            Scenario,
+            Root,
+            Requirement,
+            ResolverOptions,
+            Expected,
+            ExpectedPackage,
+        )
+        from bom_bench.models.result import ProcessingStatus
+
+        # Create scenario with expected data
+        scenario = Scenario(
+            name="test-scenario",
+            root=Root(
+                requires=[Requirement(requirement="package-a>=1.0.0")],
+                requires_python=">=3.12",
+            ),
+            resolver_options=ResolverOptions(universal=True),
+            source="packse",
+            expected=Expected(
+                packages=[
+                    ExpectedPackage(name="package-a", version="1.0.0"),
+                    ExpectedPackage(name="package-b", version="2.0.0"),
+                ]
+            ),
+        )
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            output_base = Path(tmpdir)
+
+            result = cli.process_scenario(scenario, "uv", output_base)
+
+            assert result.status == ProcessingStatus.SUCCESS
+            assert result.output_dir.exists()
+
+            # Check that SBOM was created
+            sbom_path = result.output_dir / "expected.cdx.json"
+            assert sbom_path.exists()
+
+            # Verify SBOM content
+            import json
+            with open(sbom_path) as f:
+                sbom = json.load(f)
+
+            assert sbom["bomFormat"] == "CycloneDX"
+            assert len(sbom["components"]) == 2
+
+            # Check that expected packages are in SBOM
+            component_names = {comp["name"] for comp in sbom["components"]}
+            assert "package-a" in component_names
+            assert "package-b" in component_names
+
+    def test_no_sbom_without_expected_data(self, cli):
+        """Test that SBOM is not generated when scenario lacks expected data."""
+        from bom_bench.models.scenario import (
+            Scenario,
+            Root,
+            Requirement,
+            ResolverOptions,
+        )
+        from bom_bench.models.result import ProcessingStatus
+
+        scenario = Scenario(
+            name="test-scenario",
+            root=Root(
+                requires=[Requirement(requirement="package-a>=1.0.0")],
+                requires_python=">=3.12",
+            ),
+            resolver_options=ResolverOptions(universal=True),
+            source="packse",
+            expected=None,  # No expected data
+        )
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            output_base = Path(tmpdir)
+
+            result = cli.process_scenario(scenario, "uv", output_base)
+
+            assert result.status == ProcessingStatus.SUCCESS
+            assert result.output_dir.exists()
+
+            # Check that SBOM was NOT created
+            sbom_path = result.output_dir / "expected.cdx.json"
+            assert not sbom_path.exists()
+
+    def test_sbom_file_structure(self, cli):
+        """Test the structure of generated SBOM file."""
+        from bom_bench.models.scenario import (
+            Scenario,
+            Root,
+            Requirement,
+            ResolverOptions,
+            Expected,
+            ExpectedPackage,
+        )
+
+        scenario = Scenario(
+            name="test-sbom",
+            root=Root(
+                requires=[Requirement(requirement="requests>=2.0.0")],
+                requires_python=">=3.8",
+            ),
+            resolver_options=ResolverOptions(universal=True),
+            source="packse",
+            expected=Expected(
+                packages=[
+                    ExpectedPackage(name="requests", version="2.31.0"),
+                ]
+            ),
+        )
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            output_base = Path(tmpdir)
+            result = cli.process_scenario(scenario, "uv", output_base)
+
+            sbom_path = result.output_dir / "expected.cdx.json"
+            assert sbom_path.exists()
+
+            # Verify SBOM structure
+            import json
+            with open(sbom_path) as f:
+                sbom = json.load(f)
+
+            # Check required fields
+            assert "bomFormat" in sbom
+            assert "specVersion" in sbom
+            assert "metadata" in sbom
+            assert "components" in sbom
+
+            # Check metadata
+            assert sbom["metadata"]["component"]["name"] == "test-sbom"
+            assert sbom["metadata"]["component"]["type"] == "application"
+
+            # Check component structure
+            assert len(sbom["components"]) == 1
+            component = sbom["components"][0]
+            assert component["type"] == "library"
+            assert component["name"] == "requests"
+            assert component["version"] == "2.31.0"
+            assert component["purl"] == "pkg:pypi/requests@2.31.0"

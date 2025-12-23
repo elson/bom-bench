@@ -7,6 +7,7 @@ from pathlib import Path
 from typing import Optional
 
 from bom_bench.config import PACKSE_INDEX_URL, LOCK_TIMEOUT_SECONDS, PROJECT_NAME, PROJECT_VERSION
+from bom_bench.generators.sbom.cyclonedx import generate_cyclonedx_sbom
 from bom_bench.generators.uv import generate_pyproject_toml
 from bom_bench.models.result import LockResult, LockStatus
 from bom_bench.models.scenario import Scenario
@@ -64,7 +65,39 @@ class UVPackageManager(PackageManager):
         manifest_path = output_dir / "pyproject.toml"
         manifest_path.write_text(content)
 
+        # Generate expected SBOM if expected data exists
+        if scenario.expected and scenario.expected.packages:
+            self.generate_expected_sbom(scenario, output_dir)
+
         return manifest_path
+
+    def generate_expected_sbom(
+        self,
+        scenario: Scenario,
+        output_dir: Path
+    ) -> Optional[Path]:
+        """Generate expected.cdx.json from scenario expected data.
+
+        Creates a CycloneDX SBOM containing the expected packages from
+        the scenario. This serves as groundtruth data for benchmarking.
+
+        Args:
+            scenario: Scenario with expected package data
+            output_dir: Directory to write SBOM
+
+        Returns:
+            Path to generated SBOM, or None if no expected data
+        """
+        if not scenario.expected or not scenario.expected.packages:
+            return None
+
+        sbom_path = output_dir / "expected.cdx.json"
+
+        return generate_cyclonedx_sbom(
+            scenario_name=scenario.name,
+            expected_packages=scenario.expected.packages,
+            output_path=sbom_path
+        )
 
     def run_lock(
         self,

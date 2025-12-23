@@ -88,6 +88,57 @@ class ResolverOptions:
 
 
 @dataclass
+class ExpectedPackage:
+    """Expected package from scenario resolution."""
+
+    name: str
+    """Package name"""
+
+    version: str
+    """Package version"""
+
+    @classmethod
+    def from_dict(cls, data: Dict[str, Any]) -> "ExpectedPackage":
+        """Create ExpectedPackage from dictionary.
+
+        Args:
+            data: Dictionary with 'name' and 'version' keys
+
+        Returns:
+            ExpectedPackage instance
+        """
+        return cls(
+            name=data.get("name", ""),
+            version=data.get("version", "")
+        )
+
+
+@dataclass
+class Expected:
+    """Expected resolution results."""
+
+    packages: List[ExpectedPackage] = field(default_factory=list)
+    """List of expected packages in the resolution"""
+
+    @classmethod
+    def from_dict(cls, data: Dict[str, Any]) -> "Expected":
+        """Create Expected from dictionary.
+
+        Args:
+            data: Dictionary with 'packages' key
+
+        Returns:
+            Expected instance
+        """
+        packages = [
+            ExpectedPackage.from_dict(p)
+            for p in data.get("packages", [])
+        ]
+
+        return cls(packages=packages)
+
+
+@dataclass
 class Scenario:
     """Represents a packse scenario (or other data source scenario).
 
@@ -106,7 +157,7 @@ class Scenario:
     description: Optional[str] = None
     """Human-readable description of the scenario"""
 
-    expected: Optional[Dict[str, Any]] = None
+    expected: Optional[Expected] = None
     """Expected resolution result (for benchmarking)"""
 
     source: str = "packse"
@@ -129,12 +180,15 @@ class Scenario:
         resolver_data = data.get("resolver_options", {})
         resolver_options = ResolverOptions.from_dict(resolver_data)
 
+        expected_data = data.get("expected")
+        expected = Expected.from_dict(expected_data) if expected_data else None
+
         return cls(
             name=data.get("name", ""),
             root=root,
             resolver_options=resolver_options,
             description=data.get("description"),
-            expected=data.get("expected"),
+            expected=expected,
             source=source
         )
 
