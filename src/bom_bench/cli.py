@@ -1,9 +1,10 @@
 """Command-line interface for bom-bench."""
 
-import argparse
 import sys
 from pathlib import Path
 from typing import List, Optional
+
+import click
 
 from bom_bench.config import (
     DEFAULT_PACKAGE_MANAGER,
@@ -26,65 +27,6 @@ class BomBenchCLI:
     def __init__(self):
         """Initialize CLI orchestrator."""
         self.scenario_loader = ScenarioLoader(auto_fetch=True)
-
-    def parse_args(self, args: Optional[List[str]] = None) -> argparse.Namespace:
-        """Parse command-line arguments.
-
-        Args:
-            args: Optional argument list (defaults to sys.argv)
-
-        Returns:
-            Parsed arguments namespace
-        """
-        parser = argparse.ArgumentParser(
-            description="Generate package manager manifests and lock files from test scenarios",
-            formatter_class=argparse.RawDescriptionHelpFormatter,
-            epilog="""
-Examples:
-  # Generate manifests and lock files for default package manager (uv)
-  bom-bench
-
-  # Generate for multiple package managers
-  bom-bench --package-managers uv,pip
-
-  # Generate for all available package managers
-  bom-bench --package-managers all
-
-  # Filter specific scenarios
-  bom-bench --scenarios fork-basic,local-simple
-            """,
-        )
-
-        parser.add_argument(
-            "--package-managers",
-            "-pm",
-            type=str,
-            default=DEFAULT_PACKAGE_MANAGER,
-            help=f"Comma-separated list of package managers to use, or 'all' (default: {DEFAULT_PACKAGE_MANAGER})",
-        )
-
-        parser.add_argument(
-            "--scenarios",
-            "-s",
-            type=str,
-            help="Comma-separated list of specific scenario names to process (optional)",
-        )
-
-        parser.add_argument(
-            "--output-dir",
-            "-o",
-            type=Path,
-            default=OUTPUT_DIR,
-            help=f"Base output directory (default: {OUTPUT_DIR})",
-        )
-
-        parser.add_argument(
-            "--no-universal-filter",
-            action="store_true",
-            help="Include scenarios without universal=true",
-        )
-
-        return parser.parse_args(args)
 
     def parse_package_managers(self, pm_arg: str) -> List[str]:
         """Parse package manager argument.
@@ -213,70 +155,76 @@ Examples:
                 error_message=str(e)
             )
 
-    def run(self, args: Optional[List[str]] = None) -> int:
-        """Run the CLI application.
+    def execute(
+        self,
+        package_managers: str,
+        scenarios: Optional[str],
+        output_dir: Path,
+        no_universal_filter: bool
+    ) -> int:
+        """Execute benchmark generation.
 
         Args:
-            args: Optional argument list (defaults to sys.argv)
+            package_managers: Package manager string (e.g., 'uv,pip' or 'all')
+            scenarios: Optional comma-separated scenario names
+            output_dir: Base output directory
+            no_universal_filter: Whether to include non-universal scenarios
 
         Returns:
             Exit code (0 for success, 1 for error)
         """
         try:
-            # Parse arguments
-            parsed_args = self.parse_args(args)
-
             # Parse package managers
             try:
-                package_managers = self.parse_package_managers(parsed_args.package_managers)
+                pm_list = self.parse_package_managers(package_managers)
             except ValueError as e:
                 logger.error(str(e))
                 return 1
 
             # Parse specific scenario names if provided
             scenario_names = None
-            if parsed_args.scenarios:
-                scenario_names = [s.strip() for s in parsed_args.scenarios.split(",")]
+            if scenarios:
+                scenario_names = [s.strip() for s in scenarios.split(",")]
 
-            logger.info(f"Package managers: {', '.join(package_managers)}")
+            logger.info(f"Package managers: {', '.join(pm_list)}")
             logger.info("")
 
             # Process each package manager
-            for pm_name in package_managers:
+            for pm_name in pm_list:
                 logger.info(f"=== {pm_name.upper()} ===")
 
                 # Create filter
                 filter_config = self.create_filter(
-                    universal_only=not parsed_args.no_universal_filter
+                    universal_only=not no_universal_filter
                 )
 
                 # Load scenarios for this package manager
-                scenarios = self.scenario_loader.load_for_package_manager(
+                loaded_scenarios = self.scenario_loader.load_for_package_manager(
                     pm_name,
                     filter_config=filter_config
                 )
 
-                if not scenarios:
+                if not loaded_scenarios:
                     logger.warning(f"No scenarios found for {pm_name}")
                     logger.info("")
                     continue
 
                 # Filter by specific names if requested
                 if scenario_names:
-                    scenarios = self.filter_by_names(scenarios, scenario_names)
+                    loaded_scenarios = self.filter_by_names(loaded_scenarios, scenario_names)
 
-                    if not scenarios:
+                    if not loaded_scenarios:
                         logger.warning(f"None of the specified scenarios found for {pm_name}")
                         logger.info("")
                         continue
 
-                logger.info(f"Found {len(scenarios)} scenarios")
+                logger.info(f"Found {len(loaded_scenarios)} scenarios")
 
                 # Create summary
                 summary = Summary(
-                    total_scenarios=len(scenarios),
+                    total_scenarios=len(loaded_scenarios),
                     package_manager=pm_name,
-                    data_source=scenarios[0].source if scenarios else None
+                    data_source=loaded_scenarios[0].source if loaded_scenarios else None
                 )
 
                 # Get package manager instance
@@ -286,11 +234,11 @@ Examples:
                     continue
 
                 # Process each scenario
-                for scenario in scenarios:
+                for scenario in loaded_scenarios:
                     result = self.process_scenario(
                         scenario,
                         pm_name,
-                        parsed_args.output_dir
+                        output_dir
                     )
                     summary.add_processing_result(result)
 
@@ -313,21 +261,72 @@ Examples:
             return 1
 
 
-def main(args: Optional[List[str]] = None) -> int:
-    """Main entry point for the CLI.
+@click.command()
+@click.option(
+    "--pm", "--package-managers",
+    "package_managers",
+    default=DEFAULT_PACKAGE_MANAGER,
+    show_default=True,
+    help="Comma-separated list of package managers, or 'all'",
+)
+@click.option(
+    "-s", "--scenarios",
+    default=None,
+    help="Comma-separated list of specific scenarios",
+)
+@click.option(
+    "-o", "--output-dir",
+    type=click.Path(path_type=Path),
+    default=OUTPUT_DIR,
+    show_default=True,
+    help="Base output directory",
+)
+@click.option(
+    "--no-universal-filter",
+    is_flag=True,
+    help="Include scenarios without universal=true",
+)
+@click.option(
+    "-v", "--verbose",
+    is_flag=True,
+    help="Enable verbose output (DEBUG level)",
+)
+@click.option(
+    "-q", "--quiet",
+    is_flag=True,
+    help="Show only warnings and errors",
+)
+@click.option(
+    "--log-level",
+    type=click.Choice(["DEBUG", "INFO", "WARNING", "ERROR", "CRITICAL"], case_sensitive=False),
+    help="Explicit log level (overrides -v/-q)",
+)
+def run(package_managers, scenarios, output_dir, no_universal_filter,
+        verbose, quiet, log_level):
+    """Generate manifests and lock files from test scenarios."""
+    # Validate mutually exclusive flags
+    if sum([verbose, quiet, log_level is not None]) > 1:
+        raise click.UsageError("--verbose, --quiet, and --log-level are mutually exclusive")
 
-    Args:
-        args: Optional argument list (defaults to sys.argv)
+    # Setup logging based on flags
+    setup_logging(verbose=verbose, quiet=quiet, log_level=log_level)
 
-    Returns:
-        Exit code (0 for success, 1 for error)
-    """
-    # Configure default logging (INFO level)
-    setup_logging()
-
+    # Execute business logic
     cli = BomBenchCLI()
-    return cli.run(args)
+    exit_code = cli.execute(
+        package_managers=package_managers,
+        scenarios=scenarios,
+        output_dir=output_dir,
+        no_universal_filter=no_universal_filter
+    )
+
+    raise SystemExit(exit_code)
+
+
+def main():
+    """Entry point for bom-bench command."""
+    run()
 
 
 if __name__ == "__main__":
-    sys.exit(main())
+    main()
