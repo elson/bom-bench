@@ -8,7 +8,10 @@ import packse.fetch
 import packse.inspect
 
 from bom_bench.data.base import DataSource
+from bom_bench.logging_config import get_logger
 from bom_bench.models.scenario import Scenario
+
+logger = get_logger(__name__)
 
 
 class PackseDataSource(DataSource):
@@ -40,12 +43,12 @@ class PackseDataSource(DataSource):
         if not self.data_dir.parent.exists():
             self.data_dir.parent.mkdir(parents=True, exist_ok=True)
 
-        print(f"Fetching packse scenarios to {self.data_dir}...")
+        logger.info(f"Fetching packse scenarios to {self.data_dir}...")
         try:
             packse.fetch.fetch(dest=self.data_dir)
-            print(f"Successfully fetched packse scenarios ✓\n")
+            logger.info("Successfully fetched packse scenarios ✓")
         except Exception as e:
-            print(f"Error: Failed to fetch packse scenarios: {e}", file=sys.stderr)
+            logger.error(f"Failed to fetch packse scenarios: {e}")
             raise
 
     def load_scenarios(self) -> List[Scenario]:
@@ -61,7 +64,7 @@ class PackseDataSource(DataSource):
             Exception: If loading fails
         """
         if not self.data_dir.exists():
-            print(f"Warning: Packse directory {self.data_dir} not found", file=sys.stderr)
+            logger.warning(f"Packse directory {self.data_dir} not found")
             return []
 
         try:
@@ -69,7 +72,7 @@ class PackseDataSource(DataSource):
             scenario_files = list(packse.inspect.find_scenario_files(self.data_dir))
 
             if not scenario_files:
-                print(f"Warning: No packse scenario files found in {self.data_dir}", file=sys.stderr)
+                logger.warning(f"No packse scenario files found in {self.data_dir}")
                 return []
 
             # Load scenarios using packse API
@@ -82,7 +85,7 @@ class PackseDataSource(DataSource):
             scenario_dicts = template_vars.get("scenarios", [])
 
             if not scenario_dicts:
-                print(f"Warning: No scenarios loaded from packse", file=sys.stderr)
+                logger.warning("No scenarios loaded from packse")
                 return []
 
             # Convert to normalized Scenario objects
@@ -91,11 +94,11 @@ class PackseDataSource(DataSource):
                 for scenario_dict in scenario_dicts
             ]
 
-            print(f"Loaded {len(scenarios)} packse scenarios")
+            logger.info(f"Loaded {len(scenarios)} packse scenarios")
             return scenarios
 
         except Exception as e:
-            print(f"Error: Failed to load packse scenarios: {e}", file=sys.stderr)
+            logger.error(f"Failed to load packse scenarios: {e}")
             raise
 
     def needs_fetch(self) -> bool:

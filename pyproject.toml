@@ -7,6 +7,7 @@ requires-python = ">=3.12"
 dependencies    = [
     "packse>=0.3.54",
     "cyclonedx-python-lib>=7.0.0",
+    "click>=8.0.0",
 ]
 
 [project.scripts]

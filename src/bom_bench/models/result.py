@@ -5,6 +5,10 @@ from enum import Enum
 from typing import Optional
 from pathlib import Path
 
+from bom_bench.logging_config import get_logger
+
+logger = get_logger(__name__)
+
 
 class ProcessingStatus(Enum):
     """Status of scenario processing."""
@@ -130,15 +134,17 @@ class Summary:
         Args:
             include_lock: Whether to include lock statistics
         """
-        print(f"\nGeneration Summary:")
-        print(f"  Processed: {self.processed}")
-        print(f"  Skipped: {self.skipped}")
+        logger.info("")
+        logger.info("Generation Summary:")
+        logger.info(f"  Processed: {self.processed}")
+        logger.info(f"  Skipped: {self.skipped}")
         if self.failed > 0:
-            print(f"  Failed: {self.failed}")
-        print(f"  Total: {self.total_scenarios}")
+            logger.warning(f"  Failed: {self.failed}")
+        logger.info(f"  Total: {self.total_scenarios}")
 
         if include_lock:
-            print(f"\nLock Summary:")
-            print(f"  Success: {self.lock_success}")
-            print(f"  Failed: {self.lock_failed}")
-            print(f"  Total: {self.lock_success + self.lock_failed}")
+            logger.info("")
+            logger.info("Lock Summary:")
+            logger.info(f"  Success: {self.lock_success}")
+            logger.info(f"  Failed: {self.lock_failed}")
+            logger.info(f"  Total: {self.lock_success + self.lock_failed}")

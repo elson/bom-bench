@@ -12,9 +12,12 @@ from bom_bench.config import (
     EXCLUDE_NAME_PATTERNS,
 )
 from bom_bench.data.loader import ScenarioLoader
+from bom_bench.logging_config import get_logger, setup_logging
 from bom_bench.models.scenario import ScenarioFilter, Scenario
 from bom_bench.models.result import ProcessingResult, ProcessingStatus, Summary
 from bom_bench.package_managers import get_package_manager, list_available_package_managers
+
+logger = get_logger(__name__)
 
 
 class BomBenchCLI:
@@ -188,12 +191,12 @@ Examples:
             # Generate manifest
             manifest_path = pm.generate_manifest(scenario, output_dir)
 
-            print(f"Generated: {manifest_path}")
+            logger.info(f"Generated: {manifest_path}")
 
             # Log SBOM generation if it exists
             sbom_path = output_dir / "expected.cdx.json"
             if sbom_path.exists():
-                print(f"Generated expected SBOM: {sbom_path}")
+                logger.info(f"Generated expected SBOM: {sbom_path}")
 
             return ProcessingResult(
                 scenario_name=scenario.name,
@@ -227,7 +230,7 @@ Examples:
             try:
                 package_managers = self.parse_package_managers(parsed_args.package_managers)
             except ValueError as e:
-                print(f"Error: {e}", file=sys.stderr)
+                logger.error(str(e))
                 return 1
 
             # Parse specific scenario names if provided
@@ -235,12 +238,12 @@ Examples:
             if parsed_args.scenarios:
                 scenario_names = [s.strip() for s in parsed_args.scenarios.split(",")]
 
-            print(f"Package managers: {', '.join(package_managers)}")
-            print()
+            logger.info(f"Package managers: {', '.join(package_managers)}")
+            logger.info("")
 
             # Process each package manager
             for pm_name in package_managers:
-                print(f"=== {pm_name.upper()} ===")
+                logger.info(f"=== {pm_name.upper()} ===")
 
                 # Create filter
                 filter_config = self.create_filter(
@@ -254,8 +257,8 @@ Examples:
                 )
 
                 if not scenarios:
-                    print(f"Warning: No scenarios found for {pm_name}")
-                    print()
+                    logger.warning(f"No scenarios found for {pm_name}")
+                    logger.info("")
                     continue
 
                 # Filter by specific names if requested
@@ -263,11 +266,11 @@ Examples:
                     scenarios = self.filter_by_names(scenarios, scenario_names)
 
                     if not scenarios:
-                        print(f"Warning: None of the specified scenarios found for {pm_name}")
-                        print()
+                        logger.warning(f"None of the specified scenarios found for {pm_name}")
+                        logger.info("")
                         continue
 
-                print(f"Found {len(scenarios)} scenarios")
+                logger.info(f"Found {len(scenarios)} scenarios")
 
                 # Create summary
                 summary = Summary(
@@ -279,7 +282,7 @@ Examples:
                 # Get package manager instance
                 pm = get_package_manager(pm_name)
                 if pm is None:
-                    print(f"Error: Package manager '{pm_name}' not available", file=sys.stderr)
+                    logger.error(f"Package manager '{pm_name}' not available")
                     continue
 
                 # Process each scenario
@@ -291,23 +294,22 @@ Examples:
                     )
                     summary.add_processing_result(result)
 
-                    # Print errors
+                    # Log errors
                     if result.status == ProcessingStatus.FAILED:
-                        print(f"  Error: {scenario.name}: {result.error_message}", file=sys.stderr)
+                        logger.error(f"  {scenario.name}: {result.error_message}")
 
                 # Print summary (lock files are generated automatically)
                 summary.print_summary(include_lock=False)
-                print()
+                logger.info("")
 
             return 0
 
         except KeyboardInterrupt:
-            print("\nInterrupted by user", file=sys.stderr)
+            logger.error("Interrupted by user")
             return 1
         except Exception as e:
-            print(f"Error: {e}", file=sys.stderr)
-            import traceback
-            traceback.print_exc()
+            logger.error(f"Error: {e}")
+            logger.debug("Traceback:", exc_info=True)
             return 1
 
 
@@ -320,6 +322,9 @@ def main(args: Optional[List[str]] = None) -> int:
     Returns:
         Exit code (0 for success, 1 for error)
     """
+    # Configure default logging (INFO level)
+    setup_logging()
+
     cli = BomBenchCLI()
     return cli.run(args)
 

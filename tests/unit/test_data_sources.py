@@ -82,8 +82,11 @@ class TestPackseDataSource:
         assert source.needs_fetch() is False
 
     @patch("packse.fetch.fetch")
-    def test_fetch(self, mock_fetch, tmp_path, capsys):
+    def test_fetch(self, mock_fetch, tmp_path, caplog):
         """Test fetching packse scenarios."""
+        import logging
+        caplog.set_level(logging.INFO)
+
         data_dir = tmp_path / "packse"
         source = PackseDataSource(data_dir)
 
@@ -92,9 +95,8 @@ class TestPackseDataSource:
         # Verify packse.fetch.fetch was called with correct directory
         mock_fetch.assert_called_once_with(dest=data_dir)
 
-        # Verify success message was printed
-        captured = capsys.readouterr()
-        assert "Successfully fetched packse scenarios" in captured.out
+        # Verify success message was logged
+        assert "Successfully fetched packse scenarios" in caplog.text
 
     @patch("packse.fetch.fetch")
     def test_fetch_creates_parent_dir(self, mock_fetch, tmp_path):
@@ -114,9 +116,12 @@ class TestPackseDataSource:
         mock_variables,
         mock_find_files,
         tmp_path,
-        capsys
+        caplog
     ):
         """Test loading packse scenarios."""
+        import logging
+        caplog.set_level(logging.INFO)
+
         data_dir = tmp_path / "packse"
         data_dir.mkdir(parents=True)
         source = PackseDataSource(data_dir)
@@ -161,11 +166,10 @@ class TestPackseDataSource:
         mock_variables.assert_called_once()
         assert mock_variables.call_args[1]["no_hash"] is True
 
-        # Verify success message
-        captured = capsys.readouterr()
-        assert "Loaded 2 packse scenarios" in captured.out
+        # Verify success message was logged
+        assert "Loaded 2 packse scenarios" in caplog.text
 
-    def test_load_scenarios_missing_dir(self, tmp_path, capsys):
+    def test_load_scenarios_missing_dir(self, tmp_path, caplog):
         """Test loading scenarios when directory doesn't exist."""
         data_dir = tmp_path / "packse"
         source = PackseDataSource(data_dir)
@@ -173,11 +177,10 @@ class TestPackseDataSource:
         scenarios = source.load_scenarios()
 
         assert scenarios == []
-        captured = capsys.readouterr()
-        assert "not found" in captured.err
+        assert "not found" in caplog.text
 
     @patch("packse.inspect.find_scenario_files")
-    def test_load_scenarios_no_files(self, mock_find_files, tmp_path, capsys):
+    def test_load_scenarios_no_files(self, mock_find_files, tmp_path, caplog):
         """Test loading scenarios when no files found."""
         data_dir = tmp_path / "packse"
         data_dir.mkdir(parents=True)
@@ -188,8 +191,7 @@ class TestPackseDataSource:
         scenarios = source.load_scenarios()
 
         assert scenarios == []
-        captured = capsys.readouterr()
-        assert "No packse scenario files found" in captured.err
+        assert "No packse scenario files found" in caplog.text
 
 
 class TestScenarioLoader:

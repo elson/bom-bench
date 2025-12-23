@@ -3,8 +3,11 @@
 from typing import List, Optional
 
 from bom_bench.data import get_data_source, get_sources_for_pm
+from bom_bench.logging_config import get_logger
 from bom_bench.models.scenario import Scenario, ScenarioFilter
 from bom_bench.config import DEFAULT_DATA_SOURCE
+
+logger = get_logger(__name__)
 
 
 class ScenarioLoader:
@@ -37,7 +40,7 @@ class ScenarioLoader:
 
         # Fetch if needed
         if self.auto_fetch and source.needs_fetch():
-            print(f"Data source '{source_name}' needs fetching...")
+            logger.info(f"Data source '{source_name}' needs fetching...")
             source.fetch()
 
         # Load scenarios
@@ -70,7 +73,7 @@ class ScenarioLoader:
             sources = get_sources_for_pm(package_manager)
 
         if not sources:
-            print(f"Warning: No data sources support package manager '{package_manager}'")
+            logger.warning(f"No data sources support package manager '{package_manager}'")
             return []
 
         # Update filter to only include specified sources

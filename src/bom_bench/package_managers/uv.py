@@ -9,10 +9,13 @@ from typing import Optional
 from bom_bench.config import PACKSE_INDEX_URL, LOCK_TIMEOUT_SECONDS, PROJECT_NAME, PROJECT_VERSION
 from bom_bench.generators.sbom.cyclonedx import generate_sbom_result
 from bom_bench.generators.uv import generate_pyproject_toml
+from bom_bench.logging_config import get_logger
 from bom_bench.models.result import LockResult, LockStatus
 from bom_bench.models.scenario import Scenario
 from bom_bench.package_managers.base import PackageManager
 from bom_bench.parsers.uv_lock import parse_uv_lock
+
+logger = get_logger(__name__)
 
 
 class UVPackageManager(PackageManager):
@@ -120,7 +123,7 @@ class UVPackageManager(PackageManager):
                 )
 
         except Exception as e:
-            print(f"Warning: Failed to generate SBOM result: {e}", file=sys.stderr)
+            logger.warning(f"Failed to generate SBOM result: {e}")
             return None
 
     def run_lock(
@@ -186,7 +189,7 @@ class UVPackageManager(PackageManager):
                 f.write("Exit code: TIMEOUT\n\n")
                 f.write(f"Error: Command timed out after {timeout} seconds\n")
 
-            print(f"  Timeout: {scenario_name}", file=sys.stderr)
+            logger.warning(f"  Timeout: {scenario_name}")
 
             return LockResult(
                 scenario_name=scenario_name,
@@ -204,7 +207,7 @@ class UVPackageManager(PackageManager):
                 f.write(f"Exit code: ERROR\n\n")
                 f.write(f"Error: {str(e)}\n")
 
-            print(f"  Error running uv lock for {scenario_name}: {e}", file=sys.stderr)
+            logger.error(f"  Error running uv lock for {scenario_name}: {e}")
 
             return LockResult(
                 scenario_name=scenario_name,
