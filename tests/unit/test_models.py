@@ -279,27 +279,6 @@ class TestSummary:
         assert summary.skipped == 1
         assert summary.failed == 1
 
-    def test_add_lock_results(self):
-        """Test adding lock results to summary."""
-        summary = Summary(total_scenarios=2)
-
-        result1 = LockResult(
-            scenario_name="s1",
-            package_manager="uv",
-            status=LockStatus.SUCCESS,
-        )
-        result2 = LockResult(
-            scenario_name="s2",
-            package_manager="uv",
-            status=LockStatus.FAILED,
-        )
-
-        summary.add_lock_result(result1)
-        summary.add_lock_result(result2)
-
-        assert summary.lock_success == 1
-        assert summary.lock_failed == 1
-
 
 class TestPackageManagerInfo:
     """Tests for PackageManagerInfo model."""

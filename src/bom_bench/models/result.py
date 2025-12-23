@@ -5,6 +5,8 @@ from enum import Enum
 from typing import Optional
 from pathlib import Path
 
+import click
+
 from bom_bench.logging_config import get_logger
 
 logger = get_logger(__name__)
@@ -92,12 +94,6 @@ class Summary:
     failed: int = 0
     """Number of scenarios that failed processing"""
 
-    lock_success: int = 0
-    """Number of successful lock file generations"""
-
-    lock_failed: int = 0
-    """Number of failed lock file generations"""
-
     package_manager: Optional[str] = None
     """Package manager used (None if multiple)"""
 
@@ -117,34 +113,12 @@ class Summary:
         elif result.status == ProcessingStatus.FAILED:
             self.failed += 1
 
-    def add_lock_result(self, result: LockResult) -> None:
-        """Add a lock result to the summary.
-
-        Args:
-            result: Lock result to add
-        """
-        if result.status == LockStatus.SUCCESS:
-            self.lock_success += 1
-        else:
-            self.lock_failed += 1
-
-    def print_summary(self, include_lock: bool = False) -> None:
-        """Print a formatted summary.
-
-        Args:
-            include_lock: Whether to include lock statistics
-        """
+    def print_summary(self) -> None:
+        """Print a formatted summary with colored output."""
         logger.info("")
-        logger.info("Generation Summary:")
-        logger.info(f"  Processed: {self.processed}")
+        logger.info(click.style("Summary:", bold=True))
+        logger.info(f"  Processed: {click.style(str(self.processed), fg='green')}")
         logger.info(f"  Skipped: {self.skipped}")
         if self.failed > 0:
-            logger.warning(f"  Failed: {self.failed}")
+            logger.warning(f"  Failed: {click.style(str(self.failed), fg='red')}")
         logger.info(f"  Total: {self.total_scenarios}")
-
-        if include_lock:
-            logger.info("")
-            logger.info("Lock Summary:")
-            logger.info(f"  Success: {self.lock_success}")
-            logger.info(f"  Failed: {self.lock_failed}")
-            logger.info(f"  Total: {self.lock_success + self.lock_failed}")

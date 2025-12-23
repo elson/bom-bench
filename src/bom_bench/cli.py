@@ -246,8 +246,8 @@ class BomBenchCLI:
                     if result.status == ProcessingStatus.FAILED:
                         logger.error(f"  {scenario.name}: {result.error_message}")
 
-                # Print summary (lock files are generated automatically)
-                summary.print_summary(include_lock=False)
+                # Print summary
+                summary.print_summary()
                 logger.info("")
 
             return 0
