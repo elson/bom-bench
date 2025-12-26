@@ -1,172 +1,302 @@
-"""SCA tool runner for benchmarking (STUB - Not yet implemented).
+"""Benchmark runner orchestrating SCA tools via plugins.
 
-This module will run SCA (Software Composition Analysis) tools against
-generated package manager outputs and collect vulnerability findings.
-
-Supported SCA Tools (planned):
-- Grype (https://github.com/anchore/grype)
-- Trivy (https://github.com/aquasecurity/trivy)
-- Snyk (https://snyk.io/)
-- OSV-Scanner (https://github.com/google/osv-scanner)
-
-Implementation TODO:
-- Define SCAToolRunner ABC interface
-- Implement tool-specific runners (GrypeRunner, TrivyRunner, etc.)
-- Handle tool installation/availability checks
-- Execute tools against generated outputs
-- Parse and normalize results
+This module coordinates running SCA tools against generated projects,
+comparing their output with expected SBOMs, and collecting metrics.
 """
 
-from abc import ABC, abstractmethod
 from pathlib import Path
-from typing import List, Dict, Any, Optional
-from enum import Enum
+from typing import List, Optional
+
+import click
+
+from bom_bench.logging_config import get_logger
+from bom_bench.models.sca import (
+    BenchmarkResult,
+    BenchmarkStatus,
+    BenchmarkSummary,
+    PurlMetrics,
+    SBOMGenerationStatus,
+)
+from bom_bench.plugins import generate_sbom, get_registered_tools
+from bom_bench.benchmarking.comparison import (
+    extract_purls_from_cyclonedx,
+    load_expected_sbom,
+    load_actual_sbom,
+)
+from bom_bench.benchmarking.storage import (
+    save_benchmark_result,
+    save_benchmark_summary,
+    export_benchmark_csv,
+)
+from bom_bench.package_managers import list_available_package_managers
+
+logger = get_logger(__name__)
 
 
-class SCAToolType(Enum):
-    """Supported SCA tool types."""
-
-    GRYPE = "grype"
-    TRIVY = "trivy"
-    SNYK = "snyk"
-    OSV_SCANNER = "osv-scanner"
-
-
-class SCAToolRunner(ABC):
-    """Abstract base class for SCA tool runners (STUB).
-
-    Each SCA tool implementation should inherit from this class
-    and implement the run() method to execute the tool and parse results.
-    """
-
-    tool_name: str
-    """Name of the SCA tool"""
-
-    @abstractmethod
-    def check_available(self) -> bool:
-        """Check if the SCA tool is installed and available.
-
-        Returns:
-            True if tool is available, False otherwise
-        """
-        pass
-
-    @abstractmethod
-    def run(
-        self,
-        project_dir: Path,
-        package_manager: str,
-        scenario_name: str
-    ) -> Dict[str, Any]:
-        """Run the SCA tool against a project directory.
-
-        Args:
-            project_dir: Directory containing lock files to scan
-            package_manager: Package manager name (uv, pip, pnpm, gradle)
-            scenario_name: Name of the scenario being scanned
-
-        Returns:
-            Dictionary with scan results (normalized format)
-
-        Raises:
-            NotImplementedError: This is a stub implementation
-        """
-        pass
+# Ecosystem mapping for package managers
+PM_ECOSYSTEMS = {
+    "uv": "python",
+    "pip": "python",
+    "pnpm": "javascript",
+    "npm": "javascript",
+    "gradle": "java",
+    "maven": "java",
+}
 
 
 class BenchmarkRunner:
-    """Orchestrates benchmarking across multiple SCA tools and PMs (STUB).
+    """Orchestrates benchmarking across SCA tools and package managers.
 
-    This class coordinates:
-    - Running multiple SCA tools
-    - Across multiple package managers
-    - Against all generated scenarios
-    - Collecting and normalizing results
+    The BenchmarkRunner:
+    1. Discovers scenario directories from previous setup runs
+    2. Runs SCA tools via plugins to generate actual SBOMs
+    3. Compares actual vs expected SBOMs using PURL comparison
+    4. Calculates and reports metrics (precision, recall, F1)
+    5. Saves results in JSON and CSV formats
     """
 
     def __init__(
         self,
         output_dir: Path,
-        tools: Optional[List[SCAToolType]] = None,
-        package_managers: Optional[List[str]] = None
+        benchmarks_dir: Path,
+        tools: List[str]
     ):
         """Initialize benchmark runner.
 
         Args:
-            output_dir: Base output directory with generated projects
-            tools: List of SCA tools to run (default: all available)
-            package_managers: List of PMs to benchmark (default: all)
+            output_dir: Directory containing generated projects from setup
+            benchmarks_dir: Directory for benchmark outputs
+            tools: List of SCA tool names to run
         """
         self.output_dir = output_dir
-        self.tools = tools or list(SCAToolType)
-        self.package_managers = package_managers or ["uv", "pip", "pnpm", "gradle"]
-        self.runners: Dict[SCAToolType, SCAToolRunner] = {}
+        self.benchmarks_dir = benchmarks_dir
+        self.tools = tools
 
-    def run_benchmarks(self) -> Dict[str, Any]:
-        """Run all benchmarks and collect results.
+    def run(
+        self,
+        package_managers: str,
+        scenarios: Optional[List[str]] = None
+    ) -> int:
+        """Run benchmarks for all tools and package managers.
+
+        Args:
+            package_managers: Comma-separated PM names or 'all'
+            scenarios: Optional list of specific scenario names to benchmark
 
         Returns:
-            Dictionary with comprehensive benchmark results
-
-        Raises:
-            NotImplementedError: This is a stub implementation
+            Exit code (0 for success)
         """
-        raise NotImplementedError(
-            "Benchmarking is not yet implemented. "
-            "See src/bom_bench/benchmarking/runner.py for implementation guide."
+        # Parse package managers
+        if package_managers.lower() == "all":
+            pm_list = list_available_package_managers()
+        else:
+            pm_list = [pm.strip() for pm in package_managers.split(",")]
+
+        has_errors = False
+
+        # Run benchmarks for each tool
+        for tool_name in self.tools:
+            tool_info = get_registered_tools().get(tool_name)
+            logger.info("")
+            logger.info(click.style(f"=== Tool: {tool_name} ===", bold=True))
+
+            for pm_name in pm_list:
+                logger.info(f"  Package Manager: {pm_name}")
+
+                # Find scenario directories
+                pm_dir = self.output_dir / pm_name
+                if not pm_dir.exists():
+                    logger.warning(f"  No output found for {pm_name}")
+                    continue
+
+                scenario_dirs = sorted([d for d in pm_dir.iterdir() if d.is_dir()])
+
+                # Filter by scenario names if provided
+                if scenarios:
+                    scenario_dirs = [d for d in scenario_dirs if d.name in scenarios]
+
+                if not scenario_dirs:
+                    logger.warning(f"  No scenarios found for {pm_name}")
+                    continue
+
+                # Create summary for this tool/PM combination
+                summary = BenchmarkSummary(
+                    package_manager=pm_name,
+                    tool_name=tool_name
+                )
+
+                # Benchmark each scenario
+                for scenario_dir in scenario_dirs:
+                    result = self._benchmark_scenario(
+                        tool_name=tool_name,
+                        pm_name=pm_name,
+                        scenario_name=scenario_dir.name,
+                        project_dir=scenario_dir,
+                        ecosystem=PM_ECOSYSTEMS.get(pm_name, "unknown")
+                    )
+                    summary.add_result(result)
+
+                    # Log progress
+                    self._log_result(result)
+
+                # Calculate aggregates
+                summary.calculate_aggregates()
+
+                # Save results
+                self._save_results(summary, tool_name, pm_name)
+
+                # Print summary
+                summary.print_summary()
+
+                if summary.sbom_failed > 0 or summary.parse_errors > 0:
+                    has_errors = True
+
+        return 1 if has_errors else 0
+
+    def _benchmark_scenario(
+        self,
+        tool_name: str,
+        pm_name: str,
+        scenario_name: str,
+        project_dir: Path,
+        ecosystem: str
+    ) -> BenchmarkResult:
+        """Benchmark a single scenario.
+
+        Args:
+            tool_name: SCA tool to use
+            pm_name: Package manager name
+            scenario_name: Scenario name
+            project_dir: Directory containing the project
+            ecosystem: Package ecosystem (python, javascript, etc.)
+
+        Returns:
+            BenchmarkResult with comparison metrics
+        """
+        expected_path = project_dir / "expected.cdx.json"
+        actual_dir = self.benchmarks_dir / tool_name / pm_name / scenario_name
+        actual_path = actual_dir / "actual.cdx.json"
+
+        # Check if expected SBOM exists
+        if not expected_path.exists():
+            return BenchmarkResult(
+                scenario_name=scenario_name,
+                package_manager=pm_name,
+                tool_name=tool_name,
+                status=BenchmarkStatus.MISSING_EXPECTED,
+                error_message="expected.cdx.json not found"
+            )
+
+        # Load expected SBOM and check satisfiability
+        expected_sbom, satisfiable = load_expected_sbom(expected_path)
+
+        if not satisfiable:
+            # Unsatisfiable scenario - still record but don't compare
+            return BenchmarkResult(
+                scenario_name=scenario_name,
+                package_manager=pm_name,
+                tool_name=tool_name,
+                status=BenchmarkStatus.UNSATISFIABLE,
+                expected_satisfiable=False,
+                expected_sbom_path=expected_path
+            )
+
+        # Generate SBOM using plugin
+        sbom_result = generate_sbom(
+            tool_name=tool_name,
+            project_dir=project_dir,
+            output_path=actual_path,
+            ecosystem=ecosystem
         )
 
-        # TODO: Implementation outline:
-        # 1. For each package manager in self.package_managers:
-        #    a. Find all scenario directories in output/{pm}/
-        #    b. For each scenario:
-        #       - For each SCA tool in self.tools:
-        #         * Check if tool is available
-        #         * Run tool against scenario directory
-        #         * Collect results
-        # 2. Aggregate results across tools and PMs
-        # 3. Return comprehensive result dictionary
+        if sbom_result is None:
+            return BenchmarkResult(
+                scenario_name=scenario_name,
+                package_manager=pm_name,
+                tool_name=tool_name,
+                status=BenchmarkStatus.SBOM_GENERATION_FAILED,
+                error_message=f"No plugin handled tool '{tool_name}'"
+            )
 
+        if sbom_result.status != SBOMGenerationStatus.SUCCESS:
+            return BenchmarkResult(
+                scenario_name=scenario_name,
+                package_manager=pm_name,
+                tool_name=tool_name,
+                status=BenchmarkStatus.SBOM_GENERATION_FAILED,
+                sbom_result=sbom_result,
+                error_message=sbom_result.error_message
+            )
 
-# Stub implementations for specific SCA tools
+        # Load actual SBOM
+        actual_sbom = load_actual_sbom(actual_path)
 
-class GrypeRunner(SCAToolRunner):
-    """Grype SCA tool runner (STUB)."""
+        if actual_sbom is None:
+            return BenchmarkResult(
+                scenario_name=scenario_name,
+                package_manager=pm_name,
+                tool_name=tool_name,
+                status=BenchmarkStatus.PARSE_ERROR,
+                sbom_result=sbom_result,
+                actual_sbom_path=actual_path,
+                error_message="Failed to parse actual SBOM"
+            )
 
-    tool_name = "grype"
+        # Extract and compare PURLs
+        expected_purls = extract_purls_from_cyclonedx(expected_sbom) if expected_sbom else set()
+        actual_purls = extract_purls_from_cyclonedx(actual_sbom)
 
-    def check_available(self) -> bool:
-        """Check if Grype is installed."""
-        raise NotImplementedError("Grype runner not yet implemented")
+        metrics = PurlMetrics.calculate(expected_purls, actual_purls)
 
-    def run(
+        return BenchmarkResult(
+            scenario_name=scenario_name,
+            package_manager=pm_name,
+            tool_name=tool_name,
+            status=BenchmarkStatus.SUCCESS,
+            metrics=metrics,
+            sbom_result=sbom_result,
+            expected_sbom_path=expected_path,
+            actual_sbom_path=actual_path
+        )
+
+    def _log_result(self, result: BenchmarkResult) -> None:
+        """Log a single benchmark result."""
+        if result.status == BenchmarkStatus.SUCCESS and result.metrics:
+            logger.info(
+                f"    {result.scenario_name}: "
+                f"P={result.metrics.precision:.3f} "
+                f"R={result.metrics.recall:.3f} "
+                f"F1={result.metrics.f1_score:.3f}"
+            )
+        elif result.status == BenchmarkStatus.UNSATISFIABLE:
+            logger.info(f"    {result.scenario_name}: unsatisfiable (skipped)")
+        elif result.status == BenchmarkStatus.SBOM_GENERATION_FAILED:
+            logger.warning(f"    {result.scenario_name}: SBOM generation failed")
+        elif result.status == BenchmarkStatus.MISSING_EXPECTED:
+            logger.warning(f"    {result.scenario_name}: missing expected SBOM")
+        else:
+            logger.info(f"    {result.scenario_name}: {result.status.value}")
+
+    def _save_results(
         self,
-        project_dir: Path,
-        package_manager: str,
-        scenario_name: str
-    ) -> Dict[str, Any]:
-        """Run Grype scan."""
-        raise NotImplementedError("Grype runner not yet implemented")
+        summary: BenchmarkSummary,
+        tool_name: str,
+        pm_name: str
+    ) -> None:
+        """Save benchmark results to files."""
+        base_dir = self.benchmarks_dir / tool_name / pm_name
+        base_dir.mkdir(parents=True, exist_ok=True)
 
-        # TODO: Run: grype dir:{project_dir} -o json
+        # Save individual results
+        for result in summary.results:
+            result_dir = base_dir / result.scenario_name
+            result_dir.mkdir(parents=True, exist_ok=True)
+            save_benchmark_result(result, result_dir / "result.json")
 
+        # Save summary
+        save_benchmark_summary(summary, base_dir / "summary.json")
 
-class TrivyRunner(SCAToolRunner):
-    """Trivy SCA tool runner (STUB)."""
+        # Export CSV
+        export_benchmark_csv(summary.results, base_dir / "results.csv")
 
-    tool_name = "trivy"
-
-    def check_available(self) -> bool:
-        """Check if Trivy is installed."""
-        raise NotImplementedError("Trivy runner not yet implemented")
-
-    def run(
-        self,
-        project_dir: Path,
-        package_manager: str,
-        scenario_name: str
-    ) -> Dict[str, Any]:
-        """Run Trivy scan."""
-        raise NotImplementedError("Trivy runner not yet implemented")
-
-        # TODO: Run: trivy fs {project_dir} --format json
+        logger.info(f"  Results saved to {base_dir}")
