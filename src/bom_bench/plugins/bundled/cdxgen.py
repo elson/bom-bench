@@ -1,0 +1,169 @@
+"""Bundled cdxgen plugin for bom-bench.
+
+cdxgen (CycloneDX Generator) is a tool for generating CycloneDX SBOMs
+from various package managers and ecosystems.
+
+Installation:
+    npm install -g @cyclonedx/cdxgen
+
+Usage:
+    This plugin is automatically loaded by bom-bench. Once cdxgen is
+    installed, it will be available as an SCA tool:
+
+        bom-bench benchmark --pm uv --tools cdxgen
+
+See: https://github.com/CycloneDX/cdxgen
+"""
+
+import json
+import shutil
+import subprocess
+import time
+from pathlib import Path
+from typing import List, Optional
+
+import pluggy
+
+from bom_bench.models.sca import SCAToolInfo, SBOMResult, SBOMGenerationStatus
+
+hookimpl = pluggy.HookimplMarker("bom_bench")
+
+
+def _get_cdxgen_version() -> Optional[str]:
+    """Get cdxgen version string."""
+    try:
+        result = subprocess.run(
+            ["cdxgen", "--version"],
+            capture_output=True,
+            text=True,
+            timeout=10
+        )
+        if result.returncode == 0:
+            return result.stdout.strip()
+    except Exception:
+        pass
+    return None
+
+
+@hookimpl
+def bom_bench_register_sca_tools() -> List[SCAToolInfo]:
+    """Register cdxgen as an available SCA tool."""
+    return [
+        SCAToolInfo(
+            name="cdxgen",
+            version=_get_cdxgen_version(),
+            description="CycloneDX Generator - creates SBOMs from package manifests",
+            supported_ecosystems=["python", "javascript", "java", "go", "rust", "dotnet"],
+            homepage="https://github.com/CycloneDX/cdxgen"
+        )
+    ]
+
+
+@hookimpl
+def bom_bench_check_tool_available(tool_name: str) -> Optional[bool]:
+    """Check if cdxgen is installed."""
+    if tool_name != "cdxgen":
+        return None
+    return shutil.which("cdxgen") is not None
+
+
+@hookimpl
+def bom_bench_generate_sbom(
+    tool_name: str,
+    project_dir: Path,
+    output_path: Path,
+    ecosystem: str,
+    timeout: int = 120
+) -> Optional[SBOMResult]:
+    """Generate SBOM using cdxgen.
+
+    Runs: cdxgen -o <output> <project_dir>
+
+    Args:
+        tool_name: Must be "cdxgen" for this plugin to handle it
+        project_dir: Directory containing manifest/lock files
+        output_path: Where to write the SBOM JSON
+        ecosystem: Package ecosystem (used for logging, cdxgen auto-detects)
+        timeout: Maximum execution time in seconds
+
+    Returns:
+        SBOMResult with generation status and details
+    """
+    if tool_name != "cdxgen":
+        return None
+
+    # Ensure output directory exists
+    output_path.parent.mkdir(parents=True, exist_ok=True)
+
+    start_time = time.time()
+
+    try:
+        # Build cdxgen command
+        cmd = [
+            "cdxgen",
+            "-o", str(output_path),
+            str(project_dir)
+        ]
+
+        result = subprocess.run(
+            cmd,
+            capture_output=True,
+            text=True,
+            timeout=timeout
+        )
+
+        duration = time.time() - start_time
+
+        # Check if SBOM was generated successfully
+        if result.returncode == 0 and output_path.exists():
+            # Validate JSON output
+            try:
+                with open(output_path) as f:
+                    json.load(f)
+
+                return SBOMResult.success(
+                    tool_name="cdxgen",
+                    sbom_path=output_path,
+                    duration_seconds=duration,
+                    exit_code=result.returncode
+                )
+            except json.JSONDecodeError as e:
+                return SBOMResult.failed(
+                    tool_name="cdxgen",
+                    error_message=f"Invalid JSON output: {e}",
+                    duration_seconds=duration,
+                    exit_code=result.returncode,
+                    status=SBOMGenerationStatus.PARSE_ERROR
+                )
+        else:
+            error_msg = result.stderr.strip() if result.stderr else f"Exit code: {result.returncode}"
+            return SBOMResult.failed(
+                tool_name="cdxgen",
+                error_message=error_msg,
+                duration_seconds=duration,
+                exit_code=result.returncode
+            )
+
+    except subprocess.TimeoutExpired:
+        duration = time.time() - start_time
+        return SBOMResult.failed(
+            tool_name="cdxgen",
+            error_message=f"Timeout after {timeout} seconds",
+            duration_seconds=duration,
+            status=SBOMGenerationStatus.TIMEOUT
+        )
+
+    except FileNotFoundError:
+        return SBOMResult.failed(
+            tool_name="cdxgen",
+            error_message="cdxgen not found in PATH. Install with: npm install -g @cyclonedx/cdxgen",
+            status=SBOMGenerationStatus.TOOL_NOT_FOUND
+        )
+
+    except Exception as e:
+        duration = time.time() - start_time
+        return SBOMResult.failed(
+            tool_name="cdxgen",
+            error_message=str(e),
+            duration_seconds=duration
+        )
