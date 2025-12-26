@@ -16,8 +16,8 @@ Generate package manager manifests and lock files from test scenarios for benchm
 - ✅ **Automatic Lock File Generation**: Dependency resolution and locking enabled by default
 - ✅ **SBOM Generation from Lock Files**: CycloneDX 1.6 SBOMs generated from resolved dependencies
 - ✅ **Comprehensive CLI**: Multiple entry points, rich filtering options
-- ✅ **Fully Tested**: 87 unit and integration tests
-- ⏳ **SCA Benchmarking** (Planned): Run Grype, Trivy, Snyk, OSV-Scanner against generated outputs
+- ✅ **Plugin-Based SCA Benchmarking**: Run SCA tools via Pluggy plugins, compare results
+- ✅ **Fully Tested**: 170+ unit and integration tests
 
 ## Quick Start
 
@@ -39,11 +39,36 @@ pip install -e .
 
 ```bash
 # Generate manifests, lock files, and SBOMs for default PM (UV)
-bom-bench
+bom-bench setup
 
 # Generate for specific scenarios
-bom-bench --scenarios fork-basic,local-simple
+bom-bench setup --scenarios fork-basic,local-simple
 ```
+
+### SCA Tool Benchmarking
+
+```bash
+# Prerequisites: Install cdxgen
+npm install -g @cyclonedx/cdxgen
+
+# Step 1: Generate test projects with expected SBOMs
+bom-bench setup --pm uv
+
+# Step 2: List available SCA tools and check installation
+bom-bench list-tools --check
+
+# Step 3: Run benchmarking against generated projects
+bom-bench benchmark --pm uv --tools cdxgen
+
+# Run specific scenarios only
+bom-bench benchmark --pm uv --tools cdxgen --scenarios fork-basic
+```
+
+The benchmark command will:
+- Run each SCA tool against generated projects
+- Compare actual SBOMs with expected SBOMs using PURL matching
+- Calculate precision, recall, and F1 scores
+- Save results in JSON and CSV formats
 
 ### Advanced Usage
 
@@ -100,14 +125,21 @@ bom-bench/
 │   │
 │   ├── models/             # Data models
 │   │   ├── scenario.py     # Scenario dataclasses
-│   │   └── result.py       # Result models
+│   │   ├── result.py       # Result models
+│   │   └── sca.py          # SCA tool models ✅
 │   │
-│   └── benchmarking/       # SCA tool integration (stub)
-│       ├── runner.py       # Tool execution
-│       ├── collectors.py   # Result collection
-│       └── reporters.py    # Report generation
+│   ├── plugins/            # Pluggy-based plugin system ✅
+│   │   ├── __init__.py     # Plugin manager
+│   │   ├── hookspecs.py    # Hook specifications
+│   │   └── bundled/        # Bundled plugins
+│   │       └── cdxgen.py   # cdxgen plugin ✅
+│   │
+│   └── benchmarking/       # SCA tool benchmarking ✅
+│       ├── runner.py       # Benchmark orchestration
+│       ├── comparison.py   # SBOM comparison logic
+│       └── storage.py      # Result persistence
 │
-├── tests/                  # Test suite (87 tests)
+├── tests/                  # Test suite (170+ tests)
 │   ├── unit/              # Unit tests
 │   └── integration/       # Integration tests
 │
@@ -115,8 +147,10 @@ bom-bench/
 │   └── packse/            # Packse scenarios
 │
 └── output/                # Generated outputs (gitignored)
-    └── uv/                # UV outputs
-        └── {scenario}/    # Per-scenario projects
+    ├── uv/                # Setup outputs
+    │   └── {scenario}/    # Per-scenario projects
+    └── benchmarks/        # Benchmark outputs
+        └── {tool}/{pm}/   # Per-tool, per-PM results
 ```
 
 ### Key Components
@@ -145,7 +179,7 @@ Two entry points:
 
 ## Output Structure
 
-### Current (UV)
+### Setup Output
 
 ```
 output/
@@ -154,26 +188,34 @@ output/
     │   ├── pyproject.toml       # Project manifest
     │   ├── uv.lock              # Lock file (always generated)
     │   ├── uv-lock-output.txt   # Command output log
-    │   └── expected.cdx.json    # SBOM from lock file (CycloneDX 1.6)
+    │   └── expected.cdx.json    # Expected SBOM (CycloneDX 1.6)
     └── local-simple/
         └── ...
 ```
 
 **SBOM Generation**: After successful dependency resolution, bom-bench automatically generates a CycloneDX 1.6 SBOM (`expected.cdx.json`) from the lock file. This SBOM contains all resolved packages and serves as a reference for benchmarking SCA tool accuracy.
 
-### Future (Multi-PM)
+### Benchmark Output
 
 ```
 output/
-├── uv/
-│   └── {scenario}/
-├── pip/
-│   └── {scenario}/
-├── pnpm/
-│   └── {scenario}/
-└── gradle/
-    └── {scenario}/
+└── benchmarks/
+    └── cdxgen/                  # SCA tool name
+        └── uv/                  # Package manager
+            ├── fork-basic/
+            │   ├── actual.cdx.json   # SBOM from SCA tool
+            │   └── result.json       # Comparison metrics
+            ├── summary.json          # Aggregated metrics
+            └── results.csv           # All results in CSV
 ```
+
+**Metrics**: Each benchmark result includes:
+- **True Positives (TP)**: PURLs in both expected and actual
+- **False Positives (FP)**: PURLs in actual but not expected
+- **False Negatives (FN)**: PURLs in expected but not actual
+- **Precision**: TP / (TP + FP)
+- **Recall**: TP / (TP + FN)
+- **F1 Score**: Harmonic mean of precision and recall
 
 ## Extension Guide
 
@@ -205,6 +247,88 @@ See `src/bom_bench/package_managers/pip.py` (stub) for detailed implementation g
 7. **Add tests**: `tests/unit/test_data_sources.py`
 
 See `src/bom_bench/data/sources/pnpm_tests.py` (stub) for detailed implementation guide.
+
+### Adding a New SCA Tool Plugin
+
+bom-bench uses [Pluggy](https://pluggy.readthedocs.io/) for SCA tool plugins. Plugins can be:
+- **Bundled**: Shipped with bom-bench (e.g., cdxgen)
+- **External**: Installed via pip (e.g., `pip install bom-bench-syft`)
+
+#### Creating an External Plugin
+
+1. **Create a new Python package** (e.g., `bom-bench-syft`)
+
+2. **Implement the hooks**:
+
+```python
+# bom_bench_syft/plugin.py
+import pluggy
+from pathlib import Path
+from typing import List, Optional
+
+hookimpl = pluggy.HookimplMarker("bom_bench")
+
+@hookimpl
+def bom_bench_register_sca_tools():
+    """Register your SCA tool."""
+    from bom_bench.models.sca import SCAToolInfo
+    return [
+        SCAToolInfo(
+            name="syft",
+            description="Anchore Syft SBOM generator",
+            supported_ecosystems=["python", "javascript", "go"],
+            homepage="https://github.com/anchore/syft"
+        )
+    ]
+
+@hookimpl
+def bom_bench_check_tool_available(tool_name: str) -> Optional[bool]:
+    """Check if your tool is installed."""
+    if tool_name != "syft":
+        return None
+    import shutil
+    return shutil.which("syft") is not None
+
+@hookimpl
+def bom_bench_generate_sbom(tool_name, project_dir, output_path, ecosystem, timeout=120):
+    """Generate SBOM using your tool."""
+    if tool_name != "syft":
+        return None
+
+    from bom_bench.models.sca import SBOMResult, SBOMGenerationStatus
+    import subprocess
+    import time
+
+    start = time.time()
+    try:
+        result = subprocess.run(
+            ["syft", str(project_dir), "-o", "cyclonedx-json", "--file", str(output_path)],
+            capture_output=True, text=True, timeout=timeout
+        )
+        duration = time.time() - start
+
+        if result.returncode == 0:
+            return SBOMResult.success("syft", output_path, duration)
+        return SBOMResult.failed("syft", result.stderr, duration_seconds=duration)
+    except subprocess.TimeoutExpired:
+        return SBOMResult.failed("syft", f"Timeout after {timeout}s",
+                                  status=SBOMGenerationStatus.TIMEOUT)
+```
+
+3. **Register via entry point** in `pyproject.toml`:
+
+```toml
+[project.entry-points."bom_bench"]
+syft = "bom_bench_syft.plugin"
+```
+
+4. **Install and use**:
+
+```bash
+pip install bom-bench-syft
+bom-bench list-tools --check  # Should show syft
+bom-bench benchmark --tools syft
+```
 
 ## Development
 
@@ -250,12 +374,14 @@ ruff format src/bom_bench/
 |-----------|--------|-------|
 | UV Package Manager | ✅ Complete | Fully functional |
 | Packse Data Source | ✅ Complete | Fully functional |
-| CLI | ✅ Complete | All entry points working |
-| Tests | ✅ Complete | 87 tests, 100% pass |
+| CLI | ✅ Complete | setup, benchmark, list-tools |
+| Plugin System | ✅ Complete | Pluggy-based SCA tool plugins |
+| cdxgen Plugin | ✅ Complete | Bundled, fully functional |
+| SBOM Comparison | ✅ Complete | PURL-based metrics |
+| Tests | ✅ Complete | 170+ tests, 100% pass |
 | Pip Support | 📝 Stub | Implementation guide provided |
 | pnpm Support | 📝 Stub | Implementation guide provided |
 | Gradle Support | 📝 Stub | Implementation guide provided |
-| SCA Benchmarking | 📝 Stub | Architecture defined |
 
 ## Documentation
 
