@@ -9,6 +9,8 @@ __version__ = "0.2.0"
 PROJECT_ROOT = Path(__file__).parent.parent.parent
 DATA_DIR = PROJECT_ROOT / "data"
 OUTPUT_DIR = PROJECT_ROOT / "output"
+BENCHMARKS_DIR = OUTPUT_DIR / "benchmarks"
+"""Directory for benchmark outputs (actual SBOMs, metrics)"""
 
 # Default data source directories
 DEFAULT_PACKSE_DIR = DATA_DIR / "packse"

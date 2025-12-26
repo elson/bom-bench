@@ -9,6 +9,7 @@ import click
 from bom_bench.config import (
     DEFAULT_PACKAGE_MANAGER,
     OUTPUT_DIR,
+    BENCHMARKS_DIR,
     UNIVERSAL_SCENARIOS_ONLY,
     EXCLUDE_NAME_PATTERNS,
 )
@@ -265,12 +266,12 @@ class BomBenchCLI:
 @click.pass_context
 def cli(ctx):
     """Generate package manager manifests and SBOMs for benchmarking SCA tools."""
-    # If no subcommand, invoke 'run' as default
+    # If no subcommand, invoke 'setup' as default
     if ctx.invoked_subcommand is None:
-        ctx.invoke(run)
+        ctx.invoke(setup)
 
 
-@cli.command(name="run")
+@cli.command(name="setup")
 @click.option(
     "--pm", "--package-managers",
     "package_managers",
@@ -310,9 +311,9 @@ def cli(ctx):
     type=click.Choice(["DEBUG", "INFO", "WARNING", "ERROR", "CRITICAL"], case_sensitive=False),
     help="Explicit log level (overrides -v/-q)",
 )
-def run(package_managers, scenarios, output_dir, no_universal_filter,
-        verbose, quiet, log_level):
-    """Generate manifests and lock files (default command)."""
+def setup(package_managers, scenarios, output_dir, no_universal_filter,
+          verbose, quiet, log_level):
+    """Generate manifests, lock files, and expected SBOMs."""
     # Validate mutually exclusive flags
     if sum([verbose, quiet, log_level is not None]) > 1:
         raise click.UsageError("--verbose, --quiet, and --log-level are mutually exclusive")
@@ -330,6 +331,203 @@ def run(package_managers, scenarios, output_dir, no_universal_filter,
     )
 
     raise SystemExit(exit_code)
+
+
+# Keep 'run' as an alias for backward compatibility
+@cli.command(name="run", hidden=True)
+@click.option("--pm", "--package-managers", "package_managers", default=DEFAULT_PACKAGE_MANAGER)
+@click.option("-s", "--scenarios", default=None)
+@click.option("-o", "--output-dir", type=click.Path(path_type=Path), default=OUTPUT_DIR)
+@click.option("--no-universal-filter", is_flag=True)
+@click.option("-v", "--verbose", is_flag=True)
+@click.option("-q", "--quiet", is_flag=True)
+@click.option("--log-level", type=click.Choice(["DEBUG", "INFO", "WARNING", "ERROR", "CRITICAL"], case_sensitive=False))
+@click.pass_context
+def run(ctx, **kwargs):
+    """Generate manifests and lock files (deprecated, use 'setup')."""
+    logger.warning("'bom-bench run' is deprecated, use 'bom-bench setup' instead")
+    ctx.invoke(setup, **kwargs)
+
+
+@cli.command(name="benchmark")
+@click.option(
+    "--pm", "--package-managers",
+    "package_managers",
+    default=DEFAULT_PACKAGE_MANAGER,
+    show_default=True,
+    help="Comma-separated list of package managers, or 'all'",
+)
+@click.option(
+    "-t", "--tools",
+    default=None,
+    help="Comma-separated SCA tools to run (default: all available)",
+)
+@click.option(
+    "-s", "--scenarios",
+    default=None,
+    help="Comma-separated list of specific scenarios",
+)
+@click.option(
+    "-o", "--output-dir",
+    type=click.Path(path_type=Path),
+    default=OUTPUT_DIR,
+    show_default=True,
+    help="Directory containing generated projects from setup",
+)
+@click.option(
+    "--benchmarks-dir",
+    type=click.Path(path_type=Path),
+    default=BENCHMARKS_DIR,
+    show_default=True,
+    help="Directory for benchmark outputs",
+)
+@click.option(
+    "-v", "--verbose",
+    is_flag=True,
+    help="Enable verbose output (DEBUG level)",
+)
+@click.option(
+    "-q", "--quiet",
+    is_flag=True,
+    help="Show only warnings and errors",
+)
+@click.option(
+    "--log-level",
+    type=click.Choice(["DEBUG", "INFO", "WARNING", "ERROR", "CRITICAL"], case_sensitive=False),
+    help="Explicit log level (overrides -v/-q)",
+)
+def benchmark(package_managers, tools, scenarios, output_dir, benchmarks_dir,
+              verbose, quiet, log_level):
+    """Run SCA tool benchmarking against generated projects.
+
+    Prerequisites:
+    - Run 'bom-bench setup' first to generate projects
+    - Install SCA tools (e.g., npm install -g @cyclonedx/cdxgen)
+
+    Example:
+        bom-bench benchmark --pm uv --tools cdxgen
+    """
+    from bom_bench.plugins import (
+        initialize_plugins,
+        get_registered_tools,
+        list_available_tools,
+        check_tool_available,
+    )
+    from bom_bench.benchmarking.runner import BenchmarkRunner
+
+    # Validate mutually exclusive flags
+    if sum([verbose, quiet, log_level is not None]) > 1:
+        raise click.UsageError("--verbose, --quiet, and --log-level are mutually exclusive")
+
+    # Setup logging based on flags
+    setup_logging(verbose=verbose, quiet=quiet, log_level=log_level)
+
+    # Initialize plugin system
+    initialize_plugins()
+
+    # Determine which tools to run
+    if tools:
+        tool_list = [t.strip() for t in tools.split(",")]
+        registered = get_registered_tools()
+        for tool in tool_list:
+            if tool not in registered:
+                raise click.ClickException(
+                    f"Unknown SCA tool: {tool}. "
+                    f"Available: {', '.join(registered.keys())}"
+                )
+    else:
+        tool_list = list_available_tools()
+
+    if not tool_list:
+        raise click.ClickException(
+            "No SCA tools available. "
+            "Install plugins or check tool installations."
+        )
+
+    # Check tool availability and warn
+    unavailable = []
+    for tool in tool_list:
+        if not check_tool_available(tool):
+            unavailable.append(tool)
+
+    if unavailable:
+        logger.warning(f"Tools not installed: {', '.join(unavailable)}")
+        logger.warning("Install them or they will be skipped")
+
+    # Parse scenarios if provided
+    scenario_list = None
+    if scenarios:
+        scenario_list = [s.strip() for s in scenarios.split(",")]
+
+    # Log configuration
+    logger.info(f"SCA Tools: {', '.join(tool_list)}")
+    logger.info(f"Output dir: {output_dir}")
+    logger.info(f"Benchmarks dir: {benchmarks_dir}")
+    logger.info("")
+
+    # Create and run benchmark runner
+    runner = BenchmarkRunner(
+        output_dir=output_dir,
+        benchmarks_dir=benchmarks_dir,
+        tools=tool_list
+    )
+
+    exit_code = runner.run(
+        package_managers=package_managers,
+        scenarios=scenario_list
+    )
+
+    raise SystemExit(exit_code)
+
+
+@cli.command(name="list-tools")
+@click.option(
+    "--check",
+    is_flag=True,
+    help="Check if tools are installed",
+)
+def list_tools(check):
+    """List available SCA tools from plugins."""
+    from bom_bench.plugins import (
+        initialize_plugins,
+        get_registered_tools,
+        check_tool_available,
+    )
+
+    # Initialize plugin system
+    initialize_plugins()
+
+    tools = get_registered_tools()
+
+    if not tools:
+        click.echo("No SCA tools registered.")
+        click.echo("Plugins may not be installed correctly.")
+        raise SystemExit(1)
+
+    click.echo("Available SCA Tools:")
+    click.echo("")
+
+    for name, info in sorted(tools.items()):
+        status = ""
+        if check:
+            available = check_tool_available(name)
+            status = click.style(" [installed]", fg="green") if available else click.style(" [not found]", fg="red")
+
+        click.echo(f"  {click.style(name, bold=True)}{status}")
+
+        if info.description:
+            click.echo(f"    {info.description}")
+
+        if info.version:
+            click.echo(f"    Version: {info.version}")
+
+        if info.supported_ecosystems:
+            click.echo(f"    Ecosystems: {', '.join(info.supported_ecosystems)}")
+
+        if info.homepage:
+            click.echo(f"    Homepage: {info.homepage}")
+
+        click.echo("")
 
 
 @cli.command(name="clean")
