@@ -169,21 +169,24 @@ class TestVerboseQuietFlags:
 
     def test_verbose_and_quiet_mutually_exclusive(self, runner):
         """Test that -v and -q are mutually exclusive."""
-        result = runner.invoke(cli, ["setup", "-v", "-q"])
+        # Logging options are on main CLI group, must come before subcommand
+        result = runner.invoke(cli, ["-v", "-q", "setup"])
 
         assert result.exit_code != 0
-        assert "mutually exclusive" in result.output
+        assert "mutually exclusive" in result.output.lower()
 
     def test_verbose_and_log_level_mutually_exclusive(self, runner):
         """Test that -v and --log-level are mutually exclusive."""
-        result = runner.invoke(cli, ["setup", "-v", "--log-level", "DEBUG"])
+        # Logging options are on main CLI group, must come before subcommand
+        result = runner.invoke(cli, ["-v", "--log-level", "DEBUG", "setup"])
 
         assert result.exit_code != 0
-        assert "mutually exclusive" in result.output
+        assert "mutually exclusive" in result.output.lower()
 
     def test_quiet_and_log_level_mutually_exclusive(self, runner):
         """Test that -q and --log-level are mutually exclusive."""
-        result = runner.invoke(cli, ["setup", "-q", "--log-level", "DEBUG"])
+        # Logging options are on main CLI group, must come before subcommand
+        result = runner.invoke(cli, ["-q", "--log-level", "DEBUG", "setup"])
 
         assert result.exit_code != 0
-        assert "mutually exclusive" in result.output
+        assert "mutually exclusive" in result.output.lower()

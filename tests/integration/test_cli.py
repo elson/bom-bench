@@ -40,23 +40,75 @@ class TestClickCLI:
         assert "--scenarios" in result.output
 
     def test_verbose_flag(self, runner):
-        """Test --verbose flag."""
-        result = runner.invoke(run, ["--help"])
+        """Test --verbose flag on main CLI (universal option)."""
+        result = runner.invoke(cli, ["--help"])
         assert "--verbose" in result.output or "-v" in result.output
 
     def test_quiet_flag(self, runner):
-        """Test --quiet flag."""
-        result = runner.invoke(run, ["--help"])
+        """Test --quiet flag on main CLI (universal option)."""
+        result = runner.invoke(cli, ["--help"])
         assert "--quiet" in result.output or "-q" in result.output
 
+
+class TestUniversalLoggingOptions:
+    """Test that logging options are universal (apply to all commands)."""
+
+    @pytest.fixture
+    def runner(self):
+        """Create Click CLI runner."""
+        return CliRunner()
+
+    def test_verbose_on_main_cli(self, runner):
+        """Test --verbose is available on main CLI group."""
+        result = runner.invoke(cli, ["--help"])
+        assert result.exit_code == 0
+        assert "--verbose" in result.output or "-v" in result.output
+
+    def test_quiet_on_main_cli(self, runner):
+        """Test --quiet is available on main CLI group."""
+        result = runner.invoke(cli, ["--help"])
+        assert result.exit_code == 0
+        assert "--quiet" in result.output or "-q" in result.output
+
+    def test_log_level_on_main_cli(self, runner):
+        """Test --log-level is available on main CLI group."""
+        result = runner.invoke(cli, ["--help"])
+        assert result.exit_code == 0
+        assert "--log-level" in result.output
+
+    def test_verbose_before_subcommand(self, runner):
+        """Test --verbose works before subcommand."""
+        result = runner.invoke(cli, ["--verbose", "list-tools"])
+        # Should not fail with "no such option"
+        assert "no such option" not in result.output.lower()
+        assert "Error: No such option" not in result.output
+
+    def test_quiet_before_subcommand(self, runner):
+        """Test --quiet works before subcommand."""
+        result = runner.invoke(cli, ["--quiet", "list-tools"])
+        assert "no such option" not in result.output.lower()
+        assert "Error: No such option" not in result.output
+
+    def test_log_level_before_subcommand(self, runner):
+        """Test --log-level works before subcommand."""
+        result = runner.invoke(cli, ["--log-level", "DEBUG", "list-tools"])
+        assert "no such option" not in result.output.lower()
+        assert "Error: No such option" not in result.output
+
+    def test_mutually_exclusive_options(self, runner):
+        """Test that --verbose, --quiet, and --log-level are mutually exclusive."""
+        result = runner.invoke(cli, ["--verbose", "--quiet", "list-tools"])
+        assert result.exit_code != 0
+        assert "mutually exclusive" in result.output.lower() or "exclusive" in result.output.lower()
+
     def test_log_level_flag(self, runner):
-        """Test --log-level flag."""
-        result = runner.invoke(run, ["--help"])
+        """Test --log-level flag on main CLI."""
+        result = runner.invoke(cli, ["--help"])
         assert "--log-level" in result.output
 
     def test_mutually_exclusive_logging(self, runner):
-        """Test that verbose and quiet are mutually exclusive."""
-        result = runner.invoke(run, ["-v", "-q"])
+        """Test that verbose and quiet are mutually exclusive on main CLI."""
+        result = runner.invoke(cli, ["-v", "-q", "list-tools"])
         assert result.exit_code != 0
         assert "mutually exclusive" in result.output.lower()
 

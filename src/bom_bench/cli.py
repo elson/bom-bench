@@ -263,9 +263,31 @@ class BomBenchCLI:
 
 
 @click.group(invoke_without_command=True)
+@click.option(
+    "-v", "--verbose",
+    is_flag=True,
+    help="Enable verbose output (DEBUG level)",
+)
+@click.option(
+    "-q", "--quiet",
+    is_flag=True,
+    help="Show only warnings and errors",
+)
+@click.option(
+    "--log-level",
+    type=click.Choice(["DEBUG", "INFO", "WARNING", "ERROR", "CRITICAL"], case_sensitive=False),
+    help="Explicit log level (overrides -v/-q)",
+)
 @click.pass_context
-def cli(ctx):
+def cli(ctx, verbose, quiet, log_level):
     """Generate package manager manifests and SBOMs for benchmarking SCA tools."""
+    # Validate mutually exclusive flags
+    if sum([verbose, quiet, log_level is not None]) > 1:
+        raise click.UsageError("--verbose, --quiet, and --log-level are mutually exclusive")
+
+    # Setup logging based on flags
+    setup_logging(verbose=verbose, quiet=quiet, log_level=log_level)
+
     # If no subcommand, invoke 'setup' as default
     if ctx.invoked_subcommand is None:
         ctx.invoke(setup)
@@ -296,31 +318,8 @@ def cli(ctx):
     is_flag=True,
     help="Include scenarios without universal=true",
 )
-@click.option(
-    "-v", "--verbose",
-    is_flag=True,
-    help="Enable verbose output (DEBUG level)",
-)
-@click.option(
-    "-q", "--quiet",
-    is_flag=True,
-    help="Show only warnings and errors",
-)
-@click.option(
-    "--log-level",
-    type=click.Choice(["DEBUG", "INFO", "WARNING", "ERROR", "CRITICAL"], case_sensitive=False),
-    help="Explicit log level (overrides -v/-q)",
-)
-def setup(package_managers, scenarios, output_dir, no_universal_filter,
-          verbose, quiet, log_level):
+def setup(package_managers, scenarios, output_dir, no_universal_filter):
     """Generate manifests, lock files, and expected SBOMs."""
-    # Validate mutually exclusive flags
-    if sum([verbose, quiet, log_level is not None]) > 1:
-        raise click.UsageError("--verbose, --quiet, and --log-level are mutually exclusive")
-
-    # Setup logging based on flags
-    setup_logging(verbose=verbose, quiet=quiet, log_level=log_level)
-
     # Execute business logic
     bom_bench_cli = BomBenchCLI()
     exit_code = bom_bench_cli.execute(
@@ -339,9 +338,6 @@ def setup(package_managers, scenarios, output_dir, no_universal_filter,
 @click.option("-s", "--scenarios", default=None)
 @click.option("-o", "--output-dir", type=click.Path(path_type=Path), default=OUTPUT_DIR)
 @click.option("--no-universal-filter", is_flag=True)
-@click.option("-v", "--verbose", is_flag=True)
-@click.option("-q", "--quiet", is_flag=True)
-@click.option("--log-level", type=click.Choice(["DEBUG", "INFO", "WARNING", "ERROR", "CRITICAL"], case_sensitive=False))
 @click.pass_context
 def run(ctx, **kwargs):
     """Generate manifests and lock files (deprecated, use 'setup')."""
@@ -381,23 +377,7 @@ def run(ctx, **kwargs):
     show_default=True,
     help="Directory for benchmark outputs",
 )
-@click.option(
-    "-v", "--verbose",
-    is_flag=True,
-    help="Enable verbose output (DEBUG level)",
-)
-@click.option(
-    "-q", "--quiet",
-    is_flag=True,
-    help="Show only warnings and errors",
-)
-@click.option(
-    "--log-level",
-    type=click.Choice(["DEBUG", "INFO", "WARNING", "ERROR", "CRITICAL"], case_sensitive=False),
-    help="Explicit log level (overrides -v/-q)",
-)
-def benchmark(package_managers, tools, scenarios, output_dir, benchmarks_dir,
-              verbose, quiet, log_level):
+def benchmark(package_managers, tools, scenarios, output_dir, benchmarks_dir):
     """Run SCA tool benchmarking against generated projects.
 
     Prerequisites:
@@ -414,13 +394,6 @@ def benchmark(package_managers, tools, scenarios, output_dir, benchmarks_dir,
         check_tool_available,
     )
     from bom_bench.benchmarking.runner import BenchmarkRunner
-
-    # Validate mutually exclusive flags
-    if sum([verbose, quiet, log_level is not None]) > 1:
-        raise click.UsageError("--verbose, --quiet, and --log-level are mutually exclusive")
-
-    # Setup logging based on flags
-    setup_logging(verbose=verbose, quiet=quiet, log_level=log_level)
 
     # Initialize plugin system
     initialize_plugins()
