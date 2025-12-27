@@ -16,6 +16,7 @@ See: https://github.com/CycloneDX/cdxgen
 """
 
 import json
+import re
 import shutil
 import subprocess
 import time
@@ -30,7 +31,12 @@ hookimpl = pluggy.HookimplMarker("bom_bench")
 
 
 def _get_cdxgen_version() -> Optional[str]:
-    """Get cdxgen version string."""
+    """Get cdxgen version number.
+
+    Extracts the version number from the first line of cdxgen --version output.
+    Removes ANSI escape codes (bold formatting, etc).
+    Example: "CycloneDX Generator 11.11.0" → "11.11.0"
+    """
     try:
         result = subprocess.run(
             ["cdxgen", "--version"],
@@ -39,7 +45,15 @@ def _get_cdxgen_version() -> Optional[str]:
             timeout=10
         )
         if result.returncode == 0:
-            return result.stdout.strip()
+            # Get first line (contains version)
+            first_line = result.stdout.strip().split('\n')[0]
+            # Remove ANSI escape codes (e.g., \033[1m for bold)
+            first_line = re.sub(r'\033\[[0-9;]*m', '', first_line)
+            # Extract version number (last space-separated token)
+            # "CycloneDX Generator 11.11.0" → "11.11.0"
+            parts = first_line.split()
+            if parts:
+                return parts[-1]
     except Exception:
         pass
     return None
