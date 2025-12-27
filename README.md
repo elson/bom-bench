@@ -17,7 +17,7 @@ Generate package manager manifests and lock files from test scenarios for benchm
 - ✅ **SBOM Generation from Lock Files**: CycloneDX 1.6 SBOMs generated from resolved dependencies
 - ✅ **Comprehensive CLI**: Multiple entry points, rich filtering options
 - ✅ **Plugin-Based SCA Benchmarking**: Run SCA tools via Pluggy plugins, compare results
-- ✅ **Fully Tested**: 170+ unit and integration tests
+- ✅ **Fully Tested**: 230+ unit and integration tests
 
 ## Quick Start
 
@@ -48,8 +48,9 @@ bom-bench setup --scenarios fork-basic,local-simple
 ### SCA Tool Benchmarking
 
 ```bash
-# Prerequisites: Install cdxgen
-npm install -g @cyclonedx/cdxgen
+# Prerequisites: Install SCA tools
+npm install -g @cyclonedx/cdxgen  # cdxgen
+brew install syft                  # Syft (macOS)
 
 # Step 1: Generate test projects with expected SBOMs
 bom-bench setup --pm uv
@@ -58,7 +59,10 @@ bom-bench setup --pm uv
 bom-bench list-tools --check
 
 # Step 3: Run benchmarking against generated projects
-bom-bench benchmark --pm uv --tools cdxgen
+bom-bench benchmark --pm uv --tools cdxgen,syft
+
+# Run with single tool
+bom-bench benchmark --pm uv --tools syft
 
 # Run specific scenarios only
 bom-bench benchmark --pm uv --tools cdxgen --scenarios fork-basic
@@ -132,7 +136,8 @@ bom-bench/
 │   │   ├── __init__.py     # Plugin manager
 │   │   ├── hookspecs.py    # Hook specifications
 │   │   └── bundled/        # Bundled plugins
-│   │       └── cdxgen.py   # cdxgen plugin ✅
+│   │       ├── cdxgen.py   # cdxgen plugin ✅
+│   │       └── syft.py     # Syft plugin ✅
 │   │
 │   └── benchmarking/       # SCA tool benchmarking ✅
 │       ├── runner.py       # Benchmark orchestration
@@ -377,8 +382,9 @@ ruff format src/bom_bench/
 | CLI | ✅ Complete | setup, benchmark, list-tools |
 | Plugin System | ✅ Complete | Pluggy-based SCA tool plugins |
 | cdxgen Plugin | ✅ Complete | Bundled, fully functional |
+| Syft Plugin | ✅ Complete | Bundled, fully functional |
 | SBOM Comparison | ✅ Complete | PURL-based metrics |
-| Tests | ✅ Complete | 170+ tests, 100% pass |
+| Tests | ✅ Complete | 230+ tests, 100% pass |
 | Pip Support | 📝 Stub | Implementation guide provided |
 | pnpm Support | 📝 Stub | Implementation guide provided |
 | Gradle Support | 📝 Stub | Implementation guide provided |
