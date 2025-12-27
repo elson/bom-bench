@@ -12,9 +12,14 @@ from typing import Any, Dict, Optional, Set, Tuple
 
 from packageurl import PackageURL
 
+from bom_bench.config import PROJECT_NAME, PROJECT_VERSION
 from bom_bench.logging_config import get_logger
 
 logger = get_logger(__name__)
+
+# Root project PURL to filter out from comparisons
+# SCA tools like Syft include the root project as a component, but it's not a dependency
+ROOT_PROJECT_PURL = f"pkg:pypi/{PROJECT_NAME}@{PROJECT_VERSION}"
 
 
 def normalize_purl(purl_string: str) -> str:
@@ -49,11 +54,15 @@ def normalize_purl(purl_string: str) -> str:
 def extract_purls_from_cyclonedx(sbom: Dict[str, Any]) -> Set[str]:
     """Extract normalized PURLs from CycloneDX SBOM.
 
+    Filters out the root project component (pkg:pypi/project@0.1.0) since
+    some SCA tools include it while others don't. Only actual dependencies
+    should be compared.
+
     Args:
         sbom: CycloneDX SBOM dictionary
 
     Returns:
-        Set of normalized PURL strings
+        Set of normalized PURL strings (excluding root project)
     """
     purls = set()
 
@@ -63,7 +72,9 @@ def extract_purls_from_cyclonedx(sbom: Dict[str, Any]) -> Set[str]:
         if purl:
             try:
                 normalized = normalize_purl(purl)
-                purls.add(normalized)
+                # Filter out the root project - it's not a dependency
+                if normalized != ROOT_PROJECT_PURL:
+                    purls.add(normalized)
             except Exception as e:
                 logger.debug(f"Skipping invalid PURL '{purl}': {e}")
 

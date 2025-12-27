@@ -115,6 +115,31 @@ class TestExtractPurls:
         purls = extract_purls_from_cyclonedx(sbom)
         assert "pkg:pypi/my-package@1.0.0" in purls
 
+    def test_extract_filters_root_project(self):
+        """Test that root project component is filtered out.
+
+        Some SCA tools (like Syft) include the root project as a component,
+        while others (like cdxgen) don't. This should be filtered out to
+        ensure fair comparison.
+        """
+        sbom = {
+            "components": [
+                # Root project - should be filtered
+                {"name": "project", "version": "0.1.0", "purl": "pkg:pypi/project@0.1.0"},
+                # Actual dependencies - should be kept
+                {"name": "requests", "purl": "pkg:pypi/requests@2.28.0"},
+                {"name": "click", "purl": "pkg:pypi/click@8.0.0"},
+            ]
+        }
+        purls = extract_purls_from_cyclonedx(sbom)
+
+        # Root project should be filtered out
+        assert "pkg:pypi/project@0.1.0" not in purls
+        # Dependencies should remain
+        assert "pkg:pypi/requests@2.28.0" in purls
+        assert "pkg:pypi/click@8.0.0" in purls
+        assert len(purls) == 2
+
 
 class TestLoadExpectedSbom:
     """Tests for loading expected SBOMs."""
