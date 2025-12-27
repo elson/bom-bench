@@ -71,8 +71,8 @@ class TestBenchmarkScenario:
         """Test handling of missing expected SBOM."""
         output_dir = tmp_path / "output"
         benchmarks_dir = tmp_path / "benchmarks"
-        project_dir = output_dir / "uv" / "test-scenario"
-        project_dir.mkdir(parents=True)
+        scenario_dir = output_dir / "scenarios" / "uv" / "test-scenario"
+        scenario_dir.mkdir(parents=True)
 
         runner = BenchmarkRunner(
             output_dir=output_dir,
@@ -84,7 +84,7 @@ class TestBenchmarkScenario:
             tool_name="cdxgen",
             pm_name="uv",
             scenario_name="test-scenario",
-            project_dir=project_dir,
+            scenario_dir=scenario_dir,
             ecosystem="python"
         )
 
@@ -98,11 +98,11 @@ class TestBenchmarkScenario:
         """Test handling of unsatisfiable expected SBOM."""
         output_dir = tmp_path / "output"
         benchmarks_dir = tmp_path / "benchmarks"
-        project_dir = output_dir / "uv" / "test-scenario"
-        project_dir.mkdir(parents=True)
+        scenario_dir = output_dir / "scenarios" / "uv" / "test-scenario"
+        scenario_dir.mkdir(parents=True)
 
         # Create unsatisfiable expected SBOM
-        expected_path = project_dir / "expected.cdx.json"
+        expected_path = scenario_dir / "expected.cdx.json"
         expected_path.write_text(json.dumps({"satisfiable": False}))
 
         runner = BenchmarkRunner(
@@ -115,7 +115,7 @@ class TestBenchmarkScenario:
             tool_name="cdxgen",
             pm_name="uv",
             scenario_name="test-scenario",
-            project_dir=project_dir,
+            scenario_dir=scenario_dir,
             ecosystem="python"
         )
 
@@ -127,11 +127,11 @@ class TestBenchmarkScenario:
         """Test handling when no plugin handles the tool."""
         output_dir = tmp_path / "output"
         benchmarks_dir = tmp_path / "benchmarks"
-        project_dir = output_dir / "uv" / "test-scenario"
-        project_dir.mkdir(parents=True)
+        scenario_dir = output_dir / "scenarios" / "uv" / "test-scenario"
+        scenario_dir.mkdir(parents=True)
 
         # Create valid expected SBOM
-        expected_path = project_dir / "expected.cdx.json"
+        expected_path = scenario_dir / "expected.cdx.json"
         expected_path.write_text(json.dumps({
             "satisfiable": True,
             "sbom": {"components": [{"purl": "pkg:pypi/requests@2.28.0"}]}
@@ -149,7 +149,7 @@ class TestBenchmarkScenario:
             tool_name="unknown-tool",
             pm_name="uv",
             scenario_name="test-scenario",
-            project_dir=project_dir,
+            scenario_dir=scenario_dir,
             ecosystem="python"
         )
 
@@ -161,11 +161,11 @@ class TestBenchmarkScenario:
         """Test handling when SBOM generation fails."""
         output_dir = tmp_path / "output"
         benchmarks_dir = tmp_path / "benchmarks"
-        project_dir = output_dir / "uv" / "test-scenario"
-        project_dir.mkdir(parents=True)
+        scenario_dir = output_dir / "scenarios" / "uv" / "test-scenario"
+        scenario_dir.mkdir(parents=True)
 
         # Create valid expected SBOM
-        expected_path = project_dir / "expected.cdx.json"
+        expected_path = scenario_dir / "expected.cdx.json"
         expected_path.write_text(json.dumps({
             "satisfiable": True,
             "sbom": {"components": [{"purl": "pkg:pypi/requests@2.28.0"}]}
@@ -187,7 +187,7 @@ class TestBenchmarkScenario:
             tool_name="cdxgen",
             pm_name="uv",
             scenario_name="test-scenario",
-            project_dir=project_dir,
+            scenario_dir=scenario_dir,
             ecosystem="python"
         )
 
@@ -200,11 +200,11 @@ class TestBenchmarkScenario:
         """Test handling when actual SBOM can't be parsed."""
         output_dir = tmp_path / "output"
         benchmarks_dir = tmp_path / "benchmarks"
-        project_dir = output_dir / "uv" / "test-scenario"
-        project_dir.mkdir(parents=True)
+        scenario_dir = output_dir / "scenarios" / "uv" / "test-scenario"
+        scenario_dir.mkdir(parents=True)
 
         # Create valid expected SBOM
-        expected_path = project_dir / "expected.cdx.json"
+        expected_path = scenario_dir / "expected.cdx.json"
         expected_path.write_text(json.dumps({
             "satisfiable": True,
             "sbom": {"components": [{"purl": "pkg:pypi/requests@2.28.0"}]}
@@ -232,7 +232,7 @@ class TestBenchmarkScenario:
             tool_name="cdxgen",
             pm_name="uv",
             scenario_name="test-scenario",
-            project_dir=project_dir,
+            scenario_dir=scenario_dir,
             ecosystem="python"
         )
 
@@ -244,11 +244,11 @@ class TestBenchmarkScenario:
         """Test successful benchmarking with PURL comparison."""
         output_dir = tmp_path / "output"
         benchmarks_dir = tmp_path / "benchmarks"
-        project_dir = output_dir / "uv" / "test-scenario"
-        project_dir.mkdir(parents=True)
+        scenario_dir = output_dir / "scenarios" / "uv" / "test-scenario"
+        scenario_dir.mkdir(parents=True)
 
         # Create expected SBOM with 2 packages
-        expected_path = project_dir / "expected.cdx.json"
+        expected_path = scenario_dir / "expected.cdx.json"
         expected_path.write_text(json.dumps({
             "satisfiable": True,
             "sbom": {
@@ -288,7 +288,7 @@ class TestBenchmarkScenario:
             tool_name="cdxgen",
             pm_name="uv",
             scenario_name="test-scenario",
-            project_dir=project_dir,
+            scenario_dir=scenario_dir,
             ecosystem="python"
         )
 
@@ -306,11 +306,11 @@ class TestBenchmarkScenario:
         """Test benchmarking when SBOMs differ."""
         output_dir = tmp_path / "output"
         benchmarks_dir = tmp_path / "benchmarks"
-        project_dir = output_dir / "uv" / "test-scenario"
-        project_dir.mkdir(parents=True)
+        scenario_dir = output_dir / "scenarios" / "uv" / "test-scenario"
+        scenario_dir.mkdir(parents=True)
 
         # Expected: requests, urllib3
-        expected_path = project_dir / "expected.cdx.json"
+        expected_path = scenario_dir / "expected.cdx.json"
         expected_path.write_text(json.dumps({
             "satisfiable": True,
             "sbom": {
@@ -348,7 +348,7 @@ class TestBenchmarkScenario:
             tool_name="cdxgen",
             pm_name="uv",
             scenario_name="test-scenario",
-            project_dir=project_dir,
+            scenario_dir=scenario_dir,
             ecosystem="python"
         )
 
@@ -393,8 +393,8 @@ class TestBenchmarkRun:
         output_dir = tmp_path / "output"
         benchmarks_dir = tmp_path / "benchmarks"
 
-        # Set up scenario directory
-        scenario_dir = output_dir / "uv" / "scenario-1"
+        # Set up scenario directory (under scenarios/{pm}/)
+        scenario_dir = output_dir / "scenarios" / "uv" / "scenario-1"
         scenario_dir.mkdir(parents=True)
 
         # Create expected SBOM
@@ -446,9 +446,9 @@ class TestBenchmarkRun:
         output_dir = tmp_path / "output"
         benchmarks_dir = tmp_path / "benchmarks"
 
-        # Create multiple scenario directories
+        # Create multiple scenario directories (under scenarios/{pm}/)
         for name in ["scenario-1", "scenario-2", "scenario-3"]:
-            scenario_dir = output_dir / "uv" / name
+            scenario_dir = output_dir / "scenarios" / "uv" / name
             scenario_dir.mkdir(parents=True)
             expected_path = scenario_dir / "expected.cdx.json"
             expected_path.write_text(json.dumps({
@@ -459,9 +459,11 @@ class TestBenchmarkRun:
         mock_get_tools.return_value = {"cdxgen": MagicMock()}
 
         def create_sbom(tool_name, project_dir, output_path, ecosystem, timeout=120):
+            # project_dir is now assets_dir, get scenario name from parent
+            scenario_name = project_dir.parent.name
             output_path.parent.mkdir(parents=True, exist_ok=True)
             output_path.write_text(json.dumps({
-                "components": [{"purl": f"pkg:pypi/{project_dir.name}@1.0.0"}]
+                "components": [{"purl": f"pkg:pypi/{scenario_name}@1.0.0"}]
             }))
             return SBOMResult.success("cdxgen", output_path, 1.0)
 
@@ -494,7 +496,7 @@ class TestBenchmarkRun:
         output_dir = tmp_path / "output"
         benchmarks_dir = tmp_path / "benchmarks"
 
-        scenario_dir = output_dir / "uv" / "scenario-1"
+        scenario_dir = output_dir / "scenarios" / "uv" / "scenario-1"
         scenario_dir.mkdir(parents=True)
 
         expected_path = scenario_dir / "expected.cdx.json"

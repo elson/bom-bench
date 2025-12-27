@@ -148,7 +148,7 @@ def generate_manifest(
     Args:
         pm_name: Package manager name
         scenario: Scenario to generate manifest for
-        output_dir: Output directory
+        output_dir: Scenario output directory
 
     Returns:
         Path to manifest file, or None if not handled.
@@ -177,11 +177,11 @@ def generate_manifest(
         required_environments=required_environments if required_environments else None
     )
 
-    # Ensure output directory exists
-    output_dir.mkdir(parents=True, exist_ok=True)
+    # Write to assets subdirectory (keeps project files separate from meta files)
+    assets_dir = output_dir / "assets"
+    assets_dir.mkdir(parents=True, exist_ok=True)
 
-    # Write pyproject.toml file
-    manifest_path = output_dir / "pyproject.toml"
+    manifest_path = assets_dir / "pyproject.toml"
     manifest_path.write_text(content)
 
     return manifest_path
@@ -198,7 +198,7 @@ def run_lock(
 
     Args:
         pm_name: Package manager name
-        project_dir: Directory containing the pyproject.toml
+        project_dir: Directory containing the pyproject.toml (assets dir)
         scenario_name: Name of the scenario (for logging)
         timeout: Command timeout in seconds
 
@@ -208,7 +208,9 @@ def run_lock(
     if pm_name != "uv":
         return None
 
-    output_file = project_dir / "uv-lock-output.txt"
+    # Output file goes to scenario dir (parent of assets), lock file stays in assets
+    scenario_dir = project_dir.parent
+    output_file = scenario_dir / "package-manager-output.txt"
     lock_file = project_dir / "uv.lock"
     start_time = time.time()
 
@@ -301,7 +303,7 @@ def generate_sbom_for_lock(
 
     Args:
         scenario: Scenario being processed
-        output_dir: Directory to write SBOM
+        output_dir: Scenario directory (contains assets/)
         lock_result: Result of lock operation
 
     Returns:
@@ -311,7 +313,8 @@ def generate_sbom_for_lock(
 
     try:
         if lock_result.status == LockStatus.SUCCESS:
-            lock_file = output_dir / "uv.lock"
+            # Lock file is in assets subdirectory
+            lock_file = output_dir / "assets" / "uv.lock"
             if lock_file.exists():
                 packages = parse_uv_lock(lock_file)
                 return generate_sbom_result(
@@ -343,7 +346,7 @@ class UVPackageManager:
     def get_output_dir(self, base_dir: Path, scenario_name: str) -> Path:
         """Get output directory for a scenario.
 
-        Creates hierarchical structure: base_dir/{package_manager}/{scenario_name}/
+        Creates hierarchical structure: base_dir/scenarios/{package_manager}/{scenario_name}/
 
         Args:
             base_dir: Base output directory
@@ -352,7 +355,7 @@ class UVPackageManager:
         Returns:
             Path to scenario-specific output directory
         """
-        return base_dir / self.name / scenario_name
+        return base_dir / "scenarios" / self.name / scenario_name
 
     def generate_manifest(self, scenario: Scenario, output_dir: Path) -> Path:
         """Generate pyproject.toml for UV."""
@@ -360,8 +363,9 @@ class UVPackageManager:
         if path is None:
             raise RuntimeError("Failed to generate manifest")
 
-        # Also run lock (old behavior)
-        lock_result = run_lock("uv", output_dir, scenario.name)
+        # Run lock with the assets directory (where pyproject.toml is)
+        assets_dir = output_dir / "assets"
+        lock_result = run_lock("uv", assets_dir, scenario.name)
         if lock_result:
             generate_sbom_for_lock(scenario, output_dir, lock_result)
 

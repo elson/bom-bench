@@ -146,7 +146,7 @@ class TestUVPackageManager:
 
         output_dir = uv_pm.get_output_dir(base_dir, scenario_name)
 
-        assert output_dir == Path("/tmp/output/uv/test-scenario")
+        assert output_dir == Path("/tmp/output/scenarios/uv/test-scenario")
 
     def test_supports_source_packse(self, uv_pm):
         """Test that UV supports packse data source."""

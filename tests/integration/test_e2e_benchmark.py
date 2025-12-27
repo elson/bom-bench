@@ -38,12 +38,13 @@ class TestE2EBenchmarkWorkflow:
         output_dir = tmp_path / "output"
         benchmarks_dir = tmp_path / "benchmarks"
 
-        # Create a minimal Python project
-        scenario_dir = output_dir / "uv" / "test-scenario"
-        scenario_dir.mkdir(parents=True)
+        # Create a minimal Python project (under scenarios/{pm}/)
+        scenario_dir = output_dir / "scenarios" / "uv" / "test-scenario"
+        assets_dir = scenario_dir / "assets"
+        assets_dir.mkdir(parents=True)
 
-        # Create pyproject.toml
-        pyproject = scenario_dir / "pyproject.toml"
+        # Create pyproject.toml in assets subdirectory
+        pyproject = assets_dir / "pyproject.toml"
         pyproject.write_text("""
 [project]
 name = "test-project"
@@ -121,12 +122,13 @@ requires-python = ">=3.12"
         output_dir = tmp_path / "output"
         benchmarks_dir = tmp_path / "benchmarks"
 
-        # Create a project with known dependencies
-        scenario_dir = output_dir / "uv" / "deps-scenario"
-        scenario_dir.mkdir(parents=True)
+        # Create a project with known dependencies (under scenarios/{pm}/)
+        scenario_dir = output_dir / "scenarios" / "uv" / "deps-scenario"
+        assets_dir = scenario_dir / "assets"
+        assets_dir.mkdir(parents=True)
 
-        # Create pyproject.toml with a dependency
-        pyproject = scenario_dir / "pyproject.toml"
+        # Create pyproject.toml in assets subdirectory
+        pyproject = assets_dir / "pyproject.toml"
         pyproject.write_text("""
 [project]
 name = "test-project"

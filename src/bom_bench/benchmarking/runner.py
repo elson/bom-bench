@@ -103,8 +103,8 @@ class BenchmarkRunner:
             for pm_name in pm_list:
                 logger.info(f"  Package Manager: {pm_name}")
 
-                # Find scenario directories
-                pm_dir = self.output_dir / pm_name
+                # Find scenario directories (under scenarios/{pm_name}/)
+                pm_dir = self.output_dir / "scenarios" / pm_name
                 if not pm_dir.exists():
                     logger.warning(f"  No output found for {pm_name}")
                     continue
@@ -131,7 +131,7 @@ class BenchmarkRunner:
                         tool_name=tool_name,
                         pm_name=pm_name,
                         scenario_name=scenario_dir.name,
-                        project_dir=scenario_dir,
+                        scenario_dir=scenario_dir,
                         ecosystem=PM_ECOSYSTEMS.get(pm_name, "unknown")
                     )
                     summary.add_result(result)
@@ -158,7 +158,7 @@ class BenchmarkRunner:
         tool_name: str,
         pm_name: str,
         scenario_name: str,
-        project_dir: Path,
+        scenario_dir: Path,
         ecosystem: str
     ) -> BenchmarkResult:
         """Benchmark a single scenario.
@@ -167,13 +167,14 @@ class BenchmarkRunner:
             tool_name: SCA tool to use
             pm_name: Package manager name
             scenario_name: Scenario name
-            project_dir: Directory containing the project
+            scenario_dir: Scenario directory (contains assets/ and expected.cdx.json)
             ecosystem: Package ecosystem (python, javascript, etc.)
 
         Returns:
             BenchmarkResult with comparison metrics
         """
-        expected_path = project_dir / "expected.cdx.json"
+        expected_path = scenario_dir / "expected.cdx.json"
+        assets_dir = scenario_dir / "assets"
         actual_dir = self.benchmarks_dir / tool_name / pm_name / scenario_name
         actual_path = actual_dir / "actual.cdx.json"
 
@@ -201,10 +202,10 @@ class BenchmarkRunner:
                 expected_sbom_path=expected_path
             )
 
-        # Generate SBOM using plugin
+        # Generate SBOM using plugin (scan the assets directory with project files)
         sbom_result = generate_sbom(
             tool_name=tool_name,
-            project_dir=project_dir,
+            project_dir=assets_dir,
             output_path=actual_path,
             ecosystem=ecosystem
         )

@@ -203,8 +203,8 @@ class TestCLIProcessing:
             assert result.output_dir is not None
             assert result.output_dir.exists()
 
-            # Check that pyproject.toml was created
-            pyproject = result.output_dir / "pyproject.toml"
+            # Check that pyproject.toml was created in assets subdirectory
+            pyproject = result.output_dir / "assets" / "pyproject.toml"
             assert pyproject.exists()
 
     def test_process_scenario_incompatible(self, cli):
@@ -280,10 +280,11 @@ class TestSBOMGeneration:
 
         with tempfile.TemporaryDirectory() as tmpdir:
             output_base = Path(tmpdir)
-            output_dir = output_base / "uv" / "test-scenario"
-            output_dir.mkdir(parents=True)
+            output_dir = output_base / "scenarios" / "uv" / "test-scenario"
+            assets_dir = output_dir / "assets"
+            assets_dir.mkdir(parents=True)
 
-            # Create a mock lock file
+            # Create a mock lock file in assets subdirectory
             lock_content = """version = 1
 requires-python = ">=3.12"
 
@@ -300,7 +301,7 @@ version = "1.0.0"
 name = "package-b"
 version = "2.0.0"
 """
-            lock_file = output_dir / "uv.lock"
+            lock_file = assets_dir / "uv.lock"
             lock_file.write_text(lock_content)
 
             # Generate SBOM from the lock file
@@ -313,7 +314,7 @@ version = "2.0.0"
                 package_manager=pm.name,
                 status=LockStatus.SUCCESS,
                 exit_code=0,
-                output_file=output_dir / "uv-lock-output.txt",
+                output_file=output_dir / "package-manager-output.txt",
                 lock_file=lock_file,
                 duration_seconds=0.1
             )
@@ -418,9 +419,10 @@ version = "2.0.0"
 
         with tempfile.TemporaryDirectory() as tmpdir:
             output_dir = Path(tmpdir) / "test-output"
-            output_dir.mkdir()
+            assets_dir = output_dir / "assets"
+            assets_dir.mkdir(parents=True)
 
-            # Create a mock lock file with requests package
+            # Create a mock lock file in assets subdirectory
             lock_content = """version = 1
 requires-python = ">=3.8"
 
@@ -433,7 +435,7 @@ source = { virtual = "." }
 name = "requests"
 version = "2.31.0"
 """
-            lock_file = output_dir / "uv.lock"
+            lock_file = assets_dir / "uv.lock"
             lock_file.write_text(lock_content)
 
             # Generate SBOM
@@ -446,7 +448,7 @@ version = "2.31.0"
                 package_manager=pm.name,
                 status=LockStatus.SUCCESS,
                 exit_code=0,
-                output_file=output_dir / "uv-lock-output.txt",
+                output_file=output_dir / "package-manager-output.txt",
                 lock_file=lock_file,
                 duration_seconds=0.1
             )
