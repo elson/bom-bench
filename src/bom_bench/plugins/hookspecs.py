@@ -239,3 +239,78 @@ class PackageManagerSpec:
             False if PM is not available.
             None if this plugin doesn't handle this PM.
         """
+
+    @hookspec
+    def get_output_dir(
+        self,
+        pm_name: str,
+        base_dir: Path,
+        scenario_name: str
+    ) -> Optional[Path]:
+        """Get output directory for a scenario.
+
+        Args:
+            pm_name: Package manager name
+            base_dir: Base output directory
+            scenario_name: Name of the scenario
+
+        Returns:
+            Path to scenario output directory, or None if not handled.
+
+        Example implementation:
+            @hookimpl
+            def get_output_dir(pm_name, base_dir, scenario_name):
+                if pm_name != "uv":
+                    return None
+                return base_dir / "scenarios" / "uv" / scenario_name
+        """
+
+    @hookspec
+    def validate_scenario(
+        self,
+        pm_name: str,
+        scenario: "Scenario"
+    ) -> Optional[bool]:
+        """Check if a scenario is compatible with a package manager.
+
+        Args:
+            pm_name: Package manager name
+            scenario: Scenario to validate
+
+        Returns:
+            True if compatible, False if not, None if not handled.
+
+        Example implementation:
+            @hookimpl
+            def validate_scenario(pm_name, scenario):
+                if pm_name != "uv":
+                    return None
+                return scenario.source in ["packse"]
+        """
+
+    @hookspec
+    def generate_sbom_for_lock(
+        self,
+        pm_name: str,
+        scenario: "Scenario",
+        output_dir: Path,
+        lock_result: "LockResult"
+    ) -> Optional[Path]:
+        """Generate SBOM and meta files from lock result.
+
+        Args:
+            pm_name: Package manager name
+            scenario: Scenario being processed
+            output_dir: Scenario output directory
+            lock_result: Result of lock operation
+
+        Returns:
+            Path to generated SBOM file, or None if not handled.
+
+        Example implementation:
+            @hookimpl
+            def generate_sbom_for_lock(pm_name, scenario, output_dir, lock_result):
+                if pm_name != "uv":
+                    return None
+                # Generate meta.json and expected.cdx.json
+        """

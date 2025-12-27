@@ -270,15 +270,12 @@ def run_lock(
         )
 
 
-def generate_sbom_for_lock(
+def _generate_sbom_for_lock_impl(
     scenario: Scenario,
     output_dir: Path,
     lock_result: LockResult
 ) -> Optional[Path]:
-    """Generate SBOM and meta files for a lock result.
-
-    This is a helper function called by the orchestration layer,
-    not a hook.
+    """Internal implementation for generating SBOM and meta files.
 
     Generates two files:
     - expected.cdx.json: Pure CycloneDX SBOM (only if lock succeeded)
@@ -324,70 +321,59 @@ def generate_sbom_for_lock(
         return None
 
 
-class UVPackageManager:
-    """UV package manager interface.
+@hookimpl
+def get_output_dir(pm_name: str, base_dir: Path, scenario_name: str) -> Optional[Path]:
+    """Get output directory for a UV scenario.
 
-    This class provides the user-facing interface for the UV package manager,
-    orchestrating manifest generation, lock file creation, and SBOM generation.
-    It uses the plugin hooks internally but provides a simpler API for CLI usage.
+    Args:
+        pm_name: Package manager name
+        base_dir: Base output directory
+        scenario_name: Name of the scenario
+
+    Returns:
+        Path to scenario output directory, or None if not UV.
     """
+    if pm_name != "uv":
+        return None
+    return base_dir / "scenarios" / "uv" / scenario_name
 
-    name = "uv"
-    ecosystem = "python"
 
-    def get_output_dir(self, base_dir: Path, scenario_name: str) -> Path:
-        """Get output directory for a scenario.
+@hookimpl
+def validate_scenario(pm_name: str, scenario: Scenario) -> Optional[bool]:
+    """Check if scenario is compatible with UV.
 
-        Creates hierarchical structure: base_dir/scenarios/{package_manager}/{scenario_name}/
+    Args:
+        pm_name: Package manager name
+        scenario: Scenario to validate
 
-        Args:
-            base_dir: Base output directory
-            scenario_name: Name of the scenario
+    Returns:
+        True if compatible, False if not, None if not UV.
+    """
+    if pm_name != "uv":
+        return None
+    return scenario.source in ["packse"]
 
-        Returns:
-            Path to scenario-specific output directory
-        """
-        return base_dir / "scenarios" / self.name / scenario_name
 
-    def generate_manifest(self, scenario: Scenario, output_dir: Path) -> Path:
-        """Generate pyproject.toml for UV."""
-        path = generate_manifest("uv", scenario, output_dir)
-        if path is None:
-            raise RuntimeError("Failed to generate manifest")
+@hookimpl
+def generate_sbom_for_lock(
+    pm_name: str,
+    scenario: Scenario,
+    output_dir: Path,
+    lock_result: LockResult
+) -> Optional[Path]:
+    """Generate SBOM and meta files for a UV lock result.
 
-        # Run lock with the assets directory (where pyproject.toml is)
-        assets_dir = output_dir / "assets"
-        lock_result = run_lock("uv", assets_dir, scenario.name)
-        if lock_result:
-            generate_sbom_for_lock(scenario, output_dir, lock_result)
+    Args:
+        pm_name: Package manager name
+        scenario: Scenario being processed
+        output_dir: Scenario directory (contains assets/)
+        lock_result: Result of lock operation
 
-        return path
+    Returns:
+        Path to generated SBOM/meta file, or None if not UV.
+    """
+    if pm_name != "uv":
+        return None
+    return _generate_sbom_for_lock_impl(scenario, output_dir, lock_result)
 
-    def run_lock(
-        self,
-        project_dir: Path,
-        scenario_name: str,
-        timeout: int = LOCK_TIMEOUT_SECONDS
-    ) -> LockResult:
-        """Execute uv lock command."""
-        result = run_lock("uv", project_dir, scenario_name, timeout)
-        if result is None:
-            raise RuntimeError("Failed to run lock")
-        return result
 
-    def validate_scenario(self, scenario: Scenario) -> bool:
-        """Check if scenario is compatible with UV."""
-        return scenario.source in ["packse"]
-
-    def supports_source(self, source_name: str) -> bool:
-        """Check if UV supports a given data source."""
-        return source_name == "packse"
-
-    def generate_sbom_result_file(
-        self,
-        scenario: Scenario,
-        output_dir: Path,
-        lock_result: LockResult
-    ) -> Optional[Path]:
-        """Generate SBOM result file (backward compatibility wrapper)."""
-        return generate_sbom_for_lock(scenario, output_dir, lock_result)

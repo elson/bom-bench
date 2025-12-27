@@ -394,6 +394,96 @@ def pm_run_lock(
     return None
 
 
+def pm_get_output_dir(pm_name: str, base_dir: Path, scenario_name: str) -> Optional[Path]:
+    """Get output directory for a package manager scenario.
+
+    Args:
+        pm_name: Name of the package manager.
+        base_dir: Base output directory.
+        scenario_name: Name of the scenario.
+
+    Returns:
+        Path to scenario output directory, or None if PM not found.
+    """
+    if pm_name not in get_registered_package_managers():
+        logger.warning(f"Package manager '{pm_name}' not registered")
+        return None
+
+    results = pm.hook.get_output_dir(
+        pm_name=pm_name,
+        base_dir=base_dir,
+        scenario_name=scenario_name
+    )
+
+    for result in results:
+        if result is not None:
+            return result
+
+    logger.warning(f"No plugin handled get_output_dir for PM '{pm_name}'")
+    return None
+
+
+def pm_validate_scenario(pm_name: str, scenario) -> bool:
+    """Check if scenario is compatible with package manager.
+
+    Args:
+        pm_name: Name of the package manager.
+        scenario: Scenario to validate.
+
+    Returns:
+        True if compatible, False otherwise.
+    """
+    if pm_name not in get_registered_package_managers():
+        return False
+
+    results = pm.hook.validate_scenario(
+        pm_name=pm_name,
+        scenario=scenario
+    )
+
+    for result in results:
+        if result is not None:
+            return result
+
+    return False  # Default to not compatible
+
+
+def pm_generate_sbom_for_lock(
+    pm_name: str,
+    scenario,
+    output_dir: Path,
+    lock_result
+) -> Optional[Path]:
+    """Generate SBOM and meta files from lock result.
+
+    Args:
+        pm_name: Name of the package manager.
+        scenario: Scenario being processed.
+        output_dir: Scenario output directory.
+        lock_result: Result of lock operation.
+
+    Returns:
+        Path to generated file, or None if failed.
+    """
+    if pm_name not in get_registered_package_managers():
+        logger.warning(f"Package manager '{pm_name}' not registered")
+        return None
+
+    results = pm.hook.generate_sbom_for_lock(
+        pm_name=pm_name,
+        scenario=scenario,
+        output_dir=output_dir,
+        lock_result=lock_result
+    )
+
+    for result in results:
+        if result is not None:
+            return result
+
+    logger.warning(f"No plugin handled generate_sbom_for_lock for PM '{pm_name}'")
+    return None
+
+
 # =============================================================================
 # Plugin Info Functions
 # =============================================================================
@@ -440,4 +530,7 @@ __all__ = [
     "pm_load_scenarios",
     "pm_generate_manifest",
     "pm_run_lock",
+    "pm_get_output_dir",
+    "pm_validate_scenario",
+    "pm_generate_sbom_for_lock",
 ]

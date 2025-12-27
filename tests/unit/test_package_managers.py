@@ -6,15 +6,20 @@ from pathlib import Path
 import pytest
 
 from bom_bench.models.scenario import Scenario, Root, Requirement, ResolverOptions
-from bom_bench.package_managers import (
-    get_package_manager,
+from bom_bench.models.result import LockResult, LockStatus
+from bom_bench.plugins import (
+    pm_get_output_dir,
+    pm_validate_scenario,
+    pm_generate_sbom_for_lock,
+    pm_generate_manifest,
     list_available_package_managers,
-    UVPackageManager,
+    check_pm_available,
+    reset_plugins,
 )
 
 
 class TestPackageManagerRegistry:
-    """Test package manager registry functions."""
+    """Test package manager registry functions via plugin API."""
 
     def test_list_available_package_managers(self):
         """Test listing available package managers."""
@@ -22,27 +27,18 @@ class TestPackageManagerRegistry:
         assert isinstance(pms, list)
         assert "uv" in pms
 
-    def test_get_package_manager_uv(self):
-        """Test getting UV package manager."""
-        pm = get_package_manager("uv")
-        assert pm is not None
-        assert isinstance(pm, UVPackageManager)
-        assert pm.name == "uv"
-        assert pm.ecosystem == "python"
+    def test_check_pm_available_uv(self):
+        """Test checking UV package manager availability."""
+        # UV should be available (it's in our dev dependencies)
+        assert check_pm_available("uv") is True
 
-    def test_get_package_manager_invalid(self):
-        """Test getting non-existent package manager."""
-        pm = get_package_manager("nonexistent")
-        assert pm is None
+    def test_check_pm_available_invalid(self):
+        """Test checking non-existent package manager."""
+        assert check_pm_available("nonexistent") is False
 
 
-class TestUVPackageManager:
-    """Test UV package manager implementation."""
-
-    @pytest.fixture
-    def uv_pm(self):
-        """Create UV package manager instance."""
-        return UVPackageManager()
+class TestUVPackageManagerPluginAPI:
+    """Test UV package manager via plugin API."""
 
     @pytest.fixture
     def simple_scenario(self):
@@ -81,27 +77,27 @@ class TestUVPackageManager:
             source="packse"
         )
 
-    def test_name_and_ecosystem(self, uv_pm):
-        """Test UV package manager metadata."""
-        assert uv_pm.name == "uv"
-        assert uv_pm.ecosystem == "python"
-
-    def test_validate_scenario_packse(self, uv_pm, simple_scenario):
+    def test_validate_scenario_packse(self, simple_scenario):
         """Test scenario validation for packse source."""
-        assert uv_pm.validate_scenario(simple_scenario) is True
+        assert pm_validate_scenario("uv", simple_scenario) is True
 
-    def test_validate_scenario_other_source(self, uv_pm, simple_scenario):
+    def test_validate_scenario_other_source(self, simple_scenario):
         """Test scenario validation for non-packse source."""
         simple_scenario.source = "other"
-        assert uv_pm.validate_scenario(simple_scenario) is False
+        assert pm_validate_scenario("uv", simple_scenario) is False
 
-    def test_generate_manifest_simple(self, uv_pm, simple_scenario):
+    def test_validate_scenario_invalid_pm(self, simple_scenario):
+        """Test scenario validation for non-existent PM."""
+        assert pm_validate_scenario("nonexistent", simple_scenario) is False
+
+    def test_generate_manifest_simple(self, simple_scenario):
         """Test generating simple pyproject.toml."""
         with tempfile.TemporaryDirectory() as tmpdir:
             output_dir = Path(tmpdir)
-            manifest_path = uv_pm.generate_manifest(simple_scenario, output_dir)
+            manifest_path = pm_generate_manifest("uv", simple_scenario, output_dir)
 
             # Check that file was created
+            assert manifest_path is not None
             assert manifest_path.exists()
             assert manifest_path.name == "pyproject.toml"
 
@@ -114,13 +110,14 @@ class TestUVPackageManager:
             assert "'package-b<2.0.0'" in content
             assert 'requires-python = ">=3.12"' in content
 
-    def test_generate_manifest_with_environments(self, uv_pm, scenario_with_environments):
+    def test_generate_manifest_with_environments(self, scenario_with_environments):
         """Test generating pyproject.toml with required environments."""
         with tempfile.TemporaryDirectory() as tmpdir:
             output_dir = Path(tmpdir)
-            manifest_path = uv_pm.generate_manifest(scenario_with_environments, output_dir)
+            manifest_path = pm_generate_manifest("uv", scenario_with_environments, output_dir)
 
             # Check content
+            assert manifest_path is not None
             content = manifest_path.read_text()
             assert '[project]' in content
             assert '[tool.uv]' in content
@@ -128,31 +125,108 @@ class TestUVPackageManager:
             assert "'python_version >= '3.8''" in content
             assert "'sys_platform == 'linux''" in content
 
-    def test_generate_manifest_creates_directory(self, uv_pm, simple_scenario):
+    def test_generate_manifest_creates_directory(self, simple_scenario):
         """Test that generate_manifest creates output directory if needed."""
         with tempfile.TemporaryDirectory() as tmpdir:
             output_dir = Path(tmpdir) / "nested" / "dir"
             assert not output_dir.exists()
 
-            manifest_path = uv_pm.generate_manifest(simple_scenario, output_dir)
+            manifest_path = pm_generate_manifest("uv", simple_scenario, output_dir)
 
+            assert manifest_path is not None
             assert output_dir.exists()
             assert manifest_path.exists()
 
-    def test_get_output_dir(self, uv_pm):
+    def test_get_output_dir(self):
         """Test output directory path generation."""
         base_dir = Path("/tmp/output")
         scenario_name = "test-scenario"
 
-        output_dir = uv_pm.get_output_dir(base_dir, scenario_name)
+        output_dir = pm_get_output_dir("uv", base_dir, scenario_name)
 
         assert output_dir == Path("/tmp/output/scenarios/uv/test-scenario")
 
-    def test_supports_source_packse(self, uv_pm):
-        """Test that UV supports packse data source."""
-        assert uv_pm.supports_source("packse") is True
+    def test_get_output_dir_invalid_pm(self):
+        """Test output directory for non-existent PM."""
+        output_dir = pm_get_output_dir("nonexistent", Path("/tmp"), "test")
+        assert output_dir is None
 
-    def test_supports_source_other(self, uv_pm):
-        """Test that UV doesn't support other data sources."""
-        assert uv_pm.supports_source("pnpm-tests") is False
-        assert uv_pm.supports_source("gradle-testkit") is False
+    def test_generate_sbom_for_lock_success(self, simple_scenario):
+        """Test SBOM generation for successful lock."""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            output_dir = Path(tmpdir)
+            assets_dir = output_dir / "assets"
+            assets_dir.mkdir(parents=True)
+
+            # Create a mock uv.lock file
+            lock_content = """
+version = 1
+requires-python = ">=3.12"
+
+[[package]]
+name = "package-a"
+version = "1.0.0"
+source = { registry = "https://test.pypi.org" }
+"""
+            (assets_dir / "uv.lock").write_text(lock_content)
+
+            lock_result = LockResult(
+                scenario_name="test-scenario",
+                package_manager="uv",
+                status=LockStatus.SUCCESS,
+                exit_code=0,
+                stdout="Resolved 1 package",
+                stderr="",
+                duration_seconds=0.5
+            )
+
+            sbom_path = pm_generate_sbom_for_lock("uv", simple_scenario, output_dir, lock_result)
+
+            # Should generate expected.cdx.json
+            assert sbom_path is not None
+            expected_sbom = output_dir / "expected.cdx.json"
+            assert expected_sbom.exists()
+
+            # Should also generate meta.json
+            meta_path = output_dir / "meta.json"
+            assert meta_path.exists()
+
+    def test_generate_sbom_for_lock_failure(self, simple_scenario):
+        """Test SBOM generation for failed lock."""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            output_dir = Path(tmpdir)
+
+            lock_result = LockResult(
+                scenario_name="test-scenario",
+                package_manager="uv",
+                status=LockStatus.FAILED,
+                exit_code=1,
+                stdout="",
+                stderr="Resolution failed",
+                duration_seconds=0.5
+            )
+
+            result_path = pm_generate_sbom_for_lock("uv", simple_scenario, output_dir, lock_result)
+
+            # Should generate meta.json but NOT expected.cdx.json
+            meta_path = output_dir / "meta.json"
+            assert meta_path.exists()
+
+            # Should NOT generate expected.cdx.json for failed lock
+            expected_sbom = output_dir / "expected.cdx.json"
+            assert not expected_sbom.exists()
+
+    def test_generate_sbom_for_lock_invalid_pm(self, simple_scenario):
+        """Test SBOM generation for non-existent PM."""
+        lock_result = LockResult(
+            scenario_name="test-scenario",
+            package_manager="nonexistent",
+            status=LockStatus.SUCCESS,
+            exit_code=0,
+            stdout="",
+            stderr="",
+            duration_seconds=0.5
+        )
+
+        result = pm_generate_sbom_for_lock("nonexistent", simple_scenario, Path("/tmp"), lock_result)
+        assert result is None

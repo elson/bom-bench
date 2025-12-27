@@ -296,7 +296,7 @@ class TestCLIProcessing:
             result = cli.process_scenario(scenario, "invalid-pm", output_base)
 
             assert result.status == ProcessingStatus.FAILED
-            assert "not found" in result.error_message.lower()
+            assert "not installed" in result.error_message.lower()
 
 
 class TestSBOMGeneration:
@@ -356,14 +356,13 @@ version = "2.0.0"
             lock_file = assets_dir / "uv.lock"
             lock_file.write_text(lock_content)
 
-            # Generate SBOM from the lock file
-            from bom_bench.package_managers import get_package_manager
-            pm = get_package_manager("uv")
+            # Generate SBOM from the lock file using plugin API
+            from bom_bench.plugins import pm_generate_sbom_for_lock
 
             # Create mock successful lock result
             lock_result = LockResult(
                 scenario_name=scenario.name,
-                package_manager=pm.name,
+                package_manager="uv",
                 status=LockStatus.SUCCESS,
                 exit_code=0,
                 stdout="Resolved 2 packages",
@@ -372,7 +371,7 @@ version = "2.0.0"
                 duration_seconds=0.1
             )
 
-            sbom_path = pm.generate_sbom_result_file(scenario, output_dir, lock_result)
+            sbom_path = pm_generate_sbom_for_lock("uv", scenario, output_dir, lock_result)
 
             assert sbom_path is not None
             assert sbom_path.exists()
@@ -425,13 +424,12 @@ version = "2.0.0"
             output_dir = Path(tmpdir) / "test-output"
             output_dir.mkdir()
 
-            # Create mock failed lock result (no lock file)
-            from bom_bench.package_managers import get_package_manager
-            pm = get_package_manager("uv")
+            # Create mock failed lock result (no lock file) using plugin API
+            from bom_bench.plugins import pm_generate_sbom_for_lock
 
             lock_result = LockResult(
                 scenario_name=scenario.name,
-                package_manager=pm.name,
+                package_manager="uv",
                 status=LockStatus.FAILED,
                 exit_code=1,
                 stdout="",
@@ -440,7 +438,7 @@ version = "2.0.0"
                 duration_seconds=0.1
             )
 
-            result_path = pm.generate_sbom_result_file(scenario, output_dir, lock_result)
+            result_path = pm_generate_sbom_for_lock("uv", scenario, output_dir, lock_result)
 
             # Should generate meta.json (not SBOM since lock failed)
             assert result_path is not None
@@ -504,14 +502,13 @@ version = "2.31.0"
             lock_file = assets_dir / "uv.lock"
             lock_file.write_text(lock_content)
 
-            # Generate SBOM
-            from bom_bench.package_managers import get_package_manager
-            pm = get_package_manager("uv")
+            # Generate SBOM using plugin API
+            from bom_bench.plugins import pm_generate_sbom_for_lock
 
             # Create mock successful lock result
             lock_result = LockResult(
                 scenario_name=scenario.name,
-                package_manager=pm.name,
+                package_manager="uv",
                 status=LockStatus.SUCCESS,
                 exit_code=0,
                 stdout="Resolved 1 package",
@@ -520,7 +517,7 @@ version = "2.31.0"
                 duration_seconds=0.1
             )
 
-            sbom_path = pm.generate_sbom_result_file(scenario, output_dir, lock_result)
+            sbom_path = pm_generate_sbom_for_lock("uv", scenario, output_dir, lock_result)
 
             assert sbom_path.exists()
 

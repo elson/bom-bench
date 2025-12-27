@@ -17,7 +17,15 @@ from bom_bench.data.loader import ScenarioLoader
 from bom_bench.logging_config import get_logger, setup_logging
 from bom_bench.models.scenario import ScenarioFilter, Scenario
 from bom_bench.models.result import ProcessingResult, ProcessingStatus, Summary
-from bom_bench.package_managers import get_package_manager, list_available_package_managers
+from bom_bench.plugins import (
+    list_available_package_managers,
+    check_pm_available,
+    pm_validate_scenario,
+    pm_get_output_dir,
+    pm_generate_manifest,
+    pm_run_lock,
+    pm_generate_sbom_for_lock,
+)
 
 logger = get_logger(__name__)
 
@@ -108,18 +116,17 @@ class BomBenchCLI:
         Returns:
             ProcessingResult with status and details
         """
-        pm = get_package_manager(package_manager_name)
-
-        if pm is None:
+        # Check if PM is available
+        if not check_pm_available(package_manager_name):
             return ProcessingResult(
                 scenario_name=scenario.name,
                 status=ProcessingStatus.FAILED,
                 package_manager=package_manager_name,
-                error_message=f"Package manager '{package_manager_name}' not found"
+                error_message=f"Package manager '{package_manager_name}' not installed"
             )
 
         # Validate scenario compatibility
-        if not pm.validate_scenario(scenario):
+        if not pm_validate_scenario(package_manager_name, scenario):
             return ProcessingResult(
                 scenario_name=scenario.name,
                 status=ProcessingStatus.SKIPPED,
@@ -128,13 +135,37 @@ class BomBenchCLI:
             )
 
         try:
-            # Get output directory (hierarchical: output/{pm}/{scenario}/)
-            output_dir = pm.get_output_dir(output_base, scenario.name)
+            # Get output directory (hierarchical: output/scenarios/{pm}/{scenario}/)
+            output_dir = pm_get_output_dir(package_manager_name, output_base, scenario.name)
+            if output_dir is None:
+                return ProcessingResult(
+                    scenario_name=scenario.name,
+                    status=ProcessingStatus.FAILED,
+                    package_manager=package_manager_name,
+                    error_message=f"Could not get output directory for {package_manager_name}"
+                )
 
             # Generate manifest
-            manifest_path = pm.generate_manifest(scenario, output_dir)
+            manifest_path = pm_generate_manifest(package_manager_name, scenario, output_dir)
+            if manifest_path is None:
+                return ProcessingResult(
+                    scenario_name=scenario.name,
+                    status=ProcessingStatus.FAILED,
+                    package_manager=package_manager_name,
+                    error_message=f"Failed to generate manifest for {package_manager_name}"
+                )
 
             logger.info(f"Generated: {manifest_path}")
+
+            # Run lock command
+            assets_dir = output_dir / "assets"
+            lock_result = pm_run_lock(package_manager_name, assets_dir, scenario.name)
+
+            # Generate SBOM from lock result
+            if lock_result:
+                pm_generate_sbom_for_lock(
+                    package_manager_name, scenario, output_dir, lock_result
+                )
 
             # Log SBOM generation if it exists
             sbom_path = output_dir / "expected.cdx.json"
@@ -227,12 +258,6 @@ class BomBenchCLI:
                     package_manager=pm_name,
                     data_source=loaded_scenarios[0].source if loaded_scenarios else None
                 )
-
-                # Get package manager instance
-                pm = get_package_manager(pm_name)
-                if pm is None:
-                    logger.error(f"Package manager '{pm_name}' not available")
-                    continue
 
                 # Process each scenario
                 for scenario in loaded_scenarios:
