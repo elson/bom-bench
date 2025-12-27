@@ -1,4 +1,4 @@
-"""Plugin system for bom-bench SCA tools.
+"""Plugin system for bom-bench.
 
 Uses Pluggy for plugin discovery and hook management.
 Follows the Datasette pattern for plugin architecture.
@@ -10,6 +10,10 @@ Usage:
         list_available_tools,
         check_tool_available,
         generate_sbom,
+        get_registered_package_managers,
+        pm_load_scenarios,
+        pm_generate_manifest,
+        pm_run_lock,
     )
 
     # Initialize plugins (called automatically on first use)
@@ -29,41 +33,49 @@ Usage:
         )
 """
 
+import importlib
 from pathlib import Path
 from typing import Dict, List, Optional
 
 import pluggy
 
 from bom_bench.logging_config import get_logger
-from bom_bench.plugins.hookspecs import SCAToolSpec
+from bom_bench.plugins.hookspecs import SCAToolSpec, PackageManagerSpec
 from bom_bench.models.sca import SCAToolInfo, SBOMResult
+from bom_bench.models.package_manager import PMInfo
 
 logger = get_logger(__name__)
+
+
+# Default plugins bundled with bom-bench
+# These are loaded automatically on initialization
+DEFAULT_PLUGINS = (
+    "bom_bench.package_managers.uv",
+    "bom_bench.sca_tools.cdxgen",
+    "bom_bench.sca_tools.syft",
+)
+
 
 # Create plugin manager with bom_bench namespace
 pm = pluggy.PluginManager("bom_bench")
 pm.add_hookspecs(SCAToolSpec)
+pm.add_hookspecs(PackageManagerSpec)
 
-# Track registered tools
+# Track registered tools and package managers
 _registered_tools: Dict[str, SCAToolInfo] = {}
+_registered_pms: Dict[str, PMInfo] = {}
 _initialized: bool = False
 
 
-def _load_bundled_plugins() -> None:
+def _load_default_plugins() -> None:
     """Load plugins bundled with bom-bench."""
-    try:
-        from bom_bench.plugins.bundled import cdxgen
-        pm.register(cdxgen, name="bom_bench.plugins.bundled.cdxgen")
-        logger.debug("Loaded bundled cdxgen plugin")
-    except ImportError as e:
-        logger.debug(f"Could not load bundled cdxgen plugin: {e}")
-
-    try:
-        from bom_bench.plugins.bundled import syft
-        pm.register(syft, name="bom_bench.plugins.bundled.syft")
-        logger.debug("Loaded bundled syft plugin")
-    except ImportError as e:
-        logger.debug(f"Could not load bundled syft plugin: {e}")
+    for plugin_path in DEFAULT_PLUGINS:
+        try:
+            module = importlib.import_module(plugin_path)
+            pm.register(module, name=plugin_path)
+            logger.debug(f"Loaded plugin: {plugin_path}")
+        except ImportError as e:
+            logger.debug(f"Could not load plugin {plugin_path}: {e}")
 
 
 def _load_external_plugins() -> None:
@@ -80,44 +92,56 @@ def initialize_plugins() -> None:
     """Initialize the plugin system.
 
     Loads bundled plugins first, then discovers external plugins
-    via entry points. Collects tool registrations from all plugins.
+    via entry points. Collects tool and PM registrations from all plugins.
 
     This function is idempotent - calling it multiple times has no effect
     after the first call.
     """
-    global _registered_tools, _initialized
+    global _registered_tools, _registered_pms, _initialized
 
     if _initialized:
         return
 
     _registered_tools = {}
+    _registered_pms = {}
 
-    # Load bundled plugins
-    _load_bundled_plugins()
+    # Load default plugins
+    _load_default_plugins()
 
     # Load external plugins via entry points
     _load_external_plugins()
 
-    # Collect tool registrations from all plugins
-    results = pm.hook.bom_bench_register_sca_tools()
-    for tool_list in results:
+    # Collect SCA tool registrations
+    tool_results = pm.hook.register_sca_tools()
+    for tool_list in tool_results:
         if tool_list:
             for tool_info in tool_list:
                 _registered_tools[tool_info.name] = tool_info
                 logger.debug(f"Registered SCA tool: {tool_info.name}")
 
+    # Collect package manager registrations
+    pm_results = pm.hook.register_package_managers()
+    for pm_list in pm_results:
+        if pm_list:
+            for pm_info in pm_list:
+                _registered_pms[pm_info.name] = pm_info
+                logger.debug(f"Registered package manager: {pm_info.name}")
+
     _initialized = True
-    logger.debug(f"Plugin system initialized with {len(_registered_tools)} tool(s)")
+    logger.debug(
+        f"Plugin system initialized with {len(_registered_tools)} tool(s) "
+        f"and {len(_registered_pms)} package manager(s)"
+    )
 
 
 def reset_plugins() -> None:
     """Reset the plugin system (mainly for testing).
 
-    Clears all registered tools, unregisters all plugins, and marks
+    Clears all registered tools and PMs, unregisters all plugins, and marks
     the system as uninitialized. The next call to get_registered_tools()
     or initialize_plugins() will re-initialize the system.
     """
-    global _registered_tools, _initialized
+    global _registered_tools, _registered_pms, _initialized
 
     # Unregister all plugins from the plugin manager
     for plugin in list(pm.get_plugins()):
@@ -127,7 +151,13 @@ def reset_plugins() -> None:
             pass
 
     _registered_tools = {}
+    _registered_pms = {}
     _initialized = False
+
+
+# =============================================================================
+# SCA Tool Functions
+# =============================================================================
 
 
 def get_registered_tools() -> Dict[str, SCAToolInfo]:
@@ -174,7 +204,7 @@ def check_tool_available(tool_name: str) -> bool:
     if tool_name not in get_registered_tools():
         return False
 
-    results = pm.hook.bom_bench_check_tool_available(tool_name=tool_name)
+    results = pm.hook.check_tool_available(tool_name=tool_name)
     for result in results:
         if result is not None:
             return result
@@ -204,7 +234,7 @@ def generate_sbom(
         logger.warning(f"Tool '{tool_name}' not registered")
         return None
 
-    results = pm.hook.bom_bench_generate_sbom(
+    results = pm.hook.generate_sbom(
         tool_name=tool_name,
         project_dir=project_dir,
         output_path=output_path,
@@ -218,6 +248,155 @@ def generate_sbom(
 
     logger.warning(f"No plugin handled SBOM generation for tool '{tool_name}'")
     return None
+
+
+# =============================================================================
+# Package Manager Functions
+# =============================================================================
+
+
+def get_registered_package_managers() -> Dict[str, PMInfo]:
+    """Get all registered package managers.
+
+    Returns:
+        Dictionary mapping PM name to PMInfo.
+    """
+    if not _initialized:
+        initialize_plugins()
+    return _registered_pms.copy()
+
+
+def list_available_package_managers() -> List[str]:
+    """Get list of available package manager names.
+
+    Returns:
+        List of registered PM names.
+    """
+    return list(get_registered_package_managers().keys())
+
+
+def get_pm_info(pm_name: str) -> Optional[PMInfo]:
+    """Get info for a specific package manager.
+
+    Args:
+        pm_name: Name of the package manager.
+
+    Returns:
+        PMInfo or None if PM not registered.
+    """
+    return get_registered_package_managers().get(pm_name)
+
+
+def check_pm_available(pm_name: str) -> bool:
+    """Check if a specific package manager is installed and available.
+
+    Args:
+        pm_name: Name of the PM to check.
+
+    Returns:
+        True if PM is available, False otherwise.
+    """
+    if pm_name not in get_registered_package_managers():
+        return False
+
+    results = pm.hook.check_pm_available(pm_name=pm_name)
+    for result in results:
+        if result is not None:
+            return result
+    return False
+
+
+def pm_load_scenarios(pm_name: str, data_dir: Path) -> List:
+    """Load scenarios for a package manager.
+
+    Args:
+        pm_name: Name of the package manager.
+        data_dir: Base data directory.
+
+    Returns:
+        List of scenarios.
+    """
+    if pm_name not in get_registered_package_managers():
+        logger.warning(f"Package manager '{pm_name}' not registered")
+        return []
+
+    results = pm.hook.load_scenarios(pm_name=pm_name, data_dir=data_dir)
+    for result in results:
+        if result is not None:
+            return result
+
+    logger.warning(f"No plugin handled scenario loading for PM '{pm_name}'")
+    return []
+
+
+def pm_generate_manifest(pm_name: str, scenario, output_dir: Path) -> Optional[Path]:
+    """Generate manifest for a scenario.
+
+    Args:
+        pm_name: Name of the package manager.
+        scenario: Scenario to generate manifest for.
+        output_dir: Output directory.
+
+    Returns:
+        Path to manifest file, or None if failed.
+    """
+    if pm_name not in get_registered_package_managers():
+        logger.warning(f"Package manager '{pm_name}' not registered")
+        return None
+
+    results = pm.hook.generate_manifest(
+        pm_name=pm_name,
+        scenario=scenario,
+        output_dir=output_dir
+    )
+
+    for result in results:
+        if result is not None:
+            return result
+
+    logger.warning(f"No plugin handled manifest generation for PM '{pm_name}'")
+    return None
+
+
+def pm_run_lock(
+    pm_name: str,
+    project_dir: Path,
+    scenario_name: str,
+    timeout: int = 120
+):
+    """Run lock command for a project.
+
+    Args:
+        pm_name: Name of the package manager.
+        project_dir: Directory containing manifest.
+        scenario_name: Name of scenario.
+        timeout: Timeout in seconds.
+
+    Returns:
+        LockResult, or None if failed.
+    """
+    if pm_name not in get_registered_package_managers():
+        logger.warning(f"Package manager '{pm_name}' not registered")
+        return None
+
+    results = pm.hook.run_lock(
+        pm_name=pm_name,
+        project_dir=project_dir,
+        scenario_name=scenario_name,
+        timeout=timeout
+    )
+
+    for result in results:
+        if result is not None:
+            return result
+
+    logger.warning(f"No plugin handled lock for PM '{pm_name}'")
+    return None
+
+
+# =============================================================================
+# Plugin Info Functions
+# =============================================================================
 
 
 def get_plugins() -> List[Dict]:
@@ -241,13 +420,24 @@ def get_plugins() -> List[Dict]:
 
 
 __all__ = [
+    # Plugin management
     "pm",
+    "DEFAULT_PLUGINS",
     "initialize_plugins",
     "reset_plugins",
+    "get_plugins",
+    # SCA tools
     "get_registered_tools",
     "list_available_tools",
     "get_tool_info",
     "check_tool_available",
     "generate_sbom",
-    "get_plugins",
+    # Package managers
+    "get_registered_package_managers",
+    "list_available_package_managers",
+    "get_pm_info",
+    "check_pm_available",
+    "pm_load_scenarios",
+    "pm_generate_manifest",
+    "pm_run_lock",
 ]

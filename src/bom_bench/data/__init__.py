@@ -3,21 +3,17 @@
 from pathlib import Path
 from typing import Dict, Type, List, Optional
 
-from bom_bench.data.base import DataSource
 from bom_bench.data.sources.packse import PackseDataSource
 from bom_bench.config import DATA_DIR
 
 
 # Data source registry
-DATA_SOURCES: Dict[str, Type[DataSource]] = {
+DATA_SOURCES: Dict[str, Type[PackseDataSource]] = {
     "packse": PackseDataSource,
-    # Future data sources will be registered here:
-    # "pnpm-tests": PnpmTestsDataSource,
-    # "gradle-testkit": GradleTestKitDataSource,
 }
 
 
-def get_data_source(name: str, data_dir: Optional[Path] = None) -> DataSource:
+def get_data_source(name: str, data_dir: Optional[Path] = None) -> PackseDataSource:
     """Get a data source instance by name.
 
     Args:
@@ -73,7 +69,6 @@ def get_sources_for_pm(package_manager: str) -> List[str]:
 
 
 __all__ = [
-    "DataSource",
     "PackseDataSource",
     "DATA_SOURCES",
     "get_data_source",

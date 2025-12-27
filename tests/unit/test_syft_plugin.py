@@ -5,11 +5,11 @@ import pytest
 from pathlib import Path
 from unittest.mock import MagicMock, patch, mock_open
 
-from bom_bench.plugins.bundled.syft import (
+from bom_bench.sca_tools.syft import (
     _get_syft_version,
-    bom_bench_register_sca_tools,
-    bom_bench_check_tool_available,
-    bom_bench_generate_sbom,
+    register_sca_tools,
+    check_tool_available,
+    generate_sbom,
 )
 from bom_bench.models.sca import SBOMGenerationStatus
 
@@ -76,7 +76,7 @@ class TestSyftToolRegistration:
 
     def test_syft_registers_correctly(self):
         """Test that Syft registers with correct info."""
-        tools = bom_bench_register_sca_tools()
+        tools = register_sca_tools()
 
         assert len(tools) == 1
         assert tools[0].name == "syft"
@@ -84,7 +84,7 @@ class TestSyftToolRegistration:
 
     def test_syft_supported_ecosystems(self):
         """Test Syft supported ecosystems."""
-        tools = bom_bench_register_sca_tools()
+        tools = register_sca_tools()
 
         ecosystems = tools[0].supported_ecosystems
         assert "python" in ecosystems
@@ -96,12 +96,12 @@ class TestSyftToolRegistration:
         assert "php" in ecosystems
         assert "dotnet" in ecosystems
 
-    @patch("bom_bench.plugins.bundled.syft._get_syft_version")
+    @patch("bom_bench.sca_tools.syft._get_syft_version")
     def test_syft_tool_info_has_version(self, mock_version):
         """Test that tool info includes version."""
         mock_version.return_value = "1.39.0"
 
-        tools = bom_bench_register_sca_tools()
+        tools = register_sca_tools()
 
         assert tools[0].version == "1.39.0"
 
@@ -114,7 +114,7 @@ class TestSyftAvailabilityCheck:
         """Test availability check when Syft is installed."""
         mock_which.return_value = "/usr/local/bin/syft"
 
-        result = bom_bench_check_tool_available("syft")
+        result = check_tool_available("syft")
 
         assert result is True
         mock_which.assert_called_once_with("syft")
@@ -124,19 +124,19 @@ class TestSyftAvailabilityCheck:
         """Test availability check when Syft is not installed."""
         mock_which.return_value = None
 
-        result = bom_bench_check_tool_available("syft")
+        result = check_tool_available("syft")
 
         assert result is False
 
     def test_other_tools_return_none(self):
         """Test that check returns None for other tools."""
-        result = bom_bench_check_tool_available("cdxgen")
+        result = check_tool_available("cdxgen")
 
         assert result is None
 
     def test_unknown_tool_returns_none(self):
         """Test that check returns None for unknown tools."""
-        result = bom_bench_check_tool_available("unknown-tool")
+        result = check_tool_available("unknown-tool")
 
         assert result is None
 
@@ -155,7 +155,7 @@ class TestSyftSBOMGeneration:
         mock_run.return_value = MagicMock(returncode=0, stderr="")
         mock_exists.return_value = True
 
-        result = bom_bench_generate_sbom(
+        result = generate_sbom(
             tool_name="syft",
             project_dir=project_dir,
             output_path=output_path,
@@ -182,7 +182,7 @@ class TestSyftSBOMGeneration:
 
         mock_run.side_effect = subprocess.TimeoutExpired("syft", 120)
 
-        result = bom_bench_generate_sbom(
+        result = generate_sbom(
             tool_name="syft",
             project_dir=tmp_path,
             output_path=tmp_path / "out.json",
@@ -198,7 +198,7 @@ class TestSyftSBOMGeneration:
         """Test when Syft is not found."""
         mock_run.side_effect = FileNotFoundError()
 
-        result = bom_bench_generate_sbom(
+        result = generate_sbom(
             tool_name="syft",
             project_dir=tmp_path,
             output_path=tmp_path / "out.json",
@@ -217,7 +217,7 @@ class TestSyftSBOMGeneration:
         mock_run.return_value = MagicMock(returncode=0, stderr="")
         mock_exists.return_value = True
 
-        result = bom_bench_generate_sbom(
+        result = generate_sbom(
             tool_name="syft",
             project_dir=tmp_path,
             output_path=tmp_path / "out.json",
@@ -236,7 +236,7 @@ class TestSyftSBOMGeneration:
             stderr="Error: could not determine source"
         )
 
-        result = bom_bench_generate_sbom(
+        result = generate_sbom(
             tool_name="syft",
             project_dir=tmp_path,
             output_path=tmp_path / "out.json",
@@ -249,7 +249,7 @@ class TestSyftSBOMGeneration:
 
     def test_generate_sbom_wrong_tool(self, tmp_path):
         """Test that plugin returns None for other tools."""
-        result = bom_bench_generate_sbom(
+        result = generate_sbom(
             tool_name="cdxgen",
             project_dir=tmp_path,
             output_path=tmp_path / "out.json",
@@ -269,7 +269,7 @@ class TestSyftSBOMGeneration:
         mock_run.return_value = MagicMock(returncode=0, stderr="")
         mock_exists.return_value = True
 
-        result = bom_bench_generate_sbom(
+        result = generate_sbom(
             tool_name="syft",
             project_dir=project_dir,
             output_path=output_path,
@@ -286,7 +286,7 @@ class TestSyftSBOMGeneration:
         mock_run.return_value = MagicMock(returncode=0, stderr="")
         mock_exists.return_value = False
 
-        result = bom_bench_generate_sbom(
+        result = generate_sbom(
             tool_name="syft",
             project_dir=tmp_path,
             output_path=tmp_path / "out.json",

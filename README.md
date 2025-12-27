@@ -6,18 +6,17 @@ Generate package manager manifests and lock files from test scenarios for benchm
 
 **bom-bench** is a modular Python package that generates dependency manifests and lock files for multiple package managers from normalized test scenarios. It's designed to create consistent test datasets for evaluating SCA tool accuracy across different package ecosystems.
 
-**Current Status**: Fully functional for UV package manager with packse scenarios. Architecture supports future expansion to pip, pnpm, Gradle, and custom data sources.
+**Current Status**: Fully functional for UV package manager with packse scenarios.
 
 ## Features
 
-- ✅ **Multi-Package Manager Architecture**: Plugin-based system ready for UV, pip, pnpm, Gradle
-- ✅ **Data Source Abstraction**: Supports packse scenarios (Python), extensible to pnpm-tests, gradle-testkit
-- ✅ **Hierarchical Output**: Organized by package manager: `output/{pm}/{scenario}/`
-- ✅ **Automatic Lock File Generation**: Dependency resolution and locking enabled by default
-- ✅ **SBOM Generation from Lock Files**: CycloneDX 1.6 SBOMs generated from resolved dependencies
-- ✅ **Comprehensive CLI**: Multiple entry points, rich filtering options
-- ✅ **Plugin-Based SCA Benchmarking**: Run SCA tools via Pluggy plugins, compare results
-- ✅ **Fully Tested**: 230+ unit and integration tests
+- **Plugin-Based Architecture**: Extensible via Pluggy plugins for package managers and SCA tools
+- **Hierarchical Output**: Organized by package manager: `output/{pm}/{scenario}/`
+- **Automatic Lock File Generation**: Dependency resolution and locking enabled by default
+- **SBOM Generation from Lock Files**: CycloneDX 1.6 SBOMs generated from resolved dependencies
+- **Comprehensive CLI**: Multiple entry points, rich filtering options
+- **SCA Tool Benchmarking**: Run SCA tools via plugins, compare results with precision/recall metrics
+- **Fully Tested**: 230+ unit and integration tests
 
 ## Quick Start
 
@@ -74,25 +73,6 @@ The benchmark command will:
 - Calculate precision, recall, and F1 scores
 - Save results in JSON and CSV formats
 
-### Advanced Usage
-
-```bash
-# Generate for multiple package managers (when implemented)
-bom-bench --package-managers uv,pip
-
-# Generate for all available package managers
-bom-bench --package-managers all
-
-# Custom output directory
-bom-bench --output-dir /path/to/output
-
-# Include non-universal scenarios
-bom-bench --no-universal-filter
-
-# Module entry point
-python -m bom_bench
-```
-
 ## Architecture
 
 ### Directory Structure
@@ -104,47 +84,40 @@ bom-bench/
 │   ├── config.py           # Configuration constants
 │   │
 │   ├── data/               # Data source abstraction
-│   │   ├── base.py         # DataSource ABC
 │   │   ├── loader.py       # Scenario loading logic
 │   │   └── sources/
-│   │       ├── packse.py   # Packse implementation ✅
-│   │       ├── pnpm_tests.py      # pnpm tests (stub)
-│   │       └── gradle_testkit.py  # Gradle tests (stub)
+│   │       └── packse.py   # Packse implementation
 │   │
 │   ├── package_managers/   # Package manager plugins
-│   │   ├── base.py         # PackageManager ABC
-│   │   ├── uv.py           # UV implementation ✅
-│   │   ├── pip.py          # Pip (stub)
-│   │   ├── pnpm.py         # pnpm (stub)
-│   │   └── gradle.py       # Gradle (stub)
+│   │   └── uv.py           # UV implementation (plugin)
+│   │
+│   ├── sca_tools/          # SCA tool plugins
+│   │   ├── cdxgen.py       # cdxgen plugin
+│   │   └── syft.py         # Syft plugin
+│   │
+│   ├── plugins/            # Pluggy-based plugin system
+│   │   ├── __init__.py     # Plugin manager + DEFAULT_PLUGINS
+│   │   └── hookspecs.py    # Hook specifications
 │   │
 │   ├── generators/         # Manifest generators
-│   │   ├── uv/             # UV generators ✅
-│   │   ├── sbom/           # SBOM generators ✅
-│   │   ├── pnpm/           # pnpm generators (stub)
-│   │   └── gradle/         # Gradle generators (stub)
+│   │   ├── uv/             # UV generators
+│   │   └── sbom/           # SBOM generators
 │   │
 │   ├── parsers/            # Lock file parsers
-│   │   └── uv_lock.py      # UV lock parser ✅
+│   │   └── uv_lock.py      # UV lock parser
 │   │
 │   ├── models/             # Data models
 │   │   ├── scenario.py     # Scenario dataclasses
 │   │   ├── result.py       # Result models
-│   │   └── sca.py          # SCA tool models ✅
+│   │   ├── package_manager.py  # PM models
+│   │   └── sca.py          # SCA tool models
 │   │
-│   ├── plugins/            # Pluggy-based plugin system ✅
-│   │   ├── __init__.py     # Plugin manager
-│   │   ├── hookspecs.py    # Hook specifications
-│   │   └── bundled/        # Bundled plugins
-│   │       ├── cdxgen.py   # cdxgen plugin ✅
-│   │       └── syft.py     # Syft plugin ✅
-│   │
-│   └── benchmarking/       # SCA tool benchmarking ✅
+│   └── benchmarking/       # SCA tool benchmarking
 │       ├── runner.py       # Benchmark orchestration
 │       ├── comparison.py   # SBOM comparison logic
 │       └── storage.py      # Result persistence
 │
-├── tests/                  # Test suite (170+ tests)
+├── tests/                  # Test suite (230+ tests)
 │   ├── unit/              # Unit tests
 │   └── integration/       # Integration tests
 │
@@ -158,29 +131,17 @@ bom-bench/
         └── {tool}/{pm}/   # Per-tool, per-PM results
 ```
 
-### Key Components
+### Plugin System
 
-#### 1. Data Sources
-**Purpose**: Fetch and normalize test scenarios from various sources.
+bom-bench uses [Pluggy](https://pluggy.readthedocs.io/) for extensibility. Plugins are organized in `DEFAULT_PLUGINS`:
 
-- **Packse** (✅ Implemented): Python packaging scenarios
-- **pnpm-tests** (Stub): pnpm test fixtures
-- **gradle-testkit** (Stub): Gradle dependency tests
-
-#### 2. Package Managers
-**Purpose**: Generate manifests and lock files for different package ecosystems.
-
-- **UV** (✅ Implemented): Fast Python package manager
-- **Pip** (Stub): Traditional Python package manager
-- **pnpm** (Stub): Fast Node.js package manager
-- **Gradle** (Stub): Java/Kotlin build tool
-
-#### 3. CLI
-**Purpose**: Orchestrate scenario loading, manifest generation, and locking.
-
-Two entry points:
-- `bom-bench` - Installed command
-- `python -m bom_bench` - Module entry
+```python
+DEFAULT_PLUGINS = (
+    "bom_bench.package_managers.uv",
+    "bom_bench.sca_tools.cdxgen",
+    "bom_bench.sca_tools.syft",
+)
+```
 
 ## Output Structure
 
@@ -197,8 +158,6 @@ output/
     └── local-simple/
         └── ...
 ```
-
-**SBOM Generation**: After successful dependency resolution, bom-bench automatically generates a CycloneDX 1.6 SBOM (`expected.cdx.json`) from the lock file. This SBOM contains all resolved packages and serves as a reference for benchmarking SCA tool accuracy.
 
 ### Benchmark Output
 
@@ -224,49 +183,13 @@ output/
 
 ## Extension Guide
 
-### Adding a New Package Manager
-
-1. **Create implementation file**: `src/bom_bench/package_managers/{pm_name}.py`
-2. **Inherit from `PackageManager` ABC**
-3. **Implement required methods**:
-   - `generate_manifest()` - Generate manifest file
-   - `run_lock()` - Execute lock command
-   - `validate_scenario()` - Check compatibility
-4. **Create generator** (if needed): `src/bom_bench/generators/{pm_name}/`
-5. **Register in `__init__.py`**: Add to `PACKAGE_MANAGERS` dict
-6. **Add tests**: `tests/unit/test_package_managers.py`
-
-See `src/bom_bench/package_managers/pip.py` (stub) for detailed implementation guide.
-
-### Adding a New Data Source
-
-1. **Create implementation file**: `src/bom_bench/data/sources/{source_name}.py`
-2. **Inherit from `DataSource` ABC**
-3. **Implement required methods**:
-   - `fetch()` - Download/clone source data
-   - `load_scenarios()` - Parse and normalize scenarios
-   - `needs_fetch()` - Check if fetch needed
-4. **Set `supported_pms`**: Declare compatible package managers
-5. **Register in `__init__.py`**: Add to `DATA_SOURCES` dict
-6. **Update config**: Add to `DATA_SOURCE_PM_MAPPING`
-7. **Add tests**: `tests/unit/test_data_sources.py`
-
-See `src/bom_bench/data/sources/pnpm_tests.py` (stub) for detailed implementation guide.
-
 ### Adding a New SCA Tool Plugin
 
-bom-bench uses [Pluggy](https://pluggy.readthedocs.io/) for SCA tool plugins. Plugins can be:
-- **Bundled**: Shipped with bom-bench (e.g., cdxgen)
-- **External**: Installed via pip (e.g., `pip install bom-bench-syft`)
-
-#### Creating an External Plugin
-
-1. **Create a new Python package** (e.g., `bom-bench-syft`)
+1. **Create plugin file**: `src/bom_bench/sca_tools/{tool_name}.py`
 
 2. **Implement the hooks**:
 
 ```python
-# bom_bench_syft/plugin.py
 import pluggy
 from pathlib import Path
 from typing import List, Optional
@@ -274,66 +197,76 @@ from typing import List, Optional
 hookimpl = pluggy.HookimplMarker("bom_bench")
 
 @hookimpl
-def bom_bench_register_sca_tools():
+def register_sca_tools():
     """Register your SCA tool."""
     from bom_bench.models.sca import SCAToolInfo
     return [
         SCAToolInfo(
-            name="syft",
-            description="Anchore Syft SBOM generator",
-            supported_ecosystems=["python", "javascript", "go"],
-            homepage="https://github.com/anchore/syft"
+            name="my-tool",
+            description="My SBOM generator",
+            supported_ecosystems=["python", "javascript"],
+            homepage="https://github.com/example/my-tool"
         )
     ]
 
 @hookimpl
-def bom_bench_check_tool_available(tool_name: str) -> Optional[bool]:
+def check_tool_available(tool_name: str) -> Optional[bool]:
     """Check if your tool is installed."""
-    if tool_name != "syft":
+    if tool_name != "my-tool":
         return None
     import shutil
-    return shutil.which("syft") is not None
+    return shutil.which("my-tool") is not None
 
 @hookimpl
-def bom_bench_generate_sbom(tool_name, project_dir, output_path, ecosystem, timeout=120):
+def generate_sbom(tool_name, project_dir, output_path, ecosystem, timeout=120):
     """Generate SBOM using your tool."""
-    if tool_name != "syft":
+    if tool_name != "my-tool":
         return None
-
-    from bom_bench.models.sca import SBOMResult, SBOMGenerationStatus
-    import subprocess
-    import time
-
-    start = time.time()
-    try:
-        result = subprocess.run(
-            ["syft", str(project_dir), "-o", "cyclonedx-json", "--file", str(output_path)],
-            capture_output=True, text=True, timeout=timeout
-        )
-        duration = time.time() - start
-
-        if result.returncode == 0:
-            return SBOMResult.success("syft", output_path, duration)
-        return SBOMResult.failed("syft", result.stderr, duration_seconds=duration)
-    except subprocess.TimeoutExpired:
-        return SBOMResult.failed("syft", f"Timeout after {timeout}s",
-                                  status=SBOMGenerationStatus.TIMEOUT)
+    # Run tool and return SBOMResult
 ```
 
-3. **Register via entry point** in `pyproject.toml`:
+3. **Add to DEFAULT_PLUGINS** in `plugins/__init__.py`
 
-```toml
-[project.entry-points."bom_bench"]
-syft = "bom_bench_syft.plugin"
+### Adding a New Package Manager Plugin
+
+1. **Create plugin file**: `src/bom_bench/package_managers/{pm_name}.py`
+
+2. **Implement the hooks**:
+
+```python
+import pluggy
+hookimpl = pluggy.HookimplMarker("bom_bench")
+
+@hookimpl
+def register_package_managers():
+    from bom_bench.models.package_manager import PMInfo
+    return [PMInfo(
+        name="my-pm",
+        ecosystem="python",
+        description="My package manager",
+        data_source="my-data-source"
+    )]
+
+@hookimpl
+def load_scenarios(pm_name, data_dir):
+    if pm_name != "my-pm":
+        return None
+    # Load and return scenarios
+
+@hookimpl
+def generate_manifest(pm_name, scenario, output_dir):
+    if pm_name != "my-pm":
+        return None
+    # Generate manifest and return path
+
+@hookimpl
+def run_lock(pm_name, project_dir, scenario_name, timeout=120):
+    if pm_name != "my-pm":
+        return None
+    # Run lock command and return LockResult
 ```
 
-4. **Install and use**:
-
-```bash
-pip install bom-bench-syft
-bom-bench list-tools --check  # Should show syft
-bom-bench benchmark --tools syft
-```
+3. **Add to DEFAULT_PLUGINS** in `plugins/__init__.py`
 
 ## Development
 
@@ -365,36 +298,25 @@ ruff format src/bom_bench/
 
 ## Requirements
 
-- Python ≥3.12
+- Python >= 3.12
 - UV or pip package manager
-- packse ≥0.3.54
+- packse >= 0.3.54
 
 ### For Lock File Generation
-- Running packse server at `http://127.0.0.1:3141` (for UV/pip)
-- Or appropriate registry/repository for other package managers
+- Running packse server at `http://127.0.0.1:3141` (for UV)
 
 ## Project Status
 
 | Component | Status | Notes |
 |-----------|--------|-------|
-| UV Package Manager | ✅ Complete | Fully functional |
-| Packse Data Source | ✅ Complete | Fully functional |
-| CLI | ✅ Complete | setup, benchmark, list-tools |
-| Plugin System | ✅ Complete | Pluggy-based SCA tool plugins |
-| cdxgen Plugin | ✅ Complete | Bundled, fully functional |
-| Syft Plugin | ✅ Complete | Bundled, fully functional |
-| SBOM Comparison | ✅ Complete | PURL-based metrics |
-| Tests | ✅ Complete | 230+ tests, 100% pass |
-| Pip Support | 📝 Stub | Implementation guide provided |
-| pnpm Support | 📝 Stub | Implementation guide provided |
-| Gradle Support | 📝 Stub | Implementation guide provided |
-
-## Documentation
-
-- **README.md** (this file) - Overview and quick start
-- **VALIDATION.md** - Refactoring validation report
-- **AGENTS.md** - Module descriptions and architecture
-- **CONTRIBUTING.md** - Extension and development guide
+| UV Package Manager | Complete | Fully functional plugin |
+| Packse Data Source | Complete | Integrated into UV plugin |
+| CLI | Complete | setup, benchmark, list-tools |
+| Plugin System | Complete | Pluggy-based with DEFAULT_PLUGINS |
+| cdxgen Plugin | Complete | Bundled SCA tool |
+| Syft Plugin | Complete | Bundled SCA tool |
+| SBOM Comparison | Complete | PURL-based metrics |
+| Tests | Complete | 230+ tests |
 
 ## License
 
@@ -402,8 +324,4 @@ ruff format src/bom_bench/
 
 ## Contributing
 
-See [CONTRIBUTING.md](CONTRIBUTING.md) for detailed guidelines on:
-- Adding new package managers
-- Adding new data sources
-- Implementing SCA tool integrations
-- Running tests and code quality checks
+See [CONTRIBUTING.md](CONTRIBUTING.md) for detailed guidelines.

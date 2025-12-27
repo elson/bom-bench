@@ -1,7 +1,29 @@
 """Package manager metadata models."""
 
 from dataclasses import dataclass
-from typing import List
+from typing import List, Optional
+
+
+@dataclass
+class PMInfo:
+    """Information about a package manager plugin.
+
+    Used for plugin registration. Each PM plugin returns this
+    to describe itself to the plugin system.
+
+    Attributes:
+        name: Package manager name (e.g., 'uv', 'pip')
+        ecosystem: Package ecosystem (e.g., 'python', 'javascript')
+        description: Human-readable description
+        data_source: Name of the data source this PM uses (1-to-1 mapping)
+        version: Optional version of the package manager
+    """
+
+    name: str
+    ecosystem: str
+    description: str
+    data_source: str
+    version: Optional[str] = None
 
 
 @dataclass

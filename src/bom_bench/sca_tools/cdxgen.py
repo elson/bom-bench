@@ -1,4 +1,4 @@
-"""Bundled cdxgen plugin for bom-bench.
+"""cdxgen SCA tool plugin for bom-bench.
 
 cdxgen (CycloneDX Generator) is a tool for generating CycloneDX SBOMs
 from various package managers and ecosystems.
@@ -35,7 +35,7 @@ def _get_cdxgen_version() -> Optional[str]:
 
     Extracts the version number from the first line of cdxgen --version output.
     Removes ANSI escape codes (bold formatting, etc).
-    Example: "CycloneDX Generator 11.11.0" → "11.11.0"
+    Example: "CycloneDX Generator 11.11.0" -> "11.11.0"
     """
     try:
         result = subprocess.run(
@@ -50,7 +50,7 @@ def _get_cdxgen_version() -> Optional[str]:
             # Remove ANSI escape codes (e.g., \033[1m for bold)
             first_line = re.sub(r'\033\[[0-9;]*m', '', first_line)
             # Extract version number (last space-separated token)
-            # "CycloneDX Generator 11.11.0" → "11.11.0"
+            # "CycloneDX Generator 11.11.0" -> "11.11.0"
             parts = first_line.split()
             if parts:
                 return parts[-1]
@@ -60,7 +60,7 @@ def _get_cdxgen_version() -> Optional[str]:
 
 
 @hookimpl
-def bom_bench_register_sca_tools() -> List[SCAToolInfo]:
+def register_sca_tools() -> List[SCAToolInfo]:
     """Register cdxgen as an available SCA tool."""
     return [
         SCAToolInfo(
@@ -74,7 +74,7 @@ def bom_bench_register_sca_tools() -> List[SCAToolInfo]:
 
 
 @hookimpl
-def bom_bench_check_tool_available(tool_name: str) -> Optional[bool]:
+def check_tool_available(tool_name: str) -> Optional[bool]:
     """Check if cdxgen is installed."""
     if tool_name != "cdxgen":
         return None
@@ -82,7 +82,7 @@ def bom_bench_check_tool_available(tool_name: str) -> Optional[bool]:
 
 
 @hookimpl
-def bom_bench_generate_sbom(
+def generate_sbom(
     tool_name: str,
     project_dir: Path,
     output_path: Path,

@@ -1,22 +1,26 @@
-"""Package manager implementations and registry."""
+"""Package manager implementations and registry.
 
-from typing import Dict, Type, Optional
+This module provides backward compatibility during the migration
+to the plugin-based architecture. New code should use the plugin
+functions from bom_bench.plugins instead.
+"""
 
-from bom_bench.package_managers.base import PackageManager
+from typing import Optional
+
 from bom_bench.package_managers.uv import UVPackageManager
 
 
-# Package manager registry
-PACKAGE_MANAGERS: Dict[str, Type[PackageManager]] = {
+# Package manager registry (for backward compatibility)
+PACKAGE_MANAGERS = {
     "uv": UVPackageManager,
 }
 
 
-def get_package_manager(name: str) -> Optional[PackageManager]:
+def get_package_manager(name: str) -> Optional[UVPackageManager]:
     """Get a package manager instance by name.
 
     Args:
-        name: Package manager name (e.g., 'uv', 'pip')
+        name: Package manager name (e.g., 'uv')
 
     Returns:
         Package manager instance, or None if not found
@@ -37,7 +41,6 @@ def list_available_package_managers() -> list[str]:
 
 
 __all__ = [
-    "PackageManager",
     "UVPackageManager",
     "PACKAGE_MANAGERS",
     "get_package_manager",
