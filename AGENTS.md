@@ -35,7 +35,8 @@ uv run python -m bom_bench --lock
 ```
 
 # Testing
-- Test your work by running `bom-bench` (or `python -m bom_bench`) and checking the output
+- Use test driven development (TDD). Write the test first. Watch it fail. Write minimal code to pass.
+- Test your work by running `uv run bom-bench` and checking the output
 - Run the test suite: `uv run pytest tests/ -v`
 - To test lock file generation, ensure packse server is running at http://127.0.0.1:3141 first.
 
