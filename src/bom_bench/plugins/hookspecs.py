@@ -1,8 +1,8 @@
-"""Hook specifications for SCA tool plugins.
+"""Hook specifications for bom-bench plugins.
 
 This module defines the hooks that plugins can implement to integrate
-SCA tools with bom-bench. Plugins use the @hookimpl decorator to
-implement these hooks.
+SCA tools and package managers with bom-bench. Plugins use the @hookimpl
+decorator to implement these hooks.
 
 Example plugin implementation:
 
@@ -12,7 +12,7 @@ Example plugin implementation:
     hookimpl = pluggy.HookimplMarker("bom_bench")
 
     @hookimpl
-    def bom_bench_register_sca_tools():
+    def register_sca_tools():
         return [
             SCAToolInfo(
                 name="my-tool",
@@ -29,6 +29,9 @@ import pluggy
 
 if TYPE_CHECKING:
     from bom_bench.models.sca import SCAToolInfo, SBOMResult
+    from bom_bench.models.package_manager import PMInfo
+    from bom_bench.models.scenario import Scenario
+    from bom_bench.models.result import LockResult
 
 hookspec = pluggy.HookspecMarker("bom_bench")
 
@@ -42,7 +45,7 @@ class SCAToolSpec:
     """
 
     @hookspec
-    def bom_bench_register_sca_tools(self) -> List["SCAToolInfo"]:
+    def register_sca_tools(self) -> List["SCAToolInfo"]:
         """Register SCA tools provided by this plugin.
 
         Called during plugin discovery to collect all available SCA tools.
@@ -53,7 +56,7 @@ class SCAToolSpec:
 
         Example implementation:
             @hookimpl
-            def bom_bench_register_sca_tools():
+            def register_sca_tools():
                 return [
                     SCAToolInfo(
                         name="cdxgen",
@@ -65,7 +68,7 @@ class SCAToolSpec:
         """
 
     @hookspec
-    def bom_bench_check_tool_available(self, tool_name: str) -> Optional[bool]:
+    def check_tool_available(self, tool_name: str) -> Optional[bool]:
         """Check if a specific tool is available/installed.
 
         Args:
@@ -78,14 +81,14 @@ class SCAToolSpec:
 
         Example implementation:
             @hookimpl
-            def bom_bench_check_tool_available(tool_name):
+            def check_tool_available(tool_name):
                 if tool_name != "cdxgen":
                     return None
                 return shutil.which("cdxgen") is not None
         """
 
     @hookspec
-    def bom_bench_generate_sbom(
+    def generate_sbom(
         self,
         tool_name: str,
         project_dir: Path,
@@ -111,9 +114,128 @@ class SCAToolSpec:
 
         Example implementation:
             @hookimpl
-            def bom_bench_generate_sbom(tool_name, project_dir, output_path, timeout):
+            def generate_sbom(tool_name, project_dir, output_path, timeout):
                 if tool_name != "cdxgen":
                     return None
                 # Run cdxgen subprocess
                 # Return SBOMResult.success() or SBOMResult.failed()
+        """
+
+
+class PackageManagerSpec:
+    """Hook specifications for package manager plugins.
+
+    Plugins implement these hooks to integrate package managers with bom-bench.
+    Each PM plugin is responsible for loading its scenarios, generating manifests,
+    and running lock commands.
+    """
+
+    @hookspec
+    def register_package_managers(self) -> List["PMInfo"]:
+        """Register package managers provided by this plugin.
+
+        Called during plugin discovery to collect all available package managers.
+
+        Returns:
+            List of PMInfo describing each package manager this plugin provides.
+
+        Example implementation:
+            @hookimpl
+            def register_package_managers():
+                return [
+                    PMInfo(
+                        name="uv",
+                        ecosystem="python",
+                        description="UV Python package manager",
+                        data_source="packse"
+                    )
+                ]
+        """
+
+    @hookspec
+    def load_scenarios(
+        self,
+        pm_name: str,
+        data_dir: Path
+    ) -> Optional[List["Scenario"]]:
+        """Load scenarios for a package manager.
+
+        Args:
+            pm_name: Package manager name (e.g., "uv")
+            data_dir: Base data directory
+
+        Returns:
+            List of scenarios, or None if not handled by this plugin.
+
+        Example implementation:
+            @hookimpl
+            def load_scenarios(pm_name, data_dir):
+                if pm_name != "uv":
+                    return None
+                # Load and return packse scenarios
+        """
+
+    @hookspec
+    def generate_manifest(
+        self,
+        pm_name: str,
+        scenario: "Scenario",
+        output_dir: Path
+    ) -> Optional[Path]:
+        """Generate manifest file for a scenario.
+
+        Args:
+            pm_name: Package manager name
+            scenario: Scenario to generate manifest for
+            output_dir: Output directory
+
+        Returns:
+            Path to manifest file, or None if not handled.
+
+        Example implementation:
+            @hookimpl
+            def generate_manifest(pm_name, scenario, output_dir):
+                if pm_name != "uv":
+                    return None
+                # Generate pyproject.toml and return path
+        """
+
+    @hookspec
+    def run_lock(
+        self,
+        pm_name: str,
+        project_dir: Path,
+        scenario_name: str,
+        timeout: int = 120
+    ) -> Optional["LockResult"]:
+        """Run lock command for a project.
+
+        Args:
+            pm_name: Package manager name
+            project_dir: Directory containing manifest
+            scenario_name: Name of scenario
+            timeout: Timeout in seconds
+
+        Returns:
+            LockResult, or None if not handled.
+
+        Example implementation:
+            @hookimpl
+            def run_lock(pm_name, project_dir, scenario_name, timeout):
+                if pm_name != "uv":
+                    return None
+                # Run uv lock and return LockResult
+        """
+
+    @hookspec
+    def check_pm_available(self, pm_name: str) -> Optional[bool]:
+        """Check if a specific package manager is available/installed.
+
+        Args:
+            pm_name: Name of the package manager to check (e.g., "uv")
+
+        Returns:
+            True if PM is available and ready to use.
+            False if PM is not available.
+            None if this plugin doesn't handle this PM.
         """

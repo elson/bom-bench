@@ -14,8 +14,6 @@ BENCHMARKS_DIR = OUTPUT_DIR / "benchmarks"
 
 # Default data source directories
 DEFAULT_PACKSE_DIR = DATA_DIR / "packse"
-DEFAULT_PNPM_TESTS_DIR = DATA_DIR / "pnpm-tests"
-DEFAULT_GRADLE_TESTKIT_DIR = DATA_DIR / "gradle-testkit"
 
 # Packse configuration
 PACKSE_INDEX_URL = "http://127.0.0.1:3141/simple-html"
@@ -40,13 +38,6 @@ UNIVERSAL_SCENARIOS_ONLY = True
 EXCLUDE_NAME_PATTERNS = ["example"]
 """Exclude scenarios whose names contain these patterns"""
 
-# Data source to package manager mappings
-DATA_SOURCE_PM_MAPPING = {
-    "packse": ["uv", "pip"],
-    "pnpm-tests": ["pnpm"],
-    "gradle-testkit": ["gradle"],
-}
-"""Mapping of data sources to supported package managers"""
 
 # Project metadata
 PROJECT_NAME = "project"

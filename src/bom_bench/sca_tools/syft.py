@@ -1,4 +1,4 @@
-"""Bundled Syft plugin for bom-bench.
+"""Syft SCA tool plugin for bom-bench.
 
 Syft is an SBOM generation tool by Anchore that creates bill of materials
 from container images and filesystems.
@@ -22,7 +22,6 @@ See: https://github.com/anchore/syft
 """
 
 import json
-import re
 import shutil
 import subprocess
 import time
@@ -68,7 +67,7 @@ def _get_syft_version() -> Optional[str]:
 
 
 @hookimpl
-def bom_bench_register_sca_tools() -> List[SCAToolInfo]:
+def register_sca_tools() -> List[SCAToolInfo]:
     """Register Syft as an available SCA tool."""
     return [
         SCAToolInfo(
@@ -91,7 +90,7 @@ def bom_bench_register_sca_tools() -> List[SCAToolInfo]:
 
 
 @hookimpl
-def bom_bench_check_tool_available(tool_name: str) -> Optional[bool]:
+def check_tool_available(tool_name: str) -> Optional[bool]:
     """Check if Syft is installed."""
     if tool_name != "syft":
         return None
@@ -99,7 +98,7 @@ def bom_bench_check_tool_available(tool_name: str) -> Optional[bool]:
 
 
 @hookimpl
-def bom_bench_generate_sbom(
+def generate_sbom(
     tool_name: str,
     project_dir: Path,
     output_path: Path,

@@ -1,20 +1,18 @@
 """Packse data source implementation."""
 
-import sys
 from pathlib import Path
 from typing import List
 
 import packse.fetch
 import packse.inspect
 
-from bom_bench.data.base import DataSource
 from bom_bench.logging_config import get_logger
 from bom_bench.models.scenario import Scenario
 
 logger = get_logger(__name__)
 
 
-class PackseDataSource(DataSource):
+class PackseDataSource:
     """Data source for packse Python packaging scenarios.
 
     Packse provides test scenarios for Python dependency resolution,
@@ -30,7 +28,7 @@ class PackseDataSource(DataSource):
         Args:
             data_dir: Directory where packse scenarios will be stored
         """
-        super().__init__(data_dir)
+        self.data_dir = data_dir
 
     def fetch(self) -> None:
         """Fetch packse scenarios from repository.
@@ -46,7 +44,7 @@ class PackseDataSource(DataSource):
         logger.info(f"Fetching packse scenarios to {self.data_dir}...")
         try:
             packse.fetch.fetch(dest=self.data_dir)
-            logger.info("Successfully fetched packse scenarios ✓")
+            logger.info("Successfully fetched packse scenarios")
         except Exception as e:
             logger.error(f"Failed to fetch packse scenarios: {e}")
             raise
