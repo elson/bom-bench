@@ -186,8 +186,11 @@ class PurlMetrics:
         fp = len(actual_purls - expected_purls)
         fn = len(expected_purls - actual_purls)
 
-        precision = tp / (tp + fp) if (tp + fp) > 0 else 0.0
-        recall = tp / (tp + fn) if (tp + fn) > 0 else 0.0
+        # When denominator is 0, use 1.0 (no errors possible)
+        # - precision: if nothing detected, no false positives → 1.0
+        # - recall: if nothing expected, nothing to miss → 1.0
+        precision = tp / (tp + fp) if (tp + fp) > 0 else 1.0
+        recall = tp / (tp + fn) if (tp + fn) > 0 else 1.0
         f1_score = (
             2 * (precision * recall) / (precision + recall)
             if (precision + recall) > 0

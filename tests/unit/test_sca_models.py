@@ -145,8 +145,8 @@ class TestPurlMetrics:
         assert metrics.true_positives == 0
         assert metrics.false_positives == 1
         assert metrics.false_negatives == 0
-        assert metrics.precision == 0.0
-        assert metrics.recall == 0.0  # Division by zero case
+        assert metrics.precision == 0.0  # All false positives
+        assert metrics.recall == 1.0  # Nothing to miss
 
     def test_empty_actual(self):
         """Test metrics with empty actual set."""
@@ -158,11 +158,11 @@ class TestPurlMetrics:
         assert metrics.true_positives == 0
         assert metrics.false_positives == 0
         assert metrics.false_negatives == 1
-        assert metrics.precision == 0.0  # Division by zero case
-        assert metrics.recall == 0.0
+        assert metrics.precision == 1.0  # No false positives
+        assert metrics.recall == 0.0  # Missed everything
 
     def test_both_empty(self):
-        """Test metrics with both sets empty."""
+        """Test metrics with both sets empty - perfect score."""
         expected = set()
         actual = set()
 
@@ -171,9 +171,9 @@ class TestPurlMetrics:
         assert metrics.true_positives == 0
         assert metrics.false_positives == 0
         assert metrics.false_negatives == 0
-        assert metrics.precision == 0.0
-        assert metrics.recall == 0.0
-        assert metrics.f1_score == 0.0
+        assert metrics.precision == 1.0  # No false positives
+        assert metrics.recall == 1.0  # Nothing to miss
+        assert metrics.f1_score == 1.0  # Perfect score
 
 
 class TestBenchmarkResult:
