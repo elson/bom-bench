@@ -211,6 +211,19 @@ class TestPluginSystem:
         tools = list_available_tools()
 
         assert "cdxgen" in tools
+        assert "syft" in tools
+
+    def test_syft_plugin_registers(self):
+        """Test that syft plugin registers correctly."""
+        from bom_bench.plugins import initialize_plugins, get_registered_tools
+
+        initialize_plugins()
+        tools = get_registered_tools()
+
+        assert "syft" in tools
+        assert tools["syft"].name == "syft"
+        assert "python" in tools["syft"].supported_ecosystems
+        assert tools["syft"].homepage == "https://github.com/anchore/syft"
 
 
 class TestPurlComparison:
