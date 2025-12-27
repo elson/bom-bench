@@ -58,6 +58,13 @@ def _load_bundled_plugins() -> None:
     except ImportError as e:
         logger.debug(f"Could not load bundled cdxgen plugin: {e}")
 
+    try:
+        from bom_bench.plugins.bundled import syft
+        pm.register(syft, name="bom_bench.plugins.bundled.syft")
+        logger.debug("Loaded bundled syft plugin")
+    except ImportError as e:
+        logger.debug(f"Could not load bundled syft plugin: {e}")
+
 
 def _load_external_plugins() -> None:
     """Discover and load external plugins via entry points."""
