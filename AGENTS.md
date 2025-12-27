@@ -49,8 +49,8 @@ uv run bom-bench list-tools --check
 - Target interpreter: Python 3.12 — keep syntax and stdlib usage compatible.
 - Dependencies: Uses `packse`, `pluggy`, `packageurl-python` packages (declared in `pyproject.toml`).
 - Output structure (`output/scenarios/{pm}/{scenario}/`):
-  - `expected.cdx.json` - ground truth SBOM (top-level meta file)
-  - `package-manager-output.txt` - PM command output (top-level meta file)
+  - `expected.cdx.json` - ground truth CycloneDX SBOM (pure format, only for satisfiable scenarios)
+  - `meta.json` - scenario metadata with `satisfiable` flag and `package_manager_result` (exit_code, stdout, stderr)
   - `assets/pyproject.toml` - generated manifest
   - `assets/uv.lock` - lock file
 - Benchmark outputs (`output/benchmarks/{tool}/{pm}/{scenario}/`):

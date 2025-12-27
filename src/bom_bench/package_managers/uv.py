@@ -23,7 +23,7 @@ from bom_bench.config import (
     PROJECT_VERSION,
     DEFAULT_PACKSE_DIR,
 )
-from bom_bench.generators.sbom.cyclonedx import generate_sbom_result
+from bom_bench.generators.sbom.cyclonedx import generate_sbom_file, generate_meta_file
 from bom_bench.generators.uv import generate_pyproject_toml
 from bom_bench.logging_config import get_logger
 from bom_bench.models.package_manager import PMInfo
@@ -208,9 +208,6 @@ def run_lock(
     if pm_name != "uv":
         return None
 
-    # Output file goes to scenario dir (parent of assets), lock file stays in assets
-    scenario_dir = project_dir.parent
-    output_file = scenario_dir / "package-manager-output.txt"
     lock_file = project_dir / "uv.lock"
     start_time = time.time()
 
@@ -226,14 +223,6 @@ def run_lock(
 
         duration = time.time() - start_time
 
-        # Write output to file
-        with open(output_file, "w") as f:
-            f.write(f"Exit code: {result.returncode}\n\n")
-            f.write("=== STDOUT ===\n")
-            f.write(result.stdout)
-            f.write("\n\n=== STDERR ===\n")
-            f.write(result.stderr)
-
         # Determine status
         if result.returncode == 0:
             status = LockStatus.SUCCESS
@@ -245,7 +234,8 @@ def run_lock(
             package_manager="uv",
             status=status,
             exit_code=result.returncode,
-            output_file=output_file,
+            stdout=result.stdout,
+            stderr=result.stderr,
             lock_file=lock_file if lock_file.exists() else None,
             duration_seconds=duration
         )
@@ -253,17 +243,14 @@ def run_lock(
     except subprocess.TimeoutExpired:
         duration = time.time() - start_time
 
-        with open(output_file, "w") as f:
-            f.write("Exit code: TIMEOUT\n\n")
-            f.write(f"Error: Command timed out after {timeout} seconds\n")
-
         logger.warning(f"  Timeout: {scenario_name}")
 
         return LockResult(
             scenario_name=scenario_name,
             package_manager="uv",
             status=LockStatus.TIMEOUT,
-            output_file=output_file,
+            stdout="",
+            stderr=f"Command timed out after {timeout} seconds",
             error_message=f"Command timed out after {timeout} seconds",
             duration_seconds=duration
         )
@@ -271,17 +258,14 @@ def run_lock(
     except Exception as e:
         duration = time.time() - start_time
 
-        with open(output_file, "w") as f:
-            f.write(f"Exit code: ERROR\n\n")
-            f.write(f"Error: {str(e)}\n")
-
         logger.error(f"  Error running uv lock for {scenario_name}: {e}")
 
         return LockResult(
             scenario_name=scenario_name,
             package_manager="uv",
             status=LockStatus.ERROR,
-            output_file=output_file,
+            stdout="",
+            stderr=str(e),
             error_message=str(e),
             duration_seconds=duration
         )
@@ -292,14 +276,14 @@ def generate_sbom_for_lock(
     output_dir: Path,
     lock_result: LockResult
 ) -> Optional[Path]:
-    """Generate SBOM result file with satisfiable status.
+    """Generate SBOM and meta files for a lock result.
 
     This is a helper function called by the orchestration layer,
     not a hook.
 
-    Always generates an expected.cdx.json file containing:
-    - satisfiable: True if lock succeeded, False otherwise
-    - sbom: CycloneDX SBOM (only if lock succeeded)
+    Generates two files:
+    - expected.cdx.json: Pure CycloneDX SBOM (only if lock succeeded)
+    - meta.json: Metadata with satisfiable status and PM result
 
     Args:
         scenario: Scenario being processed
@@ -307,32 +291,37 @@ def generate_sbom_for_lock(
         lock_result: Result of lock operation
 
     Returns:
-        Path to generated file, or None if generation failed
+        Path to generated SBOM file, or None if generation failed
     """
     sbom_path = output_dir / "expected.cdx.json"
+    meta_path = output_dir / "meta.json"
 
     try:
+        # Always generate meta.json with PM result
+        satisfiable = lock_result.status == LockStatus.SUCCESS
+        generate_meta_file(
+            output_path=meta_path,
+            satisfiable=satisfiable,
+            exit_code=lock_result.exit_code or 0,
+            stdout=lock_result.stdout or "",
+            stderr=lock_result.stderr or "",
+        )
+
+        # Only generate SBOM if lock succeeded
         if lock_result.status == LockStatus.SUCCESS:
-            # Lock file is in assets subdirectory
             lock_file = output_dir / "assets" / "uv.lock"
             if lock_file.exists():
                 packages = parse_uv_lock(lock_file)
-                return generate_sbom_result(
+                return generate_sbom_file(
                     scenario_name=scenario.name,
                     output_path=sbom_path,
                     packages=packages,
-                    satisfiable=True
                 )
-        else:
-            return generate_sbom_result(
-                scenario_name=scenario.name,
-                output_path=sbom_path,
-                packages=None,
-                satisfiable=False
-            )
+
+        return meta_path  # Return meta_path if no SBOM generated
 
     except Exception as e:
-        logger.warning(f"Failed to generate SBOM result: {e}")
+        logger.warning(f"Failed to generate SBOM/meta files: {e}")
         return None
 
 

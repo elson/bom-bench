@@ -10,6 +10,7 @@ from bom_bench.benchmarking.comparison import (
     load_expected_sbom,
     load_actual_sbom,
     compare_sboms,
+    load_scenario_meta,
 )
 
 
@@ -323,3 +324,105 @@ class TestCompareSboms:
         assert "pkg:pypi/b@2.0.0" not in actual_purls
         assert "pkg:pypi/c@3.0.0" in actual_purls
         assert "pkg:pypi/c@3.0.0" not in expected_purls
+
+
+class TestLoadScenarioMeta:
+    """Tests for loading scenario meta.json."""
+
+    def test_load_valid_meta(self, tmp_path):
+        """Test loading a valid meta.json file."""
+        meta_path = tmp_path / "meta.json"
+        meta_data = {
+            "satisfiable": True,
+            "package_manager_result": {
+                "exit_code": 0,
+                "stdout": "Resolved 5 packages\n",
+                "stderr": ""
+            }
+        }
+        meta_path.write_text(json.dumps(meta_data))
+
+        meta = load_scenario_meta(meta_path)
+
+        assert meta is not None
+        assert meta["satisfiable"] is True
+        assert meta["package_manager_result"]["exit_code"] == 0
+        assert meta["package_manager_result"]["stdout"] == "Resolved 5 packages\n"
+
+    def test_load_unsatisfiable_meta(self, tmp_path):
+        """Test loading meta.json with unsatisfiable scenario."""
+        meta_path = tmp_path / "meta.json"
+        meta_data = {
+            "satisfiable": False,
+            "package_manager_result": {
+                "exit_code": 1,
+                "stdout": "",
+                "stderr": "No solution found\n"
+            }
+        }
+        meta_path.write_text(json.dumps(meta_data))
+
+        meta = load_scenario_meta(meta_path)
+
+        assert meta is not None
+        assert meta["satisfiable"] is False
+        assert meta["package_manager_result"]["exit_code"] == 1
+
+    def test_load_missing_meta(self, tmp_path):
+        """Test loading non-existent meta.json."""
+        meta_path = tmp_path / "nonexistent.json"
+
+        meta = load_scenario_meta(meta_path)
+
+        assert meta is None
+
+    def test_load_invalid_json_meta(self, tmp_path):
+        """Test loading invalid JSON meta file."""
+        meta_path = tmp_path / "meta.json"
+        meta_path.write_text("not valid json")
+
+        meta = load_scenario_meta(meta_path)
+
+        assert meta is None
+
+
+class TestLoadExpectedSbomPureCycloneDX:
+    """Tests for loading pure CycloneDX expected SBOMs (new format)."""
+
+    def test_load_pure_cyclonedx_sbom(self, tmp_path):
+        """Test loading pure CycloneDX SBOM without wrapper."""
+        sbom_path = tmp_path / "expected.cdx.json"
+        sbom_data = {
+            "bomFormat": "CycloneDX",
+            "specVersion": "1.6",
+            "components": [
+                {"name": "pkg", "purl": "pkg:pypi/package@1.0.0"}
+            ]
+        }
+        sbom_path.write_text(json.dumps(sbom_data))
+
+        # Need corresponding meta.json
+        meta_path = tmp_path / "meta.json"
+        meta_data = {"satisfiable": True, "package_manager_result": {"exit_code": 0, "stdout": "", "stderr": ""}}
+        meta_path.write_text(json.dumps(meta_data))
+
+        sbom, satisfiable = load_expected_sbom(sbom_path, meta_path)
+
+        assert satisfiable is True
+        assert sbom is not None
+        assert sbom["bomFormat"] == "CycloneDX"
+        assert "components" in sbom
+
+    def test_load_pure_cyclonedx_unsatisfiable(self, tmp_path):
+        """Test loading when meta.json indicates unsatisfiable."""
+        # SBOM file may not exist for unsatisfiable scenarios
+        sbom_path = tmp_path / "expected.cdx.json"
+
+        meta_path = tmp_path / "meta.json"
+        meta_data = {"satisfiable": False, "package_manager_result": {"exit_code": 1, "stdout": "", "stderr": "No solution"}}
+        meta_path.write_text(json.dumps(meta_data))
+
+        sbom, satisfiable = load_expected_sbom(sbom_path, meta_path)
+
+        assert satisfiable is False
+        assert sbom is None

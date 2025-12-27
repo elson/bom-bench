@@ -65,8 +65,11 @@ class LockResult:
     exit_code: Optional[int] = None
     """Exit code from lock command"""
 
-    output_file: Optional[Path] = None
-    """Path to lock output log file"""
+    stdout: Optional[str] = None
+    """Standard output from lock command"""
+
+    stderr: Optional[str] = None
+    """Standard error from lock command"""
 
     lock_file: Optional[Path] = None
     """Path to generated lock file (e.g., uv.lock, requirements.txt)"""

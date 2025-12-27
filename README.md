@@ -149,14 +149,28 @@ DEFAULT_PLUGINS = (
 
 ```
 output/
-└── uv/
-    ├── fork-basic/
-    │   ├── pyproject.toml       # Project manifest
-    │   ├── uv.lock              # Lock file (always generated)
-    │   ├── uv-lock-output.txt   # Command output log
-    │   └── expected.cdx.json    # Expected SBOM (CycloneDX 1.6)
-    └── local-simple/
-        └── ...
+└── scenarios/
+    └── uv/
+        ├── fork-basic/
+        │   ├── expected.cdx.json    # Expected SBOM (pure CycloneDX 1.6)
+        │   ├── meta.json            # Metadata (satisfiable, PM result)
+        │   └── assets/
+        │       ├── pyproject.toml   # Project manifest
+        │       └── uv.lock          # Lock file
+        └── local-simple/
+            └── ...
+```
+
+**meta.json structure:**
+```json
+{
+  "satisfiable": true,
+  "package_manager_result": {
+    "exit_code": 0,
+    "stdout": "...",
+    "stderr": ""
+  }
+}
 ```
 
 ### Benchmark Output

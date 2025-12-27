@@ -366,7 +366,8 @@ version = "2.0.0"
                 package_manager=pm.name,
                 status=LockStatus.SUCCESS,
                 exit_code=0,
-                output_file=output_dir / "package-manager-output.txt",
+                stdout="Resolved 2 packages",
+                stderr="",
                 lock_file=lock_file,
                 duration_seconds=0.1
             )
@@ -376,17 +377,12 @@ version = "2.0.0"
             assert sbom_path is not None
             assert sbom_path.exists()
 
-            # Verify SBOM result structure
+            # Verify SBOM is pure CycloneDX (no wrapper)
             import json
             with open(sbom_path) as f:
-                result = json.load(f)
+                sbom = json.load(f)
 
-            # Check top-level structure
-            assert "satisfiable" in result
-            assert result["satisfiable"] is True
-            assert "sbom" in result
-
-            sbom = result["sbom"]
+            # Top-level should be CycloneDX fields directly
             assert sbom["bomFormat"] == "CycloneDX"
             assert len(sbom["components"]) == 2
 
@@ -395,8 +391,18 @@ version = "2.0.0"
             assert "package-a" in component_names
             assert "package-b" in component_names
 
+            # Verify meta.json was also created
+            meta_path = output_dir / "meta.json"
+            assert meta_path.exists()
+
+            with open(meta_path) as f:
+                meta = json.load(f)
+
+            assert meta["satisfiable"] is True
+            assert meta["package_manager_result"]["exit_code"] == 0
+
     def test_sbom_result_on_lock_failure(self, cli):
-        """Test that SBOM result file is generated with satisfiable=false when lock fails."""
+        """Test that meta.json is generated with satisfiable=false when lock fails."""
         from bom_bench.models.scenario import (
             Scenario,
             Root,
@@ -428,26 +434,34 @@ version = "2.0.0"
                 package_manager=pm.name,
                 status=LockStatus.FAILED,
                 exit_code=1,
-                output_file=output_dir / "uv-lock-output.txt",
+                stdout="",
+                stderr="No solution found",
                 lock_file=None,
                 duration_seconds=0.1
             )
 
-            sbom_path = pm.generate_sbom_result_file(scenario, output_dir, lock_result)
+            result_path = pm.generate_sbom_result_file(scenario, output_dir, lock_result)
 
-            # Should still generate a result file
-            assert sbom_path is not None
-            assert sbom_path.exists()
+            # Should generate meta.json (not SBOM since lock failed)
+            assert result_path is not None
+            assert result_path.exists()
 
-            # Verify result structure
+            # Verify meta.json structure
             import json
-            with open(sbom_path) as f:
-                result = json.load(f)
+            meta_path = output_dir / "meta.json"
+            assert meta_path.exists()
 
-            # Check that satisfiable is false and sbom is omitted
-            assert "satisfiable" in result
-            assert result["satisfiable"] is False
-            assert "sbom" not in result
+            with open(meta_path) as f:
+                meta = json.load(f)
+
+            # Check that satisfiable is false
+            assert meta["satisfiable"] is False
+            assert meta["package_manager_result"]["exit_code"] == 1
+            assert meta["package_manager_result"]["stderr"] == "No solution found"
+
+            # SBOM should not exist for failed lock
+            sbom_path = output_dir / "expected.cdx.json"
+            assert not sbom_path.exists()
 
     def test_sbom_file_structure(self, cli):
         """Test the structure of generated SBOM file."""
@@ -500,7 +514,8 @@ version = "2.31.0"
                 package_manager=pm.name,
                 status=LockStatus.SUCCESS,
                 exit_code=0,
-                output_file=output_dir / "package-manager-output.txt",
+                stdout="Resolved 1 package",
+                stderr="",
                 lock_file=lock_file,
                 duration_seconds=0.1
             )
@@ -509,19 +524,12 @@ version = "2.31.0"
 
             assert sbom_path.exists()
 
-            # Verify SBOM result structure
+            # Verify SBOM is pure CycloneDX (no wrapper)
             import json
             with open(sbom_path) as f:
-                result = json.load(f)
+                sbom = json.load(f)
 
-            # Check top-level structure
-            assert "satisfiable" in result
-            assert result["satisfiable"] is True
-            assert "sbom" in result
-
-            sbom = result["sbom"]
-
-            # Check required fields
+            # Check top-level CycloneDX fields
             assert "bomFormat" in sbom
             assert "specVersion" in sbom
             assert "metadata" in sbom
@@ -538,3 +546,12 @@ version = "2.31.0"
             assert component["name"] == "requests"
             assert component["version"] == "2.31.0"
             assert component["purl"] == "pkg:pypi/requests@2.31.0"
+
+            # Verify meta.json was created
+            meta_path = output_dir / "meta.json"
+            assert meta_path.exists()
+
+            with open(meta_path) as f:
+                meta = json.load(f)
+
+            assert meta["satisfiable"] is True

@@ -81,22 +81,91 @@ def extract_purls_from_cyclonedx(sbom: Dict[str, Any]) -> Set[str]:
     return purls
 
 
-def load_expected_sbom(path: Path) -> Tuple[Optional[Dict[str, Any]], bool]:
-    """Load expected SBOM from bom-bench output.
+def load_scenario_meta(path: Path) -> Optional[Dict[str, Any]]:
+    """Load scenario metadata from meta.json.
 
-    Expected SBOMs have a wrapper format:
+    Meta file contains:
     {
         "satisfiable": true/false,
-        "sbom": { ... CycloneDX SBOM ... }
+        "package_manager_result": {
+            "exit_code": int,
+            "stdout": str,
+            "stderr": str
+        }
     }
 
     Args:
+        path: Path to meta.json file
+
+    Returns:
+        Dictionary with metadata or None if loading fails
+    """
+    try:
+        with open(path) as f:
+            return json.load(f)
+
+    except FileNotFoundError:
+        logger.debug(f"Meta file not found: {path}")
+        return None
+
+    except json.JSONDecodeError as e:
+        logger.warning(f"Invalid JSON in meta file {path}: {e}")
+        return None
+
+    except Exception as e:
+        logger.warning(f"Error loading meta file {path}: {e}")
+        return None
+
+
+def load_expected_sbom(
+    path: Path,
+    meta_path: Optional[Path] = None
+) -> Tuple[Optional[Dict[str, Any]], bool]:
+    """Load expected SBOM from bom-bench output.
+
+    Supports two formats:
+    1. New format (with meta_path): Pure CycloneDX SBOM, satisfiable from meta.json
+    2. Legacy format (no meta_path): Wrapper with satisfiable and sbom fields
+
+    Args:
         path: Path to expected SBOM JSON file
+        meta_path: Optional path to meta.json (new format)
 
     Returns:
         Tuple of (sbom_dict or None, satisfiable boolean)
         If loading fails, returns (None, True)
     """
+    # New format: meta.json contains satisfiable, SBOM is pure CycloneDX
+    if meta_path is not None:
+        meta = load_scenario_meta(meta_path)
+        if meta is None:
+            return None, True
+
+        satisfiable = meta.get("satisfiable", True)
+
+        if not satisfiable:
+            # Unsatisfiable scenario - no SBOM expected
+            return None, False
+
+        # Load pure CycloneDX SBOM
+        try:
+            with open(path) as f:
+                sbom = json.load(f)
+            return sbom, True
+
+        except FileNotFoundError:
+            logger.debug(f"Expected SBOM not found: {path}")
+            return None, True
+
+        except json.JSONDecodeError as e:
+            logger.warning(f"Invalid JSON in expected SBOM {path}: {e}")
+            return None, True
+
+        except Exception as e:
+            logger.warning(f"Error loading expected SBOM {path}: {e}")
+            return None, True
+
+    # Legacy format: wrapper with satisfiable and sbom fields
     try:
         with open(path) as f:
             data = json.load(f)

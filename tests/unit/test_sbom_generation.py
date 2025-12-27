@@ -11,6 +11,8 @@ from bom_bench.generators.sbom.cyclonedx import (
     create_purl,
     generate_cyclonedx_sbom,
     generate_sbom_result,
+    generate_sbom_file,
+    generate_meta_file,
 )
 from bom_bench.models.scenario import ExpectedPackage
 
@@ -264,3 +266,164 @@ class TestCycloneDXGeneration:
             sbom = data["sbom"]
             assert "bomFormat" in sbom
             assert "components" in sbom
+
+
+class TestGenerateSbomFile:
+    """Test pure CycloneDX SBOM file generation (no wrapper)."""
+
+    def test_generate_pure_cyclonedx(self):
+        """Test generating pure CycloneDX SBOM without satisfiable wrapper."""
+        packages = [
+            ExpectedPackage(name="requests", version="2.31.0"),
+            ExpectedPackage(name="urllib3", version="2.0.0"),
+        ]
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            output_path = Path(tmpdir) / "expected.cdx.json"
+            result = generate_sbom_file(
+                scenario_name="test-scenario",
+                output_path=output_path,
+                packages=packages,
+            )
+
+            assert result.exists()
+
+            with open(result) as f:
+                data = json.load(f)
+
+            # Should be pure CycloneDX - no wrapper
+            assert "satisfiable" not in data
+            assert "sbom" not in data
+
+            # Top-level should be CycloneDX fields
+            assert data["bomFormat"] == "CycloneDX"
+            assert data["specVersion"] == "1.6"
+            assert "metadata" in data
+            assert "components" in data
+            assert len(data["components"]) == 2
+
+    def test_generate_empty_sbom(self):
+        """Test generating pure SBOM with no packages."""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            output_path = Path(tmpdir) / "expected.cdx.json"
+            result = generate_sbom_file(
+                scenario_name="test-scenario",
+                output_path=output_path,
+                packages=[],
+            )
+
+            assert result.exists()
+
+            with open(result) as f:
+                data = json.load(f)
+
+            # Pure CycloneDX format
+            assert data["bomFormat"] == "CycloneDX"
+            components = data.get("components", [])
+            assert len(components) == 0
+
+    def test_creates_directory(self):
+        """Test that generate_sbom_file creates output directory."""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            nested_path = Path(tmpdir) / "nested" / "dir" / "expected.cdx.json"
+            assert not nested_path.parent.exists()
+
+            packages = [ExpectedPackage(name="test", version="1.0.0")]
+            result = generate_sbom_file(
+                scenario_name="test",
+                output_path=nested_path,
+                packages=packages,
+            )
+
+            assert nested_path.parent.exists()
+            assert result.exists()
+
+
+class TestGenerateMetaFile:
+    """Test meta.json file generation."""
+
+    def test_generate_meta_success(self):
+        """Test generating meta.json for successful lock."""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            output_path = Path(tmpdir) / "meta.json"
+            result = generate_meta_file(
+                output_path=output_path,
+                satisfiable=True,
+                exit_code=0,
+                stdout="Resolved 5 packages in 1.23s\n",
+                stderr="",
+            )
+
+            assert result.exists()
+
+            with open(result) as f:
+                data = json.load(f)
+
+            assert data["satisfiable"] is True
+            assert "package_manager_result" in data
+
+            pm_result = data["package_manager_result"]
+            assert pm_result["exit_code"] == 0
+            assert pm_result["stdout"] == "Resolved 5 packages in 1.23s\n"
+            assert pm_result["stderr"] == ""
+
+    def test_generate_meta_failure(self):
+        """Test generating meta.json for failed lock."""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            output_path = Path(tmpdir) / "meta.json"
+            result = generate_meta_file(
+                output_path=output_path,
+                satisfiable=False,
+                exit_code=1,
+                stdout="",
+                stderr="error: No solution found\n",
+            )
+
+            assert result.exists()
+
+            with open(result) as f:
+                data = json.load(f)
+
+            assert data["satisfiable"] is False
+            pm_result = data["package_manager_result"]
+            assert pm_result["exit_code"] == 1
+            assert pm_result["stdout"] == ""
+            assert pm_result["stderr"] == "error: No solution found\n"
+
+    def test_generate_meta_with_both_streams(self):
+        """Test generating meta.json with both stdout and stderr."""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            output_path = Path(tmpdir) / "meta.json"
+            result = generate_meta_file(
+                output_path=output_path,
+                satisfiable=True,
+                exit_code=0,
+                stdout="Resolved packages\n",
+                stderr="Warning: deprecated package\n",
+            )
+
+            assert result.exists()
+
+            with open(result) as f:
+                data = json.load(f)
+
+            pm_result = data["package_manager_result"]
+            assert pm_result["stdout"] == "Resolved packages\n"
+            assert pm_result["stderr"] == "Warning: deprecated package\n"
+
+    def test_creates_directory(self):
+        """Test that generate_meta_file creates output directory."""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            nested_path = Path(tmpdir) / "nested" / "meta.json"
+            assert not nested_path.parent.exists()
+
+            result = generate_meta_file(
+                output_path=nested_path,
+                satisfiable=True,
+                exit_code=0,
+                stdout="",
+                stderr="",
+            )
+
+            assert nested_path.parent.exists()
+            assert result.exists()

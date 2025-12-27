@@ -185,3 +185,82 @@ def generate_sbom_result(
     output_path.write_text(json_output)
 
     return output_path
+
+
+def generate_sbom_file(
+    scenario_name: str,
+    output_path: Path,
+    packages: List[ExpectedPackage],
+) -> Path:
+    """Generate pure CycloneDX SBOM file (no wrapper).
+
+    Creates a JSON file containing only the CycloneDX SBOM data,
+    without the satisfiable wrapper. The satisfiable status is
+    stored separately in meta.json.
+
+    Args:
+        scenario_name: Name of scenario (for metadata)
+        output_path: Where to write expected.cdx.json
+        packages: List of resolved packages
+
+    Returns:
+        Path to generated file
+
+    Raises:
+        Exception: If file generation fails
+    """
+    # Ensure output directory exists
+    output_path.parent.mkdir(parents=True, exist_ok=True)
+
+    # Generate pure CycloneDX SBOM
+    sbom = generate_cyclonedx_sbom(scenario_name, packages)
+
+    # Write formatted JSON
+    json_output = json.dumps(sbom, indent=2)
+    output_path.write_text(json_output)
+
+    return output_path
+
+
+def generate_meta_file(
+    output_path: Path,
+    satisfiable: bool,
+    exit_code: int,
+    stdout: str,
+    stderr: str,
+) -> Path:
+    """Generate scenario meta.json file.
+
+    Creates a JSON file containing scenario metadata including
+    the satisfiable status and package manager execution results.
+
+    Args:
+        output_path: Where to write meta.json
+        satisfiable: Whether the scenario was satisfiable
+        exit_code: Package manager process exit code
+        stdout: Package manager stdout content
+        stderr: Package manager stderr content
+
+    Returns:
+        Path to generated file
+
+    Raises:
+        Exception: If file generation fails
+    """
+    # Ensure output directory exists
+    output_path.parent.mkdir(parents=True, exist_ok=True)
+
+    meta = {
+        "satisfiable": satisfiable,
+        "package_manager_result": {
+            "exit_code": exit_code,
+            "stdout": stdout,
+            "stderr": stderr,
+        }
+    }
+
+    # Write formatted JSON
+    json_output = json.dumps(meta, indent=2)
+    output_path.write_text(json_output)
+
+    return output_path

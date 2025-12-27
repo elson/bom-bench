@@ -174,22 +174,27 @@ class BenchmarkRunner:
             BenchmarkResult with comparison metrics
         """
         expected_path = scenario_dir / "expected.cdx.json"
+        meta_path = scenario_dir / "meta.json"
         assets_dir = scenario_dir / "assets"
         actual_dir = self.benchmarks_dir / tool_name / pm_name / scenario_name
         actual_path = actual_dir / "actual.cdx.json"
 
-        # Check if expected SBOM exists
-        if not expected_path.exists():
+        # Check if meta.json exists (new format) or expected SBOM exists (legacy)
+        if not meta_path.exists() and not expected_path.exists():
             return BenchmarkResult(
                 scenario_name=scenario_name,
                 package_manager=pm_name,
                 tool_name=tool_name,
                 status=BenchmarkStatus.MISSING_EXPECTED,
-                error_message="expected.cdx.json not found"
+                error_message="meta.json and expected.cdx.json not found"
             )
 
         # Load expected SBOM and check satisfiability
-        expected_sbom, satisfiable = load_expected_sbom(expected_path)
+        # Pass meta_path if it exists (new format), otherwise use legacy format
+        expected_sbom, satisfiable = load_expected_sbom(
+            expected_path,
+            meta_path=meta_path if meta_path.exists() else None
+        )
 
         if not satisfiable:
             # Unsatisfiable scenario - still record but don't compare
