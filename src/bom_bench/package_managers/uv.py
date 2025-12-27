@@ -21,7 +21,6 @@ from bom_bench.config import (
     LOCK_TIMEOUT_SECONDS,
     PROJECT_NAME,
     PROJECT_VERSION,
-    DEFAULT_PACKSE_DIR,
 )
 from bom_bench.generators.sbom.cyclonedx import generate_sbom_file, generate_meta_file
 from bom_bench.generators.uv import generate_pyproject_toml
@@ -325,9 +324,13 @@ def generate_sbom_for_lock(
         return None
 
 
-# Keep the class for backward compatibility during migration
 class UVPackageManager:
-    """UV package manager (deprecated - use plugin hooks instead)."""
+    """UV package manager interface.
+
+    This class provides the user-facing interface for the UV package manager,
+    orchestrating manifest generation, lock file creation, and SBOM generation.
+    It uses the plugin hooks internally but provides a simpler API for CLI usage.
+    """
 
     name = "uv"
     ecosystem = "python"
