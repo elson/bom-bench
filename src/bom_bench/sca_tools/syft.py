@@ -26,13 +26,9 @@ import shutil
 import subprocess
 import time
 from pathlib import Path
-from typing import List, Optional
+from typing import Optional
 
-import pluggy
-
-from bom_bench.models.sca import SCAToolInfo, SBOMResult, SBOMGenerationStatus
-
-hookimpl = pluggy.HookimplMarker("bom_bench")
+from bom_bench import hookimpl
 
 
 def _get_syft_version() -> Optional[str]:
@@ -67,34 +63,25 @@ def _get_syft_version() -> Optional[str]:
 
 
 @hookimpl
-def register_sca_tools() -> List[SCAToolInfo]:
+def register_sca_tools() -> dict:
     """Register Syft as an available SCA tool."""
-    return [
-        SCAToolInfo(
-            name="syft",
-            version=_get_syft_version(),
-            description="Anchore Syft - SBOM generator for containers and filesystems",
-            supported_ecosystems=[
-                "python",
-                "javascript",
-                "java",
-                "go",
-                "rust",
-                "ruby",
-                "php",
-                "dotnet"
-            ],
-            homepage="https://github.com/anchore/syft"
-        )
-    ]
-
-
-@hookimpl
-def check_tool_available(tool_name: str) -> Optional[bool]:
-    """Check if Syft is installed."""
-    if tool_name != "syft":
-        return None
-    return shutil.which("syft") is not None
+    return {
+        "name": "syft",
+        "version": _get_syft_version(),
+        "description": "Anchore Syft - SBOM generator for containers and filesystems",
+        "supported_ecosystems": [
+            "python",
+            "javascript",
+            "java",
+            "go",
+            "rust",
+            "ruby",
+            "php",
+            "dotnet"
+        ],
+        "homepage": "https://github.com/anchore/syft",
+        "installed": shutil.which("syft") is not None
+    }
 
 
 @hookimpl
@@ -104,7 +91,7 @@ def generate_sbom(
     output_path: Path,
     ecosystem: str,
     timeout: int = 120
-) -> Optional[SBOMResult]:
+) -> Optional[dict]:
     """Generate SBOM using Syft.
 
     Runs: syft <project_dir> -o cyclonedx-json=<output_path>
@@ -117,7 +104,7 @@ def generate_sbom(
         timeout: Maximum execution time in seconds
 
     Returns:
-        SBOMResult with generation status and details
+        Dict with generation status and details
     """
     if tool_name != "syft":
         return None
@@ -152,49 +139,52 @@ def generate_sbom(
                 with open(output_path) as f:
                     json.load(f)
 
-                return SBOMResult.success(
-                    tool_name="syft",
-                    sbom_path=output_path,
-                    duration_seconds=duration,
-                    exit_code=result.returncode
-                )
+                return {
+                    "tool_name": "syft",
+                    "status": "success",
+                    "sbom_path": str(output_path),
+                    "duration_seconds": duration,
+                    "exit_code": result.returncode
+                }
             except json.JSONDecodeError as e:
-                return SBOMResult.failed(
-                    tool_name="syft",
-                    error_message=f"Invalid JSON output: {e}",
-                    duration_seconds=duration,
-                    exit_code=result.returncode,
-                    status=SBOMGenerationStatus.PARSE_ERROR
-                )
+                return {
+                    "tool_name": "syft",
+                    "status": "parse_error",
+                    "error_message": f"Invalid JSON output: {e}",
+                    "duration_seconds": duration,
+                    "exit_code": result.returncode
+                }
         else:
             error_msg = result.stderr.strip() if result.stderr else f"Exit code: {result.returncode}"
-            return SBOMResult.failed(
-                tool_name="syft",
-                error_message=error_msg,
-                duration_seconds=duration,
-                exit_code=result.returncode
-            )
+            return {
+                "tool_name": "syft",
+                "status": "tool_failed",
+                "error_message": error_msg,
+                "duration_seconds": duration,
+                "exit_code": result.returncode
+            }
 
     except subprocess.TimeoutExpired:
         duration = time.time() - start_time
-        return SBOMResult.failed(
-            tool_name="syft",
-            error_message=f"Timeout after {timeout} seconds",
-            duration_seconds=duration,
-            status=SBOMGenerationStatus.TIMEOUT
-        )
+        return {
+            "tool_name": "syft",
+            "status": "timeout",
+            "error_message": f"Timeout after {timeout} seconds",
+            "duration_seconds": duration
+        }
 
     except FileNotFoundError:
-        return SBOMResult.failed(
-            tool_name="syft",
-            error_message="syft not found in PATH. Install with: brew install syft",
-            status=SBOMGenerationStatus.TOOL_NOT_FOUND
-        )
+        return {
+            "tool_name": "syft",
+            "status": "tool_not_found",
+            "error_message": "syft not found in PATH. Install with: brew install syft"
+        }
 
     except Exception as e:
         duration = time.time() - start_time
-        return SBOMResult.failed(
-            tool_name="syft",
-            error_message=str(e),
-            duration_seconds=duration
-        )
+        return {
+            "tool_name": "syft",
+            "status": "tool_failed",
+            "error_message": str(e),
+            "duration_seconds": duration
+        }

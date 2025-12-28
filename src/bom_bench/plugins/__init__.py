@@ -112,12 +112,13 @@ def initialize_plugins() -> None:
     _load_external_plugins()
 
     # Collect SCA tool registrations
+    # Each plugin returns a single dict, which we convert to SCAToolInfo
     tool_results = pm.hook.register_sca_tools()
-    for tool_list in tool_results:
-        if tool_list:
-            for tool_info in tool_list:
-                _registered_tools[tool_info.name] = tool_info
-                logger.debug(f"Registered SCA tool: {tool_info.name}")
+    for tool_data in tool_results:
+        if tool_data:
+            tool_info = SCAToolInfo.from_dict(tool_data)
+            _registered_tools[tool_info.name] = tool_info
+            logger.debug(f"Registered SCA tool: {tool_info.name}")
 
     # Collect package manager registrations
     pm_results = pm.hook.register_package_managers()
@@ -195,20 +196,18 @@ def get_tool_info(tool_name: str) -> Optional[SCAToolInfo]:
 def check_tool_available(tool_name: str) -> bool:
     """Check if a specific tool is installed and available.
 
+    Uses the 'installed' field from tool registration.
+
     Args:
         tool_name: Name of the tool to check.
 
     Returns:
         True if tool is available, False otherwise.
     """
-    if tool_name not in get_registered_tools():
+    tools = get_registered_tools()
+    if tool_name not in tools:
         return False
-
-    results = pm.hook.check_tool_available(tool_name=tool_name)
-    for result in results:
-        if result is not None:
-            return result
-    return False
+    return tools[tool_name].installed
 
 
 def generate_sbom(
@@ -242,9 +241,10 @@ def generate_sbom(
         timeout=timeout
     )
 
+    # Plugins return dicts, convert to SBOMResult
     for result in results:
         if result is not None:
-            return result
+            return SBOMResult.from_dict(result)
 
     logger.warning(f"No plugin handled SBOM generation for tool '{tool_name}'")
     return None

@@ -6,20 +6,16 @@ decorator to implement these hooks.
 
 Example plugin implementation:
 
-    import pluggy
-    from bom_bench.models.sca import SCAToolInfo, SBOMResult
-
-    hookimpl = pluggy.HookimplMarker("bom_bench")
+    from bom_bench import hookimpl
 
     @hookimpl
     def register_sca_tools():
-        return [
-            SCAToolInfo(
-                name="my-tool",
-                description="My custom SCA tool",
-                supported_ecosystems=["python"]
-            )
-        ]
+        return {
+            "name": "my-tool",
+            "description": "My custom SCA tool",
+            "supported_ecosystems": ["python"],
+            "installed": shutil.which("my-tool") is not None
+        }
 """
 
 from pathlib import Path
@@ -28,7 +24,6 @@ from typing import TYPE_CHECKING, List, Optional
 import pluggy
 
 if TYPE_CHECKING:
-    from bom_bench.models.sca import SCAToolInfo, SBOMResult
     from bom_bench.models.package_manager import PMInfo
     from bom_bench.models.scenario import Scenario
     from bom_bench.models.result import LockResult
@@ -45,46 +40,31 @@ class SCAToolSpec:
     """
 
     @hookspec
-    def register_sca_tools(self) -> List["SCAToolInfo"]:
-        """Register SCA tools provided by this plugin.
+    def register_sca_tools(self) -> dict:
+        """Register an SCA tool provided by this plugin.
 
         Called during plugin discovery to collect all available SCA tools.
-        A single plugin may register multiple tools.
+        Each plugin returns a single dict describing the tool it provides.
 
         Returns:
-            List of SCAToolInfo describing each tool this plugin provides.
+            Dict with tool info:
+                - name: Tool identifier (required)
+                - version: Tool version string
+                - description: Human-readable description
+                - supported_ecosystems: List of ecosystems (e.g., ["python", "javascript"])
+                - homepage: Tool homepage URL
+                - installed: Whether the tool is installed (required)
 
         Example implementation:
             @hookimpl
             def register_sca_tools():
-                return [
-                    SCAToolInfo(
-                        name="cdxgen",
-                        version="10.x",
-                        description="CycloneDX generator",
-                        supported_ecosystems=["python", "javascript", "java"],
-                    )
-                ]
-        """
-
-    @hookspec
-    def check_tool_available(self, tool_name: str) -> Optional[bool]:
-        """Check if a specific tool is available/installed.
-
-        Args:
-            tool_name: Name of the tool to check (e.g., "cdxgen")
-
-        Returns:
-            True if tool is available and ready to use.
-            False if tool is not available.
-            None if this plugin doesn't handle this tool.
-
-        Example implementation:
-            @hookimpl
-            def check_tool_available(tool_name):
-                if tool_name != "cdxgen":
-                    return None
-                return shutil.which("cdxgen") is not None
+                return {
+                    "name": "cdxgen",
+                    "version": _get_cdxgen_version(),
+                    "description": "CycloneDX generator",
+                    "supported_ecosystems": ["python", "javascript", "java"],
+                    "installed": shutil.which("cdxgen") is not None
+                }
         """
 
     @hookspec
@@ -95,7 +75,7 @@ class SCAToolSpec:
         output_path: Path,
         ecosystem: str,
         timeout: int = 120
-    ) -> Optional["SBOMResult"]:
+    ) -> Optional[dict]:
         """Generate SBOM for a project using the specified tool.
 
         This is the core hook - plugins invoke their tool and return results.
@@ -109,7 +89,13 @@ class SCAToolSpec:
             timeout: Maximum execution time in seconds
 
         Returns:
-            SBOMResult with execution details and SBOM path.
+            Dict with result info:
+                - tool_name: Tool name
+                - status: "success", "tool_failed", "timeout", "parse_error", "tool_not_found"
+                - sbom_path: Path to generated SBOM (on success)
+                - duration_seconds: Execution time
+                - exit_code: Tool exit code
+                - error_message: Error message (on failure)
             None if this plugin doesn't handle this tool.
 
         Example implementation:
@@ -118,7 +104,13 @@ class SCAToolSpec:
                 if tool_name != "cdxgen":
                     return None
                 # Run cdxgen subprocess
-                # Return SBOMResult.success() or SBOMResult.failed()
+                return {
+                    "tool_name": "cdxgen",
+                    "status": "success",
+                    "sbom_path": str(output_path),
+                    "duration_seconds": 1.5,
+                    "exit_code": 0
+                }
         """
 
 

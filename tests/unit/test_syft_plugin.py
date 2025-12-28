@@ -8,10 +8,8 @@ from unittest.mock import MagicMock, patch, mock_open
 from bom_bench.sca_tools.syft import (
     _get_syft_version,
     register_sca_tools,
-    check_tool_available,
     generate_sbom,
 )
-from bom_bench.models.sca import SBOMGenerationStatus
 
 
 class TestSyftVersionDetection:
@@ -76,17 +74,16 @@ class TestSyftToolRegistration:
 
     def test_syft_registers_correctly(self):
         """Test that Syft registers with correct info."""
-        tools = register_sca_tools()
+        tool = register_sca_tools()
 
-        assert len(tools) == 1
-        assert tools[0].name == "syft"
-        assert tools[0].homepage == "https://github.com/anchore/syft"
+        assert tool["name"] == "syft"
+        assert tool["homepage"] == "https://github.com/anchore/syft"
 
     def test_syft_supported_ecosystems(self):
         """Test Syft supported ecosystems."""
-        tools = register_sca_tools()
+        tool = register_sca_tools()
 
-        ecosystems = tools[0].supported_ecosystems
+        ecosystems = tool["supported_ecosystems"]
         assert "python" in ecosystems
         assert "javascript" in ecosystems
         assert "java" in ecosystems
@@ -101,44 +98,32 @@ class TestSyftToolRegistration:
         """Test that tool info includes version."""
         mock_version.return_value = "1.39.0"
 
-        tools = register_sca_tools()
+        tool = register_sca_tools()
 
-        assert tools[0].version == "1.39.0"
+        assert tool["version"] == "1.39.0"
 
 
 class TestSyftAvailabilityCheck:
-    """Tests for Syft availability check."""
+    """Tests for Syft availability check via installed field."""
 
     @patch("shutil.which")
-    def test_syft_available_when_installed(self, mock_which):
-        """Test availability check when Syft is installed."""
+    def test_syft_installed_when_available(self, mock_which):
+        """Test installed field when Syft is installed."""
         mock_which.return_value = "/usr/local/bin/syft"
 
-        result = check_tool_available("syft")
+        tool = register_sca_tools()
 
-        assert result is True
-        mock_which.assert_called_once_with("syft")
+        assert tool["installed"] is True
+        mock_which.assert_called_with("syft")
 
     @patch("shutil.which")
-    def test_syft_not_available_when_missing(self, mock_which):
-        """Test availability check when Syft is not installed."""
+    def test_syft_not_installed_when_missing(self, mock_which):
+        """Test installed field when Syft is not installed."""
         mock_which.return_value = None
 
-        result = check_tool_available("syft")
+        tool = register_sca_tools()
 
-        assert result is False
-
-    def test_other_tools_return_none(self):
-        """Test that check returns None for other tools."""
-        result = check_tool_available("cdxgen")
-
-        assert result is None
-
-    def test_unknown_tool_returns_none(self):
-        """Test that check returns None for unknown tools."""
-        result = check_tool_available("unknown-tool")
-
-        assert result is None
+        assert tool["installed"] is False
 
 
 class TestSyftSBOMGeneration:
@@ -163,10 +148,10 @@ class TestSyftSBOMGeneration:
         )
 
         assert result is not None
-        assert result.tool_name == "syft"
-        assert result.status == SBOMGenerationStatus.SUCCESS
-        assert result.sbom_path == output_path
-        assert result.duration_seconds > 0
+        assert result["tool_name"] == "syft"
+        assert result["status"] == "success"
+        assert result["sbom_path"] == str(output_path)
+        assert result["duration_seconds"] > 0
 
         # Verify command was called correctly
         mock_run.assert_called_once()
@@ -190,8 +175,8 @@ class TestSyftSBOMGeneration:
         )
 
         assert result is not None
-        assert result.status == SBOMGenerationStatus.TIMEOUT
-        assert "Timeout" in result.error_message
+        assert result["status"] == "timeout"
+        assert "Timeout" in result["error_message"]
 
     @patch("subprocess.run")
     def test_generate_sbom_tool_not_found(self, mock_run, tmp_path):
@@ -206,8 +191,8 @@ class TestSyftSBOMGeneration:
         )
 
         assert result is not None
-        assert result.status == SBOMGenerationStatus.TOOL_NOT_FOUND
-        assert "syft not found" in result.error_message
+        assert result["status"] == "tool_not_found"
+        assert "syft not found" in result["error_message"]
 
     @patch("subprocess.run")
     @patch("builtins.open", new_callable=mock_open, read_data='invalid json{')
@@ -225,8 +210,8 @@ class TestSyftSBOMGeneration:
         )
 
         assert result is not None
-        assert result.status == SBOMGenerationStatus.PARSE_ERROR
-        assert "Invalid JSON" in result.error_message
+        assert result["status"] == "parse_error"
+        assert "Invalid JSON" in result["error_message"]
 
     @patch("subprocess.run")
     def test_generate_sbom_non_zero_exit(self, mock_run, tmp_path):
@@ -244,8 +229,8 @@ class TestSyftSBOMGeneration:
         )
 
         assert result is not None
-        assert result.status == SBOMGenerationStatus.TOOL_FAILED
-        assert "could not determine source" in result.error_message
+        assert result["status"] == "tool_failed"
+        assert "could not determine source" in result["error_message"]
 
     def test_generate_sbom_wrong_tool(self, tmp_path):
         """Test that plugin returns None for other tools."""
@@ -294,4 +279,4 @@ class TestSyftSBOMGeneration:
         )
 
         assert result is not None
-        assert result.status == SBOMGenerationStatus.TOOL_FAILED
+        assert result["status"] == "tool_failed"

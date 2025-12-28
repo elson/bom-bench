@@ -42,6 +42,48 @@ class TestSCAToolInfo:
         assert info.description is None
         assert info.supported_ecosystems == []
         assert info.homepage is None
+        assert info.installed is False
+
+    def test_from_dict_full(self):
+        """Test creating SCAToolInfo from dict with all fields."""
+        data = {
+            "name": "cdxgen",
+            "version": "10.0.0",
+            "description": "CycloneDX Generator",
+            "supported_ecosystems": ["python", "javascript"],
+            "homepage": "https://github.com/CycloneDX/cdxgen",
+            "installed": True
+        }
+
+        info = SCAToolInfo.from_dict(data)
+
+        assert info.name == "cdxgen"
+        assert info.version == "10.0.0"
+        assert info.description == "CycloneDX Generator"
+        assert info.supported_ecosystems == ["python", "javascript"]
+        assert info.homepage == "https://github.com/CycloneDX/cdxgen"
+        assert info.installed is True
+
+    def test_from_dict_minimal(self):
+        """Test creating SCAToolInfo from dict with only required fields."""
+        data = {"name": "test-tool"}
+
+        info = SCAToolInfo.from_dict(data)
+
+        assert info.name == "test-tool"
+        assert info.version is None
+        assert info.description is None
+        assert info.supported_ecosystems == []
+        assert info.homepage is None
+        assert info.installed is False
+
+    def test_from_dict_installed_false(self):
+        """Test from_dict with installed explicitly set to False."""
+        data = {"name": "test-tool", "installed": False}
+
+        info = SCAToolInfo.from_dict(data)
+
+        assert info.installed is False
 
 
 class TestSBOMResult:
@@ -88,6 +130,98 @@ class TestSBOMResult:
 
         assert result.status == SBOMGenerationStatus.TIMEOUT
         assert result.duration_seconds == 120.0
+
+    def test_from_dict_success(self):
+        """Test creating SBOMResult from success dict."""
+        data = {
+            "tool_name": "cdxgen",
+            "status": "success",
+            "sbom_path": "/output/sbom.json",
+            "duration_seconds": 1.5,
+            "exit_code": 0
+        }
+
+        result = SBOMResult.from_dict(data)
+
+        assert result.tool_name == "cdxgen"
+        assert result.status == SBOMGenerationStatus.SUCCESS
+        assert result.sbom_path == Path("/output/sbom.json")
+        assert result.duration_seconds == 1.5
+        assert result.exit_code == 0
+        assert result.error_message is None
+
+    def test_from_dict_failed(self):
+        """Test creating SBOMResult from failure dict."""
+        data = {
+            "tool_name": "cdxgen",
+            "status": "tool_failed",
+            "error_message": "Non-zero exit code",
+            "duration_seconds": 0.5,
+            "exit_code": 1
+        }
+
+        result = SBOMResult.from_dict(data)
+
+        assert result.tool_name == "cdxgen"
+        assert result.status == SBOMGenerationStatus.TOOL_FAILED
+        assert result.error_message == "Non-zero exit code"
+        assert result.sbom_path is None
+        assert result.exit_code == 1
+
+    def test_from_dict_timeout(self):
+        """Test creating SBOMResult from timeout dict."""
+        data = {
+            "tool_name": "syft",
+            "status": "timeout",
+            "error_message": "Timeout after 120s",
+            "duration_seconds": 120.0
+        }
+
+        result = SBOMResult.from_dict(data)
+
+        assert result.status == SBOMGenerationStatus.TIMEOUT
+        assert result.error_message == "Timeout after 120s"
+
+    def test_from_dict_tool_not_found(self):
+        """Test creating SBOMResult from tool_not_found dict."""
+        data = {
+            "tool_name": "cdxgen",
+            "status": "tool_not_found",
+            "error_message": "cdxgen not found in PATH"
+        }
+
+        result = SBOMResult.from_dict(data)
+
+        assert result.status == SBOMGenerationStatus.TOOL_NOT_FOUND
+        assert result.duration_seconds == 0.0
+
+    def test_from_dict_parse_error(self):
+        """Test creating SBOMResult from parse_error dict."""
+        data = {
+            "tool_name": "cdxgen",
+            "status": "parse_error",
+            "error_message": "Invalid JSON output",
+            "duration_seconds": 1.0
+        }
+
+        result = SBOMResult.from_dict(data)
+
+        assert result.status == SBOMGenerationStatus.PARSE_ERROR
+
+    def test_from_dict_with_stdout_stderr(self):
+        """Test creating SBOMResult with stdout/stderr."""
+        data = {
+            "tool_name": "cdxgen",
+            "status": "tool_failed",
+            "error_message": "Failed",
+            "stdout": "Some output",
+            "stderr": "Error details"
+        }
+
+        result = SBOMResult.from_dict(data)
+
+        assert result.stdout == "Some output"
+        assert result.stderr == "Error details"
 
 
 class TestPurlMetrics:

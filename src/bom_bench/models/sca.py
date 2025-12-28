@@ -36,8 +36,8 @@ class SBOMGenerationStatus(Enum):
 class SCAToolInfo:
     """Metadata about an SCA tool provided by a plugin.
 
-    Plugins return this from bom_bench_register_sca_tools() to
-    describe what tools they provide.
+    Plugins return a dict from register_sca_tools() which is
+    converted to this class via from_dict().
     """
 
     name: str
@@ -54,6 +54,28 @@ class SCAToolInfo:
 
     homepage: Optional[str] = None
     """Tool homepage URL"""
+
+    installed: bool = False
+    """Whether the tool is installed and available"""
+
+    @classmethod
+    def from_dict(cls, d: dict) -> "SCAToolInfo":
+        """Create SCAToolInfo from plugin dict.
+
+        Args:
+            d: Dict with tool info fields
+
+        Returns:
+            SCAToolInfo instance
+        """
+        return cls(
+            name=d["name"],
+            version=d.get("version"),
+            description=d.get("description"),
+            supported_ecosystems=d.get("supported_ecosystems", []),
+            homepage=d.get("homepage"),
+            installed=d.get("installed", False)
+        )
 
 
 @dataclass
@@ -121,6 +143,34 @@ class SBOMResult:
             error_message=error_message,
             duration_seconds=duration_seconds,
             exit_code=exit_code
+        )
+
+    @classmethod
+    def from_dict(cls, d: dict) -> "SBOMResult":
+        """Create SBOMResult from plugin dict.
+
+        Args:
+            d: Dict with result fields (status as string)
+
+        Returns:
+            SBOMResult instance
+        """
+        status_map = {
+            "success": SBOMGenerationStatus.SUCCESS,
+            "tool_failed": SBOMGenerationStatus.TOOL_FAILED,
+            "timeout": SBOMGenerationStatus.TIMEOUT,
+            "parse_error": SBOMGenerationStatus.PARSE_ERROR,
+            "tool_not_found": SBOMGenerationStatus.TOOL_NOT_FOUND,
+        }
+        return cls(
+            tool_name=d["tool_name"],
+            status=status_map[d["status"]],
+            sbom_path=Path(d["sbom_path"]) if d.get("sbom_path") else None,
+            duration_seconds=d.get("duration_seconds", 0.0),
+            exit_code=d.get("exit_code"),
+            error_message=d.get("error_message"),
+            stdout=d.get("stdout"),
+            stderr=d.get("stderr")
         )
 
 

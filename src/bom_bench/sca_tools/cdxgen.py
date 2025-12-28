@@ -21,13 +21,9 @@ import shutil
 import subprocess
 import time
 from pathlib import Path
-from typing import List, Optional
+from typing import Optional
 
-import pluggy
-
-from bom_bench.models.sca import SCAToolInfo, SBOMResult, SBOMGenerationStatus
-
-hookimpl = pluggy.HookimplMarker("bom_bench")
+from bom_bench import hookimpl
 
 
 def _get_cdxgen_version() -> Optional[str]:
@@ -60,25 +56,16 @@ def _get_cdxgen_version() -> Optional[str]:
 
 
 @hookimpl
-def register_sca_tools() -> List[SCAToolInfo]:
+def register_sca_tools() -> dict:
     """Register cdxgen as an available SCA tool."""
-    return [
-        SCAToolInfo(
-            name="cdxgen",
-            version=_get_cdxgen_version(),
-            description="CycloneDX Generator - creates SBOMs from package manifests",
-            supported_ecosystems=["python", "javascript", "java", "go", "rust", "dotnet"],
-            homepage="https://github.com/CycloneDX/cdxgen"
-        )
-    ]
-
-
-@hookimpl
-def check_tool_available(tool_name: str) -> Optional[bool]:
-    """Check if cdxgen is installed."""
-    if tool_name != "cdxgen":
-        return None
-    return shutil.which("cdxgen") is not None
+    return {
+        "name": "cdxgen",
+        "version": _get_cdxgen_version(),
+        "description": "CycloneDX Generator - creates SBOMs from package manifests",
+        "supported_ecosystems": ["python", "javascript", "java", "go", "rust", "dotnet"],
+        "homepage": "https://github.com/CycloneDX/cdxgen",
+        "installed": shutil.which("cdxgen") is not None
+    }
 
 
 @hookimpl
@@ -88,7 +75,7 @@ def generate_sbom(
     output_path: Path,
     ecosystem: str,
     timeout: int = 120
-) -> Optional[SBOMResult]:
+) -> Optional[dict]:
     """Generate SBOM using cdxgen.
 
     Runs: cdxgen -o <output> <project_dir>
@@ -101,7 +88,7 @@ def generate_sbom(
         timeout: Maximum execution time in seconds
 
     Returns:
-        SBOMResult with generation status and details
+        Dict with generation status and details
     """
     if tool_name != "cdxgen":
         return None
@@ -135,49 +122,52 @@ def generate_sbom(
                 with open(output_path) as f:
                     json.load(f)
 
-                return SBOMResult.success(
-                    tool_name="cdxgen",
-                    sbom_path=output_path,
-                    duration_seconds=duration,
-                    exit_code=result.returncode
-                )
+                return {
+                    "tool_name": "cdxgen",
+                    "status": "success",
+                    "sbom_path": str(output_path),
+                    "duration_seconds": duration,
+                    "exit_code": result.returncode
+                }
             except json.JSONDecodeError as e:
-                return SBOMResult.failed(
-                    tool_name="cdxgen",
-                    error_message=f"Invalid JSON output: {e}",
-                    duration_seconds=duration,
-                    exit_code=result.returncode,
-                    status=SBOMGenerationStatus.PARSE_ERROR
-                )
+                return {
+                    "tool_name": "cdxgen",
+                    "status": "parse_error",
+                    "error_message": f"Invalid JSON output: {e}",
+                    "duration_seconds": duration,
+                    "exit_code": result.returncode
+                }
         else:
             error_msg = result.stderr.strip() if result.stderr else f"Exit code: {result.returncode}"
-            return SBOMResult.failed(
-                tool_name="cdxgen",
-                error_message=error_msg,
-                duration_seconds=duration,
-                exit_code=result.returncode
-            )
+            return {
+                "tool_name": "cdxgen",
+                "status": "tool_failed",
+                "error_message": error_msg,
+                "duration_seconds": duration,
+                "exit_code": result.returncode
+            }
 
     except subprocess.TimeoutExpired:
         duration = time.time() - start_time
-        return SBOMResult.failed(
-            tool_name="cdxgen",
-            error_message=f"Timeout after {timeout} seconds",
-            duration_seconds=duration,
-            status=SBOMGenerationStatus.TIMEOUT
-        )
+        return {
+            "tool_name": "cdxgen",
+            "status": "timeout",
+            "error_message": f"Timeout after {timeout} seconds",
+            "duration_seconds": duration
+        }
 
     except FileNotFoundError:
-        return SBOMResult.failed(
-            tool_name="cdxgen",
-            error_message="cdxgen not found in PATH. Install with: npm install -g @cyclonedx/cdxgen",
-            status=SBOMGenerationStatus.TOOL_NOT_FOUND
-        )
+        return {
+            "tool_name": "cdxgen",
+            "status": "tool_not_found",
+            "error_message": "cdxgen not found in PATH. Install with: npm install -g @cyclonedx/cdxgen"
+        }
 
     except Exception as e:
         duration = time.time() - start_time
-        return SBOMResult.failed(
-            tool_name="cdxgen",
-            error_message=str(e),
-            duration_seconds=duration
-        )
+        return {
+            "tool_name": "cdxgen",
+            "status": "tool_failed",
+            "error_message": str(e),
+            "duration_seconds": duration
+        }
