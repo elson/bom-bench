@@ -3,12 +3,12 @@
 Provides functions for working with package managers:
     from bom_bench.package_managers import (
         list_available_package_managers,
-        check_pm_available,
-        pm_generate_manifest,
-        pm_run_lock,
-        pm_get_output_dir,
-        pm_validate_scenario,
-        pm_generate_sbom_for_lock,
+        check_package_manager_available,
+        package_manager_generate_manifest,
+        package_manager_run_lock,
+        package_manager_get_output_dir,
+        package_manager_validate_scenario,
+        package_manager_generate_sbom_for_lock,
     )
 
 Available plugins:
@@ -38,15 +38,14 @@ def _register_package_managers(pm) -> None:
     global _registered_pms
     _registered_pms = {}
 
-    pm_results = pm.hook.register_package_managers()
-    for pm_list in pm_results:
+    for pm_list in pm.hook.register_package_managers():
         if pm_list:
             for pm_info in pm_list:
                 _registered_pms[pm_info.name] = pm_info
                 logger.debug(f"Registered package manager: {pm_info.name}")
 
 
-def _reset_pms() -> None:
+def _reset_package_managers() -> None:
     """Reset package manager registry.
 
     Called by reset_plugins() in bom_bench.plugins.
@@ -61,8 +60,7 @@ def get_registered_package_managers() -> Dict[str, PMInfo]:
     Returns:
         Dictionary mapping PM name to PMInfo.
     """
-    from bom_bench.plugins import initialize_plugins
-    initialize_plugins()
+
     return _registered_pms.copy()
 
 
@@ -75,7 +73,7 @@ def list_available_package_managers() -> List[str]:
     return list(get_registered_package_managers().keys())
 
 
-def get_pm_info(pm_name: str) -> Optional[PMInfo]:
+def get_package_manager_info(pm_name: str) -> Optional[PMInfo]:
     """Get info for a specific package manager.
 
     Args:
@@ -87,7 +85,7 @@ def get_pm_info(pm_name: str) -> Optional[PMInfo]:
     return get_registered_package_managers().get(pm_name)
 
 
-def check_pm_available(pm_name: str) -> bool:
+def check_package_manager_available(pm_name: str) -> bool:
     """Check if a specific package manager is installed and available.
 
     Args:
@@ -96,21 +94,19 @@ def check_pm_available(pm_name: str) -> bool:
     Returns:
         True if PM is available, False otherwise.
     """
-    from bom_bench.plugins import pm, initialize_plugins
-
-    initialize_plugins()
+    from bom_bench.plugins import pm
 
     if pm_name not in _registered_pms:
         return False
 
-    results = pm.hook.check_pm_available(pm_name=pm_name)
+    results = pm.hook.check_package_manager_available(pm_name=pm_name)
     for result in results:
         if result is not None:
             return result
     return False
 
 
-def pm_load_scenarios(pm_name: str, data_dir: Path) -> List:
+def package_manager_load_scenarios(pm_name: str, data_dir: Path) -> List:
     """Load scenarios for a package manager.
 
     Args:
@@ -137,7 +133,7 @@ def pm_load_scenarios(pm_name: str, data_dir: Path) -> List:
     return []
 
 
-def pm_generate_manifest(pm_name: str, scenario, output_dir: Path) -> Optional[Path]:
+def package_manager_generate_manifest(pm_name: str, scenario, output_dir: Path) -> Optional[Path]:
     """Generate manifest for a scenario.
 
     Args:
@@ -170,7 +166,7 @@ def pm_generate_manifest(pm_name: str, scenario, output_dir: Path) -> Optional[P
     return None
 
 
-def pm_run_lock(
+def package_manager_run_lock(
     pm_name: str,
     project_dir: Path,
     scenario_name: str,
@@ -210,7 +206,7 @@ def pm_run_lock(
     return None
 
 
-def pm_get_output_dir(pm_name: str, base_dir: Path, scenario_name: str) -> Optional[Path]:
+def package_manager_get_output_dir(pm_name: str, base_dir: Path, scenario_name: str) -> Optional[Path]:
     """Get output directory for a package manager scenario.
 
     Args:
@@ -243,7 +239,7 @@ def pm_get_output_dir(pm_name: str, base_dir: Path, scenario_name: str) -> Optio
     return None
 
 
-def pm_validate_scenario(pm_name: str, scenario) -> bool:
+def package_manager_validate_scenario(pm_name: str, scenario) -> bool:
     """Check if scenario is compatible with package manager.
 
     Args:
@@ -272,7 +268,7 @@ def pm_validate_scenario(pm_name: str, scenario) -> bool:
     return False  # Default to not compatible
 
 
-def pm_generate_sbom_for_lock(
+def package_manager_generate_sbom_for_lock(
     pm_name: str,
     scenario,
     output_dir: Path,
@@ -315,12 +311,12 @@ def pm_generate_sbom_for_lock(
 __all__ = [
     "get_registered_package_managers",
     "list_available_package_managers",
-    "get_pm_info",
-    "check_pm_available",
-    "pm_load_scenarios",
-    "pm_generate_manifest",
-    "pm_run_lock",
-    "pm_get_output_dir",
-    "pm_validate_scenario",
-    "pm_generate_sbom_for_lock",
+    "get_package_manager_info",
+    "check_package_manager_available",
+    "package_manager_load_scenarios",
+    "package_manager_generate_manifest",
+    "package_manager_run_lock",
+    "package_manager_get_output_dir",
+    "package_manager_validate_scenario",
+    "package_manager_generate_sbom_for_lock",
 ]

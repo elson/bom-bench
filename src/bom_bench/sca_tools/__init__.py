@@ -37,8 +37,7 @@ def _register_tools(pm) -> None:
     _registered_tools = {}
 
     # Each plugin returns a single dict, which we convert to SCAToolInfo
-    tool_results = pm.hook.register_sca_tools()
-    for tool_data in tool_results:
+    for tool_data in pm.hook.register_sca_tools():
         if tool_data:
             tool_info = SCAToolInfo.from_dict(tool_data)
             _registered_tools[tool_info.name] = tool_info

@@ -19,12 +19,12 @@ from bom_bench.models.scenario import ScenarioFilter, Scenario
 from bom_bench.models.result import ProcessingResult, ProcessingStatus, Summary
 from bom_bench.package_managers import (
     list_available_package_managers,
-    check_pm_available,
-    pm_validate_scenario,
-    pm_get_output_dir,
-    pm_generate_manifest,
-    pm_run_lock,
-    pm_generate_sbom_for_lock,
+    check_package_manager_available,
+    package_manager_validate_scenario,
+    package_manager_get_output_dir,
+    package_manager_generate_manifest,
+    package_manager_run_lock,
+    package_manager_generate_sbom_for_lock,
 )
 
 logger = get_logger(__name__)
@@ -117,7 +117,7 @@ class BomBenchCLI:
             ProcessingResult with status and details
         """
         # Check if PM is available
-        if not check_pm_available(package_manager_name):
+        if not check_package_manager_available(package_manager_name):
             return ProcessingResult(
                 scenario_name=scenario.name,
                 status=ProcessingStatus.FAILED,
@@ -126,7 +126,7 @@ class BomBenchCLI:
             )
 
         # Validate scenario compatibility
-        if not pm_validate_scenario(package_manager_name, scenario):
+        if not package_manager_validate_scenario(package_manager_name, scenario):
             return ProcessingResult(
                 scenario_name=scenario.name,
                 status=ProcessingStatus.SKIPPED,
@@ -136,7 +136,7 @@ class BomBenchCLI:
 
         try:
             # Get output directory (hierarchical: output/scenarios/{pm}/{scenario}/)
-            output_dir = pm_get_output_dir(package_manager_name, output_base, scenario.name)
+            output_dir = package_manager_get_output_dir(package_manager_name, output_base, scenario.name)
             if output_dir is None:
                 return ProcessingResult(
                     scenario_name=scenario.name,
@@ -146,7 +146,7 @@ class BomBenchCLI:
                 )
 
             # Generate manifest
-            manifest_path = pm_generate_manifest(package_manager_name, scenario, output_dir)
+            manifest_path = package_manager_generate_manifest(package_manager_name, scenario, output_dir)
             if manifest_path is None:
                 return ProcessingResult(
                     scenario_name=scenario.name,
@@ -159,11 +159,11 @@ class BomBenchCLI:
 
             # Run lock command
             assets_dir = output_dir / "assets"
-            lock_result = pm_run_lock(package_manager_name, assets_dir, scenario.name)
+            lock_result = package_manager_run_lock(package_manager_name, assets_dir, scenario.name)
 
             # Generate SBOM from lock result
             if lock_result:
-                pm_generate_sbom_for_lock(
+                package_manager_generate_sbom_for_lock(
                     package_manager_name, scenario, output_dir, lock_result
                 )
 

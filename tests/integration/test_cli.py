@@ -357,7 +357,7 @@ version = "2.0.0"
             lock_file.write_text(lock_content)
 
             # Generate SBOM from the lock file using plugin API
-            from bom_bench.package_managers import pm_generate_sbom_for_lock
+            from bom_bench.package_managers import package_manager_generate_sbom_for_lock
 
             # Create mock successful lock result
             lock_result = LockResult(
@@ -371,7 +371,7 @@ version = "2.0.0"
                 duration_seconds=0.1
             )
 
-            sbom_path = pm_generate_sbom_for_lock("uv", scenario, output_dir, lock_result)
+            sbom_path = package_manager_generate_sbom_for_lock("uv", scenario, output_dir, lock_result)
 
             assert sbom_path is not None
             assert sbom_path.exists()
@@ -425,7 +425,7 @@ version = "2.0.0"
             output_dir.mkdir()
 
             # Create mock failed lock result (no lock file) using plugin API
-            from bom_bench.package_managers import pm_generate_sbom_for_lock
+            from bom_bench.package_managers import package_manager_generate_sbom_for_lock
 
             lock_result = LockResult(
                 scenario_name=scenario.name,
@@ -438,7 +438,7 @@ version = "2.0.0"
                 duration_seconds=0.1
             )
 
-            result_path = pm_generate_sbom_for_lock("uv", scenario, output_dir, lock_result)
+            result_path = package_manager_generate_sbom_for_lock("uv", scenario, output_dir, lock_result)
 
             # Should generate meta.json (not SBOM since lock failed)
             assert result_path is not None
@@ -503,7 +503,7 @@ version = "2.31.0"
             lock_file.write_text(lock_content)
 
             # Generate SBOM using plugin API
-            from bom_bench.package_managers import pm_generate_sbom_for_lock
+            from bom_bench.package_managers import package_manager_generate_sbom_for_lock
 
             # Create mock successful lock result
             lock_result = LockResult(
@@ -517,7 +517,7 @@ version = "2.31.0"
                 duration_seconds=0.1
             )
 
-            sbom_path = pm_generate_sbom_for_lock("uv", scenario, output_dir, lock_result)
+            sbom_path = package_manager_generate_sbom_for_lock("uv", scenario, output_dir, lock_result)
 
             assert sbom_path.exists()
 

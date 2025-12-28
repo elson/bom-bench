@@ -17,9 +17,9 @@ For SCA tools, import from bom_bench.sca_tools:
 For package managers, import from bom_bench.package_managers:
     from bom_bench.package_managers import (
         list_available_package_managers,
-        check_pm_available,
-        pm_generate_manifest,
-        pm_run_lock,
+        check_package_manager_available,
+        package_manager_generate_manifest,
+        package_manager_run_lock,
     )
 """
 
@@ -130,10 +130,10 @@ def reset_plugins() -> None:
 
     # Reset domain module registries
     from bom_bench.sca_tools import _reset_tools
-    from bom_bench.package_managers import _reset_pms
+    from bom_bench.package_managers import _reset_package_managers
 
     _reset_tools()
-    _reset_pms()
+    _reset_package_managers()
 
     _initialized = False
 

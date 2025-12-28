@@ -83,7 +83,7 @@ def register_package_managers() -> List[PMInfo]:
 
 
 @hookimpl
-def check_pm_available(pm_name: str) -> Optional[bool]:
+def check_package_manager_available(pm_name: str) -> Optional[bool]:
     """Check if your PM is installed."""
     if pm_name != "{pm_name}":
         return None

@@ -7,34 +7,38 @@ import pytest
 
 from bom_bench.models.scenario import Scenario, Root, Requirement, ResolverOptions
 from bom_bench.models.result import LockResult, LockStatus
-from bom_bench.plugins import reset_plugins
+from bom_bench.plugins import initialize_plugins
 from bom_bench.package_managers import (
-    pm_get_output_dir,
-    pm_validate_scenario,
-    pm_generate_sbom_for_lock,
-    pm_generate_manifest,
+    package_manager_get_output_dir,
+    package_manager_validate_scenario,
+    package_manager_generate_sbom_for_lock,
+    package_manager_generate_manifest,
     list_available_package_managers,
-    check_pm_available,
+    check_package_manager_available,
 )
 
 
 class TestPackageManagerRegistry:
     """Test package manager registry functions via plugin API."""
 
-    def test_list_available_package_managers(self):
+    @pytest.fixture
+    def initialise(self):
+        initialize_plugins()
+    
+    def test_list_available_package_managers(self, initialise):
         """Test listing available package managers."""
         pms = list_available_package_managers()
         assert isinstance(pms, list)
         assert "uv" in pms
 
-    def test_check_pm_available_uv(self):
+    def test_check_pm_available_uv(self, initialise):
         """Test checking UV package manager availability."""
         # UV should be available (it's in our dev dependencies)
-        assert check_pm_available("uv") is True
+        assert check_package_manager_available("uv") is True
 
-    def test_check_pm_available_invalid(self):
+    def test_check_pm_available_invalid(self, initialise):
         """Test checking non-existent package manager."""
-        assert check_pm_available("nonexistent") is False
+        assert check_package_manager_available("nonexistent") is False
 
 
 class TestUVPackageManagerPluginAPI:
@@ -79,22 +83,22 @@ class TestUVPackageManagerPluginAPI:
 
     def test_validate_scenario_packse(self, simple_scenario):
         """Test scenario validation for packse source."""
-        assert pm_validate_scenario("uv", simple_scenario) is True
+        assert package_manager_validate_scenario("uv", simple_scenario) is True
 
     def test_validate_scenario_other_source(self, simple_scenario):
         """Test scenario validation for non-packse source."""
         simple_scenario.source = "other"
-        assert pm_validate_scenario("uv", simple_scenario) is False
+        assert package_manager_validate_scenario("uv", simple_scenario) is False
 
     def test_validate_scenario_invalid_pm(self, simple_scenario):
         """Test scenario validation for non-existent PM."""
-        assert pm_validate_scenario("nonexistent", simple_scenario) is False
+        assert package_manager_validate_scenario("nonexistent", simple_scenario) is False
 
     def test_generate_manifest_simple(self, simple_scenario):
         """Test generating simple pyproject.toml."""
         with tempfile.TemporaryDirectory() as tmpdir:
             output_dir = Path(tmpdir)
-            manifest_path = pm_generate_manifest("uv", simple_scenario, output_dir)
+            manifest_path = package_manager_generate_manifest("uv", simple_scenario, output_dir)
 
             # Check that file was created
             assert manifest_path is not None
@@ -114,7 +118,7 @@ class TestUVPackageManagerPluginAPI:
         """Test generating pyproject.toml with required environments."""
         with tempfile.TemporaryDirectory() as tmpdir:
             output_dir = Path(tmpdir)
-            manifest_path = pm_generate_manifest("uv", scenario_with_environments, output_dir)
+            manifest_path = package_manager_generate_manifest("uv", scenario_with_environments, output_dir)
 
             # Check content
             assert manifest_path is not None
@@ -131,7 +135,7 @@ class TestUVPackageManagerPluginAPI:
             output_dir = Path(tmpdir) / "nested" / "dir"
             assert not output_dir.exists()
 
-            manifest_path = pm_generate_manifest("uv", simple_scenario, output_dir)
+            manifest_path = package_manager_generate_manifest("uv", simple_scenario, output_dir)
 
             assert manifest_path is not None
             assert output_dir.exists()
@@ -142,13 +146,13 @@ class TestUVPackageManagerPluginAPI:
         base_dir = Path("/tmp/output")
         scenario_name = "test-scenario"
 
-        output_dir = pm_get_output_dir("uv", base_dir, scenario_name)
+        output_dir = package_manager_get_output_dir("uv", base_dir, scenario_name)
 
         assert output_dir == Path("/tmp/output/scenarios/uv/test-scenario")
 
     def test_get_output_dir_invalid_pm(self):
         """Test output directory for non-existent PM."""
-        output_dir = pm_get_output_dir("nonexistent", Path("/tmp"), "test")
+        output_dir = package_manager_get_output_dir("nonexistent", Path("/tmp"), "test")
         assert output_dir is None
 
     def test_generate_sbom_for_lock_success(self, simple_scenario):
@@ -180,7 +184,7 @@ source = { registry = "https://test.pypi.org" }
                 duration_seconds=0.5
             )
 
-            sbom_path = pm_generate_sbom_for_lock("uv", simple_scenario, output_dir, lock_result)
+            sbom_path = package_manager_generate_sbom_for_lock("uv", simple_scenario, output_dir, lock_result)
 
             # Should generate expected.cdx.json
             assert sbom_path is not None
@@ -206,7 +210,7 @@ source = { registry = "https://test.pypi.org" }
                 duration_seconds=0.5
             )
 
-            result_path = pm_generate_sbom_for_lock("uv", simple_scenario, output_dir, lock_result)
+            result_path = package_manager_generate_sbom_for_lock("uv", simple_scenario, output_dir, lock_result)
 
             # Should generate meta.json but NOT expected.cdx.json
             meta_path = output_dir / "meta.json"
@@ -228,5 +232,5 @@ source = { registry = "https://test.pypi.org" }
             duration_seconds=0.5
         )
 
-        result = pm_generate_sbom_for_lock("nonexistent", simple_scenario, Path("/tmp"), lock_result)
+        result = package_manager_generate_sbom_for_lock("nonexistent", simple_scenario, Path("/tmp"), lock_result)
         assert result is None

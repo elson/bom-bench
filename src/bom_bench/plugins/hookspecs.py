@@ -220,7 +220,7 @@ class PackageManagerSpec:
         """
 
     @hookspec
-    def check_pm_available(self, pm_name: str) -> Optional[bool]:
+    def check_package_manager_available(self, pm_name: str) -> Optional[bool]:
         """Check if a specific package manager is available/installed.
 
         Args:
