@@ -60,7 +60,8 @@ def get_registered_package_managers() -> Dict[str, PMInfo]:
     Returns:
         Dictionary mapping PM name to PMInfo.
     """
-
+    from bom_bench.plugins import initialize_plugins
+    initialize_plugins()
     return _registered_pms.copy()
 
 
@@ -94,7 +95,8 @@ def check_package_manager_available(pm_name: str) -> bool:
     Returns:
         True if PM is available, False otherwise.
     """
-    from bom_bench.plugins import pm
+    from bom_bench.plugins import pm, initialize_plugins
+    initialize_plugins()
 
     if pm_name not in _registered_pms:
         return False
