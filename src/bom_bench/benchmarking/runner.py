@@ -17,7 +17,7 @@ from bom_bench.models.sca import (
     PurlMetrics,
     SBOMGenerationStatus,
 )
-from bom_bench.plugins import generate_sbom, get_registered_tools
+from bom_bench.sca_tools import generate_sbom, get_registered_tools
 from bom_bench.benchmarking.comparison import (
     extract_purls_from_cyclonedx,
     load_expected_sbom,
@@ -28,7 +28,7 @@ from bom_bench.benchmarking.storage import (
     save_benchmark_summary,
     export_benchmark_csv,
 )
-from bom_bench.plugins import list_available_package_managers
+from bom_bench.package_managers import list_available_package_managers
 
 logger = get_logger(__name__)
 

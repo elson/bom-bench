@@ -17,7 +17,7 @@ from bom_bench.data.loader import ScenarioLoader
 from bom_bench.logging_config import get_logger, setup_logging
 from bom_bench.models.scenario import ScenarioFilter, Scenario
 from bom_bench.models.result import ProcessingResult, ProcessingStatus, Summary
-from bom_bench.plugins import (
+from bom_bench.package_managers import (
     list_available_package_managers,
     check_pm_available,
     pm_validate_scenario,
@@ -412,8 +412,8 @@ def benchmark(package_managers, tools, scenarios, output_dir, benchmarks_dir):
     Example:
         bom-bench benchmark --pm uv --tools cdxgen
     """
-    from bom_bench.plugins import (
-        initialize_plugins,
+    from bom_bench.plugins import initialize_plugins
+    from bom_bench.sca_tools import (
         get_registered_tools,
         list_available_tools,
         check_tool_available,
@@ -486,8 +486,8 @@ def benchmark(package_managers, tools, scenarios, output_dir, benchmarks_dir):
 )
 def list_tools(check):
     """List available SCA tools from plugins."""
-    from bom_bench.plugins import (
-        initialize_plugins,
+    from bom_bench.plugins import initialize_plugins
+    from bom_bench.sca_tools import (
         get_registered_tools,
         check_tool_available,
     )

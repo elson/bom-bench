@@ -7,14 +7,14 @@ import pytest
 
 from bom_bench.models.scenario import Scenario, Root, Requirement, ResolverOptions
 from bom_bench.models.result import LockResult, LockStatus
-from bom_bench.plugins import (
+from bom_bench.plugins import reset_plugins
+from bom_bench.package_managers import (
     pm_get_output_dir,
     pm_validate_scenario,
     pm_generate_sbom_for_lock,
     pm_generate_manifest,
     list_available_package_managers,
     check_pm_available,
-    reset_plugins,
 )
 
 

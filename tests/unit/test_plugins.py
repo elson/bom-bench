@@ -7,12 +7,14 @@ from unittest.mock import patch, MagicMock
 from bom_bench.plugins import (
     initialize_plugins,
     reset_plugins,
+    get_plugins,
+)
+from bom_bench.sca_tools import (
     get_registered_tools,
     list_available_tools,
     get_tool_info,
     check_tool_available,
     generate_sbom,
-    get_plugins,
 )
 from bom_bench.models.sca import SCAToolInfo, SBOMResult, SBOMGenerationStatus
 

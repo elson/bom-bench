@@ -357,7 +357,7 @@ version = "2.0.0"
             lock_file.write_text(lock_content)
 
             # Generate SBOM from the lock file using plugin API
-            from bom_bench.plugins import pm_generate_sbom_for_lock
+            from bom_bench.package_managers import pm_generate_sbom_for_lock
 
             # Create mock successful lock result
             lock_result = LockResult(
@@ -425,7 +425,7 @@ version = "2.0.0"
             output_dir.mkdir()
 
             # Create mock failed lock result (no lock file) using plugin API
-            from bom_bench.plugins import pm_generate_sbom_for_lock
+            from bom_bench.package_managers import pm_generate_sbom_for_lock
 
             lock_result = LockResult(
                 scenario_name=scenario.name,
@@ -503,7 +503,7 @@ version = "2.31.0"
             lock_file.write_text(lock_content)
 
             # Generate SBOM using plugin API
-            from bom_bench.plugins import pm_generate_sbom_for_lock
+            from bom_bench.package_managers import pm_generate_sbom_for_lock
 
             # Create mock successful lock result
             lock_result = LockResult(

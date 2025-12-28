@@ -183,7 +183,8 @@ class TestPluginSystem:
 
     def test_cdxgen_plugin_registers(self):
         """Test that cdxgen plugin registers correctly."""
-        from bom_bench.plugins import initialize_plugins, get_registered_tools
+        from bom_bench.plugins import initialize_plugins
+        from bom_bench.sca_tools import get_registered_tools
 
         initialize_plugins()
         tools = get_registered_tools()
@@ -194,7 +195,8 @@ class TestPluginSystem:
 
     def test_plugin_availability_check(self):
         """Test tool availability check."""
-        from bom_bench.plugins import initialize_plugins, check_tool_available
+        from bom_bench.plugins import initialize_plugins
+        from bom_bench.sca_tools import check_tool_available
 
         initialize_plugins()
 
@@ -207,7 +209,8 @@ class TestPluginSystem:
 
     def test_plugin_list(self):
         """Test listing available tools."""
-        from bom_bench.plugins import initialize_plugins, list_available_tools
+        from bom_bench.plugins import initialize_plugins
+        from bom_bench.sca_tools import list_available_tools
 
         initialize_plugins()
         tools = list_available_tools()
@@ -217,7 +220,8 @@ class TestPluginSystem:
 
     def test_syft_plugin_registers(self):
         """Test that syft plugin registers correctly."""
-        from bom_bench.plugins import initialize_plugins, get_registered_tools
+        from bom_bench.plugins import initialize_plugins
+        from bom_bench.sca_tools import get_registered_tools
 
         initialize_plugins()
         tools = get_registered_tools()
