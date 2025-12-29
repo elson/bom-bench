@@ -4,6 +4,11 @@
 # Big picture
 - See `./README.md` for context.
 
+# Project status
+- This project is in early, pre-alpha stage. 
+- Breaking changes are completely acceptable, there are no real users yet. 
+- Do not add shims, aliases, switches or similar code to maintain backward compatibility
+
 # Key files and folders
 - `./src/bom_bench/` - main package with modular plugin architecture
   - `cli.py` - CLI orchestration and entry points
