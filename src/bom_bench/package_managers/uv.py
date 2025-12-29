@@ -8,28 +8,131 @@ and running uv lock commands.
 import shutil
 import subprocess
 import time
+import tomllib
 from pathlib import Path
 from typing import List, Optional
 
 import packse.fetch
 import packse.inspect
 
-from bom_bench.config import (
-    PACKSE_INDEX_URL,
-    LOCK_TIMEOUT_SECONDS,
-    PROJECT_NAME,
-    PROJECT_VERSION,
-)
 from bom_bench.generators.sbom.cyclonedx import generate_sbom_file, generate_meta_file
-from bom_bench.generators.uv import generate_pyproject_toml
 from bom_bench.logging_config import get_logger
 from bom_bench.models.result import LockResult, LockStatus
-from bom_bench.models.scenario import Scenario
-from bom_bench.parsers.uv_lock import parse_uv_lock
+from bom_bench.models.scenario import Scenario, ExpectedPackage
 
 from bom_bench import hookimpl
 
 logger = get_logger(__name__)
+
+# UV-specific configuration constants
+PACKSE_INDEX_URL = "http://127.0.0.1:3141/simple-html"
+"""URL for packse test index server"""
+
+LOCK_TIMEOUT_SECONDS = 120
+"""Timeout for lock file generation (2 minutes)"""
+
+PROJECT_NAME = "project"
+"""Fixed project name for generated projects"""
+
+PROJECT_VERSION = "0.1.0"
+"""Fixed project version for generated projects"""
+
+
+def _generate_pyproject_toml(
+    name: str,
+    version: str,
+    dependencies: List[str],
+    requires_python: Optional[str] = None,
+    required_environments: Optional[List[str]] = None
+) -> str:
+    """Generate complete pyproject.toml content for UV.
+
+    Args:
+        name: Project name
+        version: Project version
+        dependencies: List of dependency requirement strings
+        requires_python: Python version requirement (e.g., '>=3.12')
+        required_environments: List of required environments for universal resolution
+
+    Returns:
+        Complete pyproject.toml file content as a string
+    """
+    lines = []
+
+    # [project] section
+    lines.append("[project]")
+    lines.append(f'name = "{name}"')
+    lines.append(f'version = "{version}"')
+
+    # Add dependencies
+    if dependencies:
+        lines.append("dependencies = [")
+        for dep in dependencies:
+            # Use single quotes to avoid issues with double quotes in markers
+            lines.append(f"  '{dep}',")
+        lines.append("]")
+    else:
+        lines.append("dependencies = []")
+
+    # Add requires-python if present
+    if requires_python:
+        lines.append(f'requires-python = "{requires_python}"')
+
+    # [tool.uv] section for required environments
+    if required_environments:
+        lines.append("")
+        lines.append("[tool.uv]")
+        lines.append("required-environments = [")
+        for env in required_environments:
+            # Use single quotes to avoid issues with double quotes in the environment strings
+            lines.append(f"  '{env}',")
+        lines.append("]")
+
+    return "\n".join(lines) + "\n"
+
+
+def _parse_uv_lock(lock_file_path: Path) -> List[ExpectedPackage]:
+    """Parse uv.lock file and extract resolved packages.
+
+    Args:
+        lock_file_path: Path to uv.lock file
+
+    Returns:
+        List of ExpectedPackage objects representing resolved dependencies
+
+    Raises:
+        FileNotFoundError: If lock file doesn't exist
+        Exception: If parsing fails
+    """
+    if not lock_file_path.exists():
+        raise FileNotFoundError(f"Lock file not found: {lock_file_path}")
+
+    try:
+        with open(lock_file_path, "rb") as f:
+            lock_data = tomllib.load(f)
+
+        packages = []
+        for package in lock_data.get("package", []):
+            # Skip the virtual project package
+            source = package.get("source", {})
+            if source.get("virtual") == ".":
+                continue
+
+            name = package.get("name")
+            version = package.get("version")
+
+            if name and version:
+                packages.append(
+                    ExpectedPackage(
+                        name=name,
+                        version=version
+                    )
+                )
+
+        return packages
+
+    except Exception as e:
+        raise Exception(f"Failed to parse uv.lock file: {e}")
 
 
 def _get_uv_version() -> Optional[str]:
@@ -156,7 +259,7 @@ def generate_manifest(
     required_environments = scenario.resolver_options.required_environments
 
     # Generate pyproject.toml content
-    content = generate_pyproject_toml(
+    content = _generate_pyproject_toml(
         name=PROJECT_NAME,
         version=PROJECT_VERSION,
         dependencies=dependencies,
@@ -295,7 +398,7 @@ def _generate_sbom_for_lock_impl(
         if lock_result.status == LockStatus.SUCCESS:
             lock_file = output_dir / "assets" / "uv.lock"
             if lock_file.exists():
-                packages = parse_uv_lock(lock_file)
+                packages = _parse_uv_lock(lock_file)
                 return generate_sbom_file(
                     scenario_name=scenario.name,
                     output_path=sbom_path,

@@ -17,14 +17,6 @@ BENCHMARKS_DIR = OUTPUT_DIR / "benchmarks"
 # Default data source directories
 DEFAULT_PACKSE_DIR = DATA_DIR / "packse"
 
-# Packse configuration
-PACKSE_INDEX_URL = "http://127.0.0.1:3141/simple-html"
-"""URL for packse test index server"""
-
-# Processing settings
-LOCK_TIMEOUT_SECONDS = 120
-"""Timeout for lock file generation (2 minutes)"""
-
 # Default package manager
 DEFAULT_PACKAGE_MANAGER = "uv"
 """Default package manager to use when none is specified"""
