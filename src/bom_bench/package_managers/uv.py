@@ -8,12 +8,12 @@ and running uv lock commands.
 import shutil
 import subprocess
 import time
-import tomllib
 from pathlib import Path
 from typing import List, Optional
 
 import packse.fetch
 import packse.inspect
+import tomlkit
 
 from bom_bench.generators.sbom.cyclonedx import generate_sbom_file, generate_meta_file
 from bom_bench.logging_config import get_logger
@@ -57,38 +57,29 @@ def _generate_pyproject_toml(
     Returns:
         Complete pyproject.toml file content as a string
     """
-    lines = []
+    doc = tomlkit.document()
 
     # [project] section
-    lines.append("[project]")
-    lines.append(f'name = "{name}"')
-    lines.append(f'version = "{version}"')
+    project = tomlkit.table()
+    project["name"] = name
+    project["version"] = version
+    project["dependencies"] = dependencies if dependencies else []
 
-    # Add dependencies
-    if dependencies:
-        lines.append("dependencies = [")
-        for dep in dependencies:
-            # Use single quotes to avoid issues with double quotes in markers
-            lines.append(f"  '{dep}',")
-        lines.append("]")
-    else:
-        lines.append("dependencies = []")
-
-    # Add requires-python if present
     if requires_python:
-        lines.append(f'requires-python = "{requires_python}"')
+        project["requires-python"] = requires_python
+
+    doc["project"] = project
 
     # [tool.uv] section for required environments
     if required_environments:
-        lines.append("")
-        lines.append("[tool.uv]")
-        lines.append("required-environments = [")
-        for env in required_environments:
-            # Use single quotes to avoid issues with double quotes in the environment strings
-            lines.append(f"  '{env}',")
-        lines.append("]")
+        if "tool" not in doc:
+            doc["tool"] = tomlkit.table()
 
-    return "\n".join(lines) + "\n"
+        uv_table = tomlkit.table()
+        uv_table["required-environments"] = required_environments
+        doc["tool"]["uv"] = uv_table
+
+    return tomlkit.dumps(doc)
 
 
 def _parse_uv_lock(lock_file_path: Path) -> List[ExpectedPackage]:
@@ -108,8 +99,8 @@ def _parse_uv_lock(lock_file_path: Path) -> List[ExpectedPackage]:
         raise FileNotFoundError(f"Lock file not found: {lock_file_path}")
 
     try:
-        with open(lock_file_path, "rb") as f:
-            lock_data = tomllib.load(f)
+        with open(lock_file_path, "r", encoding="utf-8") as f:
+            lock_data = tomlkit.load(f)
 
         packages = []
         for package in lock_data.get("package", []):

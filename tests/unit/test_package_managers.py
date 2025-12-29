@@ -106,8 +106,8 @@ class TestUVPackageManagerPluginAPI:
             assert '[project]' in content
             assert 'name = "project"' in content
             assert 'version = "0.1.0"' in content
-            assert "'package-a>=1.0.0'" in content
-            assert "'package-b<2.0.0'" in content
+            assert '"package-a>=1.0.0"' in content
+            assert '"package-b<2.0.0"' in content
             assert 'requires-python = ">=3.12"' in content
 
     def test_generate_manifest_with_environments(self, scenario_with_environments):
@@ -122,8 +122,8 @@ class TestUVPackageManagerPluginAPI:
             assert '[project]' in content
             assert '[tool.uv]' in content
             assert 'required-environments' in content
-            assert "'python_version >= '3.8''" in content
-            assert "'sys_platform == 'linux''" in content
+            assert '"python_version >= \'3.8\'"' in content
+            assert '"sys_platform == \'linux\'"' in content
 
     def test_generate_manifest_creates_directory(self, simple_scenario):
         """Test that generate_manifest creates output directory if needed."""
