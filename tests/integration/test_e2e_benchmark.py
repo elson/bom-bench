@@ -237,7 +237,7 @@ class TestPurlComparison:
 
     def test_perfect_match_metrics(self):
         """Test metrics for perfectly matching SBOMs."""
-        from bom_bench.models.sca import PurlMetrics
+        from bom_bench.models.sca_tool import PurlMetrics
 
         expected = {"pkg:pypi/a@1.0.0", "pkg:pypi/b@2.0.0"}
         actual = {"pkg:pypi/a@1.0.0", "pkg:pypi/b@2.0.0"}
@@ -253,7 +253,7 @@ class TestPurlComparison:
 
     def test_partial_match_metrics(self):
         """Test metrics for partially matching SBOMs."""
-        from bom_bench.models.sca import PurlMetrics
+        from bom_bench.models.sca_tool import PurlMetrics
 
         expected = {"pkg:pypi/a@1.0.0", "pkg:pypi/b@2.0.0"}
         actual = {"pkg:pypi/a@1.0.0", "pkg:pypi/c@3.0.0"}
