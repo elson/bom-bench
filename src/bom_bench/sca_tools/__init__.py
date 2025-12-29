@@ -17,7 +17,7 @@ from pathlib import Path
 from typing import Dict, List, Optional
 
 from bom_bench.logging_config import get_logger
-from bom_bench.models.sca import SCAToolInfo, SBOMResult
+from bom_bench.models.sca_tool import SCAToolInfo, ScanResult
 
 logger = get_logger(__name__)
 
@@ -102,14 +102,14 @@ def check_tool_available(tool_name: str) -> bool:
     return tools[tool_name].installed
 
 
-def generate_sbom(
+def scan_project(
     tool_name: str,
     project_dir: Path,
     output_path: Path,
     ecosystem: str,
     timeout: int = 120
-) -> Optional[SBOMResult]:
-    """Generate SBOM using a registered tool.
+) -> Optional[ScanResult]:
+    """Scan project using a registered tool to generate SBOM.
 
     Args:
         tool_name: Name of the SCA tool to use.
@@ -119,7 +119,7 @@ def generate_sbom(
         timeout: Execution timeout in seconds.
 
     Returns:
-        SBOMResult with execution details, or None if tool not found.
+        ScanResult with execution details, or None if tool not found.
     """
     from bom_bench.plugins import pm, initialize_plugins
 
@@ -129,7 +129,7 @@ def generate_sbom(
         logger.warning(f"Tool '{tool_name}' not registered")
         return None
 
-    results = pm.hook.generate_sbom(
+    results = pm.hook.scan_project(
         tool_name=tool_name,
         project_dir=project_dir,
         output_path=output_path,
@@ -137,12 +137,12 @@ def generate_sbom(
         timeout=timeout
     )
 
-    # Plugins return dicts, convert to SBOMResult
+    # Plugins return dicts, convert to ScanResult
     for result in results:
         if result is not None:
-            return SBOMResult.from_dict(result)
+            return ScanResult.from_dict(result)
 
-    logger.warning(f"No plugin handled SBOM generation for tool '{tool_name}'")
+    logger.warning(f"No plugin handled project scan for tool '{tool_name}'")
     return None
 
 
@@ -151,5 +151,5 @@ __all__ = [
     "list_available_tools",
     "get_tool_info",
     "check_tool_available",
-    "generate_sbom",
+    "scan_project",
 ]

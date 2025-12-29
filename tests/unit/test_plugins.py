@@ -14,9 +14,9 @@ from bom_bench.sca_tools import (
     list_available_tools,
     get_tool_info,
     check_tool_available,
-    generate_sbom,
+    scan_project,
 )
-from bom_bench.models.sca import SCAToolInfo, SBOMResult, SBOMGenerationStatus
+from bom_bench.models.sca_tool import SCAToolInfo, ScanResult, ScanStatus
 
 
 class TestPluginInitialization:
@@ -136,7 +136,7 @@ class TestSBOMGeneration:
 
     def test_generate_sbom_unregistered_tool(self):
         """Test SBOM generation with unregistered tool."""
-        result = generate_sbom(
+        result = scan_project(
             tool_name="nonexistent",
             project_dir=Path("/project"),
             output_path=Path("/output.json"),
@@ -158,7 +158,7 @@ class TestSBOMGeneration:
             stderr=""
         )
 
-        result = generate_sbom(
+        result = scan_project(
             tool_name="cdxgen",
             project_dir=tmp_path,
             output_path=output_path,
@@ -166,7 +166,7 @@ class TestSBOMGeneration:
         )
 
         assert result is not None
-        assert result.status == SBOMGenerationStatus.SUCCESS
+        assert result.status == ScanStatus.SUCCESS
         assert result.sbom_path == output_path
 
     @patch("subprocess.run")
@@ -180,7 +180,7 @@ class TestSBOMGeneration:
             stderr="Error: something went wrong"
         )
 
-        result = generate_sbom(
+        result = scan_project(
             tool_name="cdxgen",
             project_dir=tmp_path,
             output_path=output_path,
@@ -188,7 +188,7 @@ class TestSBOMGeneration:
         )
 
         assert result is not None
-        assert result.status == SBOMGenerationStatus.TOOL_FAILED
+        assert result.status == ScanStatus.TOOL_FAILED
         assert "Error" in result.error_message
 
 

@@ -85,14 +85,14 @@ def register_sca_tools() -> dict:
 
 
 @hookimpl
-def generate_sbom(
+def scan_project(
     tool_name: str,
     project_dir: Path,
     output_path: Path,
     ecosystem: str,
     timeout: int = 120
 ) -> Optional[dict]:
-    """Generate SBOM using Syft.
+    """Scan project using Syft to generate SBOM.
 
     Runs: syft <project_dir> -o cyclonedx-json=<output_path>
 

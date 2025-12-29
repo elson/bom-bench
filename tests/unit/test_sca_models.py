@@ -3,10 +3,10 @@
 import pytest
 from pathlib import Path
 
-from bom_bench.models.sca import (
-    SBOMGenerationStatus,
+from bom_bench.models.sca_tool import (
+    ScanStatus,
     SCAToolInfo,
-    SBOMResult,
+    ScanResult,
     BenchmarkStatus,
     PurlMetrics,
     BenchmarkResult,
@@ -86,12 +86,12 @@ class TestSCAToolInfo:
         assert info.installed is False
 
 
-class TestSBOMResult:
-    """Tests for SBOMResult model."""
+class TestScanResult:
+    """Tests for ScanResult model."""
 
     def test_create_success_result(self):
-        """Test creating successful SBOMResult."""
-        result = SBOMResult.success(
+        """Test creating successful ScanResult."""
+        result = ScanResult.success(
             tool_name="cdxgen",
             sbom_path=Path("/output/sbom.json"),
             duration_seconds=1.5,
@@ -99,40 +99,40 @@ class TestSBOMResult:
         )
 
         assert result.tool_name == "cdxgen"
-        assert result.status == SBOMGenerationStatus.SUCCESS
+        assert result.status == ScanStatus.SUCCESS
         assert result.sbom_path == Path("/output/sbom.json")
         assert result.duration_seconds == 1.5
         assert result.exit_code == 0
         assert result.error_message is None
 
     def test_create_failed_result(self):
-        """Test creating failed SBOMResult."""
-        result = SBOMResult.failed(
+        """Test creating failed ScanResult."""
+        result = ScanResult.failed(
             tool_name="cdxgen",
             error_message="Tool not found",
-            status=SBOMGenerationStatus.TOOL_NOT_FOUND,
+            status=ScanStatus.TOOL_NOT_FOUND,
             duration_seconds=0.1
         )
 
         assert result.tool_name == "cdxgen"
-        assert result.status == SBOMGenerationStatus.TOOL_NOT_FOUND
+        assert result.status == ScanStatus.TOOL_NOT_FOUND
         assert result.error_message == "Tool not found"
         assert result.sbom_path is None
 
     def test_timeout_result(self):
-        """Test creating timeout SBOMResult."""
-        result = SBOMResult.failed(
+        """Test creating timeout ScanResult."""
+        result = ScanResult.failed(
             tool_name="cdxgen",
             error_message="Timeout after 120s",
-            status=SBOMGenerationStatus.TIMEOUT,
+            status=ScanStatus.TIMEOUT,
             duration_seconds=120.0
         )
 
-        assert result.status == SBOMGenerationStatus.TIMEOUT
+        assert result.status == ScanStatus.TIMEOUT
         assert result.duration_seconds == 120.0
 
     def test_from_dict_success(self):
-        """Test creating SBOMResult from success dict."""
+        """Test creating ScanResult from success dict."""
         data = {
             "tool_name": "cdxgen",
             "status": "success",
@@ -141,17 +141,17 @@ class TestSBOMResult:
             "exit_code": 0
         }
 
-        result = SBOMResult.from_dict(data)
+        result = ScanResult.from_dict(data)
 
         assert result.tool_name == "cdxgen"
-        assert result.status == SBOMGenerationStatus.SUCCESS
+        assert result.status == ScanStatus.SUCCESS
         assert result.sbom_path == Path("/output/sbom.json")
         assert result.duration_seconds == 1.5
         assert result.exit_code == 0
         assert result.error_message is None
 
     def test_from_dict_failed(self):
-        """Test creating SBOMResult from failure dict."""
+        """Test creating ScanResult from failure dict."""
         data = {
             "tool_name": "cdxgen",
             "status": "tool_failed",
@@ -160,16 +160,16 @@ class TestSBOMResult:
             "exit_code": 1
         }
 
-        result = SBOMResult.from_dict(data)
+        result = ScanResult.from_dict(data)
 
         assert result.tool_name == "cdxgen"
-        assert result.status == SBOMGenerationStatus.TOOL_FAILED
+        assert result.status == ScanStatus.TOOL_FAILED
         assert result.error_message == "Non-zero exit code"
         assert result.sbom_path is None
         assert result.exit_code == 1
 
     def test_from_dict_timeout(self):
-        """Test creating SBOMResult from timeout dict."""
+        """Test creating ScanResult from timeout dict."""
         data = {
             "tool_name": "syft",
             "status": "timeout",
@@ -177,26 +177,26 @@ class TestSBOMResult:
             "duration_seconds": 120.0
         }
 
-        result = SBOMResult.from_dict(data)
+        result = ScanResult.from_dict(data)
 
-        assert result.status == SBOMGenerationStatus.TIMEOUT
+        assert result.status == ScanStatus.TIMEOUT
         assert result.error_message == "Timeout after 120s"
 
     def test_from_dict_tool_not_found(self):
-        """Test creating SBOMResult from tool_not_found dict."""
+        """Test creating ScanResult from tool_not_found dict."""
         data = {
             "tool_name": "cdxgen",
             "status": "tool_not_found",
             "error_message": "cdxgen not found in PATH"
         }
 
-        result = SBOMResult.from_dict(data)
+        result = ScanResult.from_dict(data)
 
-        assert result.status == SBOMGenerationStatus.TOOL_NOT_FOUND
+        assert result.status == ScanStatus.TOOL_NOT_FOUND
         assert result.duration_seconds == 0.0
 
     def test_from_dict_parse_error(self):
-        """Test creating SBOMResult from parse_error dict."""
+        """Test creating ScanResult from parse_error dict."""
         data = {
             "tool_name": "cdxgen",
             "status": "parse_error",
@@ -204,12 +204,12 @@ class TestSBOMResult:
             "duration_seconds": 1.0
         }
 
-        result = SBOMResult.from_dict(data)
+        result = ScanResult.from_dict(data)
 
-        assert result.status == SBOMGenerationStatus.PARSE_ERROR
+        assert result.status == ScanStatus.PARSE_ERROR
 
     def test_from_dict_with_stdout_stderr(self):
-        """Test creating SBOMResult with stdout/stderr."""
+        """Test creating ScanResult with stdout/stderr."""
         data = {
             "tool_name": "cdxgen",
             "status": "tool_failed",
@@ -218,7 +218,7 @@ class TestSBOMResult:
             "stderr": "Error details"
         }
 
-        result = SBOMResult.from_dict(data)
+        result = ScanResult.from_dict(data)
 
         assert result.stdout == "Some output"
         assert result.stderr == "Error details"

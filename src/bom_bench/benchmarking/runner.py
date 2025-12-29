@@ -10,14 +10,14 @@ from typing import List, Optional
 import click
 
 from bom_bench.logging_config import get_logger
-from bom_bench.models.sca import (
+from bom_bench.models.sca_tool import (
     BenchmarkResult,
     BenchmarkStatus,
     BenchmarkSummary,
     PurlMetrics,
-    SBOMGenerationStatus,
+    ScanStatus,
 )
-from bom_bench.sca_tools import generate_sbom, get_registered_tools
+from bom_bench.sca_tools import scan_project, get_registered_tools
 from bom_bench.benchmarking.comparison import (
     extract_purls_from_cyclonedx,
     load_expected_sbom,
@@ -208,7 +208,7 @@ class BenchmarkRunner:
             )
 
         # Generate SBOM using plugin (scan the assets directory with project files)
-        sbom_result = generate_sbom(
+        sbom_result = scan_project(
             tool_name=tool_name,
             project_dir=assets_dir,
             output_path=actual_path,
@@ -224,7 +224,7 @@ class BenchmarkRunner:
                 error_message=f"No plugin handled tool '{tool_name}'"
             )
 
-        if sbom_result.status != SBOMGenerationStatus.SUCCESS:
+        if sbom_result.status != ScanStatus.SUCCESS:
             return BenchmarkResult(
                 scenario_name=scenario_name,
                 package_manager=pm_name,

@@ -20,23 +20,19 @@ from bom_bench.package_managers import (
 
 class TestPackageManagerRegistry:
     """Test package manager registry functions via plugin API."""
-
-    @pytest.fixture
-    def initialise(self):
-        initialize_plugins()
     
-    def test_list_available_package_managers(self, initialise):
+    def test_list_available_package_managers(self):
         """Test listing available package managers."""
         pms = list_available_package_managers()
         assert isinstance(pms, list)
         assert "uv" in pms
 
-    def test_check_pm_available_uv(self, initialise):
+    def test_check_pm_available_uv(self):
         """Test checking UV package manager availability."""
         # UV should be available (it's in our dev dependencies)
         assert check_package_manager_available("uv") is True
 
-    def test_check_pm_available_invalid(self, initialise):
+    def test_check_pm_available_invalid(self):
         """Test checking non-existent package manager."""
         assert check_package_manager_available("nonexistent") is False
 

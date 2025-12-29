@@ -7,7 +7,7 @@ from click.testing import CliRunner
 from unittest.mock import patch, MagicMock
 
 from bom_bench.cli import cli
-from bom_bench.models.sca import SBOMResult, SBOMGenerationStatus
+from bom_bench.models.sca_tool import ScanResult, ScanStatus
 
 
 @pytest.fixture

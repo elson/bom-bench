@@ -12,7 +12,7 @@ from pathlib import Path
 from typing import Any, Dict, List
 
 from bom_bench.logging_config import get_logger
-from bom_bench.models.sca import BenchmarkResult, BenchmarkSummary
+from bom_bench.models.sca_tool import BenchmarkResult, BenchmarkSummary
 
 logger = get_logger(__name__)
 

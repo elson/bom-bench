@@ -10,13 +10,13 @@ from bom_bench.benchmarking.storage import (
     save_benchmark_summary,
     export_benchmark_csv,
 )
-from bom_bench.models.sca import (
+from bom_bench.models.sca_tool import (
     BenchmarkResult,
     BenchmarkStatus,
     BenchmarkSummary,
     PurlMetrics,
-    SBOMResult,
-    SBOMGenerationStatus,
+    ScanResult,
+    ScanStatus,
 )
 
 
@@ -60,10 +60,10 @@ class TestSaveBenchmarkResult:
         """Test saving a failed benchmark result."""
         output_path = tmp_path / "result.json"
 
-        sbom_result = SBOMResult.failed(
+        sbom_result = ScanResult.failed(
             tool_name="cdxgen",
             error_message="Tool not found",
-            status=SBOMGenerationStatus.TOOL_NOT_FOUND
+            status=ScanStatus.TOOL_NOT_FOUND
         )
 
         result = BenchmarkResult(
@@ -205,7 +205,7 @@ class TestExportCsv:
                 tool_name="cdxgen",
                 status=BenchmarkStatus.SUCCESS,
                 metrics=PurlMetrics.calculate({"a", "b"}, {"a", "b"}),
-                sbom_result=SBOMResult.success(
+                sbom_result=ScanResult.success(
                     "cdxgen", Path("/sbom.json"), 1.5, 0
                 )
             ),

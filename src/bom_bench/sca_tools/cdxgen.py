@@ -69,14 +69,14 @@ def register_sca_tools() -> dict:
 
 
 @hookimpl
-def generate_sbom(
+def scan_project(
     tool_name: str,
     project_dir: Path,
     output_path: Path,
     ecosystem: str,
     timeout: int = 120
 ) -> Optional[dict]:
-    """Generate SBOM using cdxgen.
+    """Scan project using cdxgen to generate SBOM.
 
     Runs: cdxgen -o <output> <project_dir>
 

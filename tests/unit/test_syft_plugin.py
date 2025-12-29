@@ -8,7 +8,7 @@ from unittest.mock import MagicMock, patch, mock_open
 from bom_bench.sca_tools.syft import (
     _get_syft_version,
     register_sca_tools,
-    generate_sbom,
+    scan_project,
 )
 
 
@@ -140,7 +140,7 @@ class TestSyftSBOMGeneration:
         mock_run.return_value = MagicMock(returncode=0, stderr="")
         mock_exists.return_value = True
 
-        result = generate_sbom(
+        result = scan_project(
             tool_name="syft",
             project_dir=project_dir,
             output_path=output_path,
@@ -167,7 +167,7 @@ class TestSyftSBOMGeneration:
 
         mock_run.side_effect = subprocess.TimeoutExpired("syft", 120)
 
-        result = generate_sbom(
+        result = scan_project(
             tool_name="syft",
             project_dir=tmp_path,
             output_path=tmp_path / "out.json",
@@ -183,7 +183,7 @@ class TestSyftSBOMGeneration:
         """Test when Syft is not found."""
         mock_run.side_effect = FileNotFoundError()
 
-        result = generate_sbom(
+        result = scan_project(
             tool_name="syft",
             project_dir=tmp_path,
             output_path=tmp_path / "out.json",
@@ -202,7 +202,7 @@ class TestSyftSBOMGeneration:
         mock_run.return_value = MagicMock(returncode=0, stderr="")
         mock_exists.return_value = True
 
-        result = generate_sbom(
+        result = scan_project(
             tool_name="syft",
             project_dir=tmp_path,
             output_path=tmp_path / "out.json",
@@ -221,7 +221,7 @@ class TestSyftSBOMGeneration:
             stderr="Error: could not determine source"
         )
 
-        result = generate_sbom(
+        result = scan_project(
             tool_name="syft",
             project_dir=tmp_path,
             output_path=tmp_path / "out.json",
@@ -234,7 +234,7 @@ class TestSyftSBOMGeneration:
 
     def test_generate_sbom_wrong_tool(self, tmp_path):
         """Test that plugin returns None for other tools."""
-        result = generate_sbom(
+        result = scan_project(
             tool_name="cdxgen",
             project_dir=tmp_path,
             output_path=tmp_path / "out.json",
@@ -254,7 +254,7 @@ class TestSyftSBOMGeneration:
         mock_run.return_value = MagicMock(returncode=0, stderr="")
         mock_exists.return_value = True
 
-        result = generate_sbom(
+        result = scan_project(
             tool_name="syft",
             project_dir=project_dir,
             output_path=output_path,
@@ -271,7 +271,7 @@ class TestSyftSBOMGeneration:
         mock_run.return_value = MagicMock(returncode=0, stderr="")
         mock_exists.return_value = False
 
-        result = generate_sbom(
+        result = scan_project(
             tool_name="syft",
             project_dir=tmp_path,
             output_path=tmp_path / "out.json",

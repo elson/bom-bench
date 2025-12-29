@@ -13,8 +13,8 @@ from bom_bench.logging_config import get_logger
 logger = get_logger(__name__)
 
 
-class SBOMGenerationStatus(Enum):
-    """Status of SBOM generation by an SCA tool."""
+class ScanStatus(Enum):
+    """Status of project scan by an SCA tool."""
 
     SUCCESS = "success"
     """Tool ran successfully, SBOM generated"""
@@ -79,18 +79,18 @@ class SCAToolInfo:
 
 
 @dataclass
-class SBOMResult:
-    """Result of SBOM generation from a plugin.
+class ScanResult:
+    """Result of project scan from a plugin.
 
-    Plugins return this from bom_bench_generate_sbom() to report
+    Plugins return this from bom_bench_scan_project() to report
     what happened when they invoked their tool.
     """
 
     tool_name: str
     """Name of the tool that generated this result"""
 
-    status: SBOMGenerationStatus
-    """Generation status"""
+    status: ScanStatus
+    """Scan status"""
 
     sbom_path: Optional[Path] = None
     """Path to generated SBOM file (if successful)"""
@@ -117,11 +117,11 @@ class SBOMResult:
         sbom_path: Path,
         duration_seconds: float,
         exit_code: int = 0
-    ) -> "SBOMResult":
+    ) -> "ScanResult":
         """Create a successful result."""
         return cls(
             tool_name=tool_name,
-            status=SBOMGenerationStatus.SUCCESS,
+            status=ScanStatus.SUCCESS,
             sbom_path=sbom_path,
             duration_seconds=duration_seconds,
             exit_code=exit_code
@@ -132,10 +132,10 @@ class SBOMResult:
         cls,
         tool_name: str,
         error_message: str,
-        status: SBOMGenerationStatus = SBOMGenerationStatus.TOOL_FAILED,
+        status: ScanStatus = ScanStatus.TOOL_FAILED,
         duration_seconds: float = 0.0,
         exit_code: Optional[int] = None
-    ) -> "SBOMResult":
+    ) -> "ScanResult":
         """Create a failed result."""
         return cls(
             tool_name=tool_name,
@@ -146,21 +146,21 @@ class SBOMResult:
         )
 
     @classmethod
-    def from_dict(cls, d: dict) -> "SBOMResult":
-        """Create SBOMResult from plugin dict.
+    def from_dict(cls, d: dict) -> "ScanResult":
+        """Create ScanResult from plugin dict.
 
         Args:
             d: Dict with result fields (status as string)
 
         Returns:
-            SBOMResult instance
+            ScanResult instance
         """
         status_map = {
-            "success": SBOMGenerationStatus.SUCCESS,
-            "tool_failed": SBOMGenerationStatus.TOOL_FAILED,
-            "timeout": SBOMGenerationStatus.TIMEOUT,
-            "parse_error": SBOMGenerationStatus.PARSE_ERROR,
-            "tool_not_found": SBOMGenerationStatus.TOOL_NOT_FOUND,
+            "success": ScanStatus.SUCCESS,
+            "tool_failed": ScanStatus.TOOL_FAILED,
+            "timeout": ScanStatus.TIMEOUT,
+            "parse_error": ScanStatus.PARSE_ERROR,
+            "tool_not_found": ScanStatus.TOOL_NOT_FOUND,
         }
         return cls(
             tool_name=d["tool_name"],
@@ -281,7 +281,7 @@ class BenchmarkResult:
     expected_satisfiable: bool = True
     """Whether the expected SBOM was satisfiable"""
 
-    sbom_result: Optional[SBOMResult] = None
+    sbom_result: Optional[ScanResult] = None
     """Result from SBOM generation"""
 
     expected_sbom_path: Optional[Path] = None

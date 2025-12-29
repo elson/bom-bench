@@ -6,11 +6,11 @@ from pathlib import Path
 from unittest.mock import patch, MagicMock
 
 from bom_bench.benchmarking.runner import BenchmarkRunner, PM_ECOSYSTEMS
-from bom_bench.models.sca import (
+from bom_bench.models.sca_tool import (
     BenchmarkResult,
     BenchmarkStatus,
-    SBOMResult,
-    SBOMGenerationStatus,
+    ScanResult,
+    ScanStatus,
 )
 
 
@@ -122,7 +122,7 @@ class TestBenchmarkScenario:
         assert result.status == BenchmarkStatus.UNSATISFIABLE
         assert result.expected_satisfiable is False
 
-    @patch("bom_bench.benchmarking.runner.generate_sbom")
+    @patch("bom_bench.benchmarking.runner.scan_project")
     def test_no_plugin_handles_tool(self, mock_generate, tmp_path):
         """Test handling when no plugin handles the tool."""
         output_dir = tmp_path / "output"
@@ -156,7 +156,7 @@ class TestBenchmarkScenario:
         assert result.status == BenchmarkStatus.SBOM_GENERATION_FAILED
         assert "No plugin handled" in result.error_message
 
-    @patch("bom_bench.benchmarking.runner.generate_sbom")
+    @patch("bom_bench.benchmarking.runner.scan_project")
     def test_sbom_generation_fails(self, mock_generate, tmp_path):
         """Test handling when SBOM generation fails."""
         output_dir = tmp_path / "output"
@@ -171,10 +171,10 @@ class TestBenchmarkScenario:
             "sbom": {"components": [{"purl": "pkg:pypi/requests@2.28.0"}]}
         }))
 
-        mock_generate.return_value = SBOMResult.failed(
+        mock_generate.return_value = ScanResult.failed(
             tool_name="cdxgen",
             error_message="Tool crashed",
-            status=SBOMGenerationStatus.TOOL_FAILED
+            status=ScanStatus.TOOL_FAILED
         )
 
         runner = BenchmarkRunner(
@@ -193,9 +193,9 @@ class TestBenchmarkScenario:
 
         assert result.status == BenchmarkStatus.SBOM_GENERATION_FAILED
         assert result.sbom_result is not None
-        assert result.sbom_result.status == SBOMGenerationStatus.TOOL_FAILED
+        assert result.sbom_result.status == ScanStatus.TOOL_FAILED
 
-    @patch("bom_bench.benchmarking.runner.generate_sbom")
+    @patch("bom_bench.benchmarking.runner.scan_project")
     def test_actual_sbom_parse_error(self, mock_generate, tmp_path):
         """Test handling when actual SBOM can't be parsed."""
         output_dir = tmp_path / "output"
@@ -215,7 +215,7 @@ class TestBenchmarkScenario:
         actual_dir.mkdir(parents=True)
         actual_path = actual_dir / "actual.cdx.json"
 
-        mock_generate.return_value = SBOMResult.success(
+        mock_generate.return_value = ScanResult.success(
             tool_name="cdxgen",
             sbom_path=actual_path,
             duration_seconds=1.0
@@ -239,7 +239,7 @@ class TestBenchmarkScenario:
         assert result.status == BenchmarkStatus.PARSE_ERROR
         assert "Failed to parse" in result.error_message
 
-    @patch("bom_bench.benchmarking.runner.generate_sbom")
+    @patch("bom_bench.benchmarking.runner.scan_project")
     def test_successful_benchmark(self, mock_generate, tmp_path):
         """Test successful benchmarking with PURL comparison."""
         output_dir = tmp_path / "output"
@@ -272,7 +272,7 @@ class TestBenchmarkScenario:
             ]
         }))
 
-        mock_generate.return_value = SBOMResult.success(
+        mock_generate.return_value = ScanResult.success(
             tool_name="cdxgen",
             sbom_path=actual_path,
             duration_seconds=1.5
@@ -301,7 +301,7 @@ class TestBenchmarkScenario:
         assert result.metrics.false_positives == 0
         assert result.metrics.false_negatives == 0
 
-    @patch("bom_bench.benchmarking.runner.generate_sbom")
+    @patch("bom_bench.benchmarking.runner.scan_project")
     def test_benchmark_with_differences(self, mock_generate, tmp_path):
         """Test benchmarking when SBOMs differ."""
         output_dir = tmp_path / "output"
@@ -332,7 +332,7 @@ class TestBenchmarkScenario:
             ]
         }))
 
-        mock_generate.return_value = SBOMResult.success(
+        mock_generate.return_value = ScanResult.success(
             tool_name="cdxgen",
             sbom_path=actual_path,
             duration_seconds=1.5
@@ -387,7 +387,7 @@ class TestBenchmarkRun:
         assert result == 0
 
     @patch("bom_bench.benchmarking.runner.get_registered_tools")
-    @patch("bom_bench.benchmarking.runner.generate_sbom")
+    @patch("bom_bench.benchmarking.runner.scan_project")
     def test_run_single_scenario(self, mock_generate, mock_get_tools, tmp_path):
         """Test running a single scenario."""
         output_dir = tmp_path / "output"
@@ -413,7 +413,7 @@ class TestBenchmarkRun:
         }))
 
         mock_get_tools.return_value = {"cdxgen": MagicMock()}
-        mock_generate.return_value = SBOMResult.success(
+        mock_generate.return_value = ScanResult.success(
             tool_name="cdxgen",
             sbom_path=actual_path,
             duration_seconds=1.0
@@ -440,7 +440,7 @@ class TestBenchmarkRun:
         assert summary["status_breakdown"]["successful"] == 1
 
     @patch("bom_bench.benchmarking.runner.get_registered_tools")
-    @patch("bom_bench.benchmarking.runner.generate_sbom")
+    @patch("bom_bench.benchmarking.runner.scan_project")
     def test_run_filters_scenarios(self, mock_generate, mock_get_tools, tmp_path):
         """Test that scenarios filter works."""
         output_dir = tmp_path / "output"
@@ -465,7 +465,7 @@ class TestBenchmarkRun:
             output_path.write_text(json.dumps({
                 "components": [{"purl": f"pkg:pypi/{scenario_name}@1.0.0"}]
             }))
-            return SBOMResult.success("cdxgen", output_path, 1.0)
+            return ScanResult.success("cdxgen", output_path, 1.0)
 
         mock_generate.side_effect = create_sbom
 
@@ -490,7 +490,7 @@ class TestBenchmarkRun:
         assert summary["total_scenarios"] == 2
 
     @patch("bom_bench.benchmarking.runner.get_registered_tools")
-    @patch("bom_bench.benchmarking.runner.generate_sbom")
+    @patch("bom_bench.benchmarking.runner.scan_project")
     def test_run_returns_error_on_failures(self, mock_generate, mock_get_tools, tmp_path):
         """Test that run returns 1 when there are SBOM failures."""
         output_dir = tmp_path / "output"
@@ -506,7 +506,7 @@ class TestBenchmarkRun:
         }))
 
         mock_get_tools.return_value = {"cdxgen": MagicMock()}
-        mock_generate.return_value = SBOMResult.failed(
+        mock_generate.return_value = ScanResult.failed(
             tool_name="cdxgen",
             error_message="Tool crashed"
         )
@@ -549,7 +549,7 @@ class TestLogResult:
 
     def test_log_success(self, tmp_path, caplog):
         """Test logging successful result."""
-        from bom_bench.models.sca import PurlMetrics
+        from bom_bench.models.sca_tool import PurlMetrics
 
         runner = BenchmarkRunner(tmp_path, tmp_path, ["cdxgen"])
 
@@ -603,7 +603,7 @@ class TestSaveResults:
 
     def test_save_results_creates_files(self, tmp_path):
         """Test that save_results creates all expected files."""
-        from bom_bench.models.sca import BenchmarkSummary, PurlMetrics
+        from bom_bench.models.sca_tool import BenchmarkSummary, PurlMetrics
 
         benchmarks_dir = tmp_path / "benchmarks"
 

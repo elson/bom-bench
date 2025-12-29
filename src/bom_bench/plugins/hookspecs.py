@@ -68,7 +68,7 @@ class SCAToolSpec:
         """
 
     @hookspec
-    def generate_sbom(
+    def scan_project(
         self,
         tool_name: str,
         project_dir: Path,
@@ -76,7 +76,7 @@ class SCAToolSpec:
         ecosystem: str,
         timeout: int = 120
     ) -> Optional[dict]:
-        """Generate SBOM for a project using the specified tool.
+        """Scan a project using the specified tool to generate SBOM.
 
         This is the core hook - plugins invoke their tool and return results.
         bom-bench handles all comparison, metrics, and reporting.
@@ -100,7 +100,7 @@ class SCAToolSpec:
 
         Example implementation:
             @hookimpl
-            def generate_sbom(tool_name, project_dir, output_path, timeout):
+            def scan_project(tool_name, project_dir, output_path, timeout):
                 if tool_name != "cdxgen":
                     return None
                 # Run cdxgen subprocess
