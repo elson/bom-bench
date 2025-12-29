@@ -38,11 +38,11 @@ def _register_package_managers(pm) -> None:
     global _registered_pms
     _registered_pms = {}
 
-    for pm_list in pm.hook.register_package_managers():
-        if pm_list:
-            for pm_info in pm_list:
-                _registered_pms[pm_info.name] = pm_info
-                logger.debug(f"Registered package manager: {pm_info.name}")
+    for pm_data in pm.hook.register_package_managers():
+        if pm_data:
+            pm_info = PMInfo.from_dict(pm_data)
+            _registered_pms[pm_info.name] = pm_info
+            logger.debug(f"Registered package manager: {pm_info.name}")
 
 
 def _reset_package_managers() -> None:
@@ -95,17 +95,10 @@ def check_package_manager_available(pm_name: str) -> bool:
     Returns:
         True if PM is available, False otherwise.
     """
-    from bom_bench.plugins import pm, initialize_plugins
-    initialize_plugins()
-
-    if pm_name not in _registered_pms:
+    pms = get_registered_package_managers()
+    if pm_name not in pms:
         return False
-
-    results = pm.hook.check_package_manager_available(pm_name=pm_name)
-    for result in results:
-        if result is not None:
-            return result
-    return False
+    return pms[pm_name].installed
 
 
 def package_manager_load_scenarios(pm_name: str, data_dir: Path) -> List:

@@ -16,6 +16,7 @@ class PMInfo:
         ecosystem: Package ecosystem (e.g., 'python', 'javascript')
         description: Human-readable description
         data_source: Name of the data source this PM uses (1-to-1 mapping)
+        installed: Whether the package manager is installed and available
         version: Optional version of the package manager
     """
 
@@ -23,7 +24,27 @@ class PMInfo:
     ecosystem: str
     description: str
     data_source: str
+    installed: bool = False
     version: Optional[str] = None
+
+    @classmethod
+    def from_dict(cls, d: dict) -> "PMInfo":
+        """Create PMInfo from plugin dict.
+
+        Args:
+            d: Dict with PM info fields
+
+        Returns:
+            PMInfo instance
+        """
+        return cls(
+            name=d["name"],
+            ecosystem=d["ecosystem"],
+            description=d["description"],
+            data_source=d["data_source"],
+            installed=d.get("installed", False),
+            version=d.get("version")
+        )
 
 
 @dataclass

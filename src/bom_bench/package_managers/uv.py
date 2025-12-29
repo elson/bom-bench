@@ -11,8 +11,6 @@ import time
 from pathlib import Path
 from typing import List, Optional
 
-import pluggy
-
 import packse.fetch
 import packse.inspect
 
@@ -25,14 +23,13 @@ from bom_bench.config import (
 from bom_bench.generators.sbom.cyclonedx import generate_sbom_file, generate_meta_file
 from bom_bench.generators.uv import generate_pyproject_toml
 from bom_bench.logging_config import get_logger
-from bom_bench.models.package_manager import PMInfo
 from bom_bench.models.result import LockResult, LockStatus
 from bom_bench.models.scenario import Scenario
 from bom_bench.parsers.uv_lock import parse_uv_lock
 
-logger = get_logger(__name__)
+from bom_bench import hookimpl
 
-hookimpl = pluggy.HookimplMarker("bom_bench")
+logger = get_logger(__name__)
 
 
 def _get_uv_version() -> Optional[str]:
@@ -55,25 +52,16 @@ def _get_uv_version() -> Optional[str]:
 
 
 @hookimpl
-def register_package_managers() -> List[PMInfo]:
+def register_package_managers() -> dict:
     """Register UV package manager."""
-    return [
-        PMInfo(
-            name="uv",
-            ecosystem="python",
-            description="Fast Python package manager and resolver",
-            data_source="packse",
-            version=_get_uv_version()
-        )
-    ]
-
-
-@hookimpl
-def check_package_manager_available(pm_name: str) -> Optional[bool]:
-    """Check if UV is available."""
-    if pm_name != "uv":
-        return None
-    return shutil.which("uv") is not None
+    return {
+        "name": "uv",
+        "ecosystem": "python",
+        "description": "Fast Python package manager and resolver",
+        "data_source": "packse",
+        "installed": shutil.which("uv") is not None,
+        "version": _get_uv_version()
+    }
 
 
 @hookimpl

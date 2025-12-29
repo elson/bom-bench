@@ -123,25 +123,32 @@ class PackageManagerSpec:
     """
 
     @hookspec
-    def register_package_managers(self) -> List["PMInfo"]:
-        """Register package managers provided by this plugin.
+    def register_package_managers(self) -> dict:
+        """Register a package manager provided by this plugin.
 
         Called during plugin discovery to collect all available package managers.
+        Each plugin returns a single dict describing the PM it provides.
 
         Returns:
-            List of PMInfo describing each package manager this plugin provides.
+            Dict with PM info:
+                - name: Package manager identifier (required)
+                - ecosystem: Package ecosystem (required)
+                - description: Human-readable description (required)
+                - data_source: Name of data source this PM uses (required)
+                - installed: Whether the PM is installed (required)
+                - version: PM version string (optional)
 
         Example implementation:
             @hookimpl
             def register_package_managers():
-                return [
-                    PMInfo(
-                        name="uv",
-                        ecosystem="python",
-                        description="UV Python package manager",
-                        data_source="packse"
-                    )
-                ]
+                return {
+                    "name": "uv",
+                    "ecosystem": "python",
+                    "description": "UV Python package manager",
+                    "data_source": "packse",
+                    "installed": shutil.which("uv") is not None,
+                    "version": _get_uv_version()
+                }
         """
 
     @hookspec
@@ -219,18 +226,6 @@ class PackageManagerSpec:
                 # Run uv lock and return LockResult
         """
 
-    @hookspec
-    def check_package_manager_available(self, pm_name: str) -> Optional[bool]:
-        """Check if a specific package manager is available/installed.
-
-        Args:
-            pm_name: Name of the package manager to check (e.g., "uv")
-
-        Returns:
-            True if PM is available and ready to use.
-            False if PM is not available.
-            None if this plugin doesn't handle this PM.
-        """
 
     @hookspec
     def get_output_dir(
