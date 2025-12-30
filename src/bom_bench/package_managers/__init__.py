@@ -5,7 +5,7 @@ Provides functions for working with package managers:
         list_available_package_managers,
         check_package_manager_available,
         get_package_manager_info,
-        package_manager_process_scenario,
+        process_scenario,
     )
 
 Available plugins:
@@ -98,7 +98,7 @@ def check_package_manager_available(pm_name: str) -> bool:
     return pms[pm_name].installed
 
 
-def package_manager_process_scenario(
+def process_scenario(
     pm_name: str, scenario, output_dir: Path, timeout: int = 120
 ) -> ProcessScenarioResult | None:
     """Process a scenario: generate manifest, lock, and SBOM (new atomic operation).
@@ -141,5 +141,5 @@ __all__ = [
     "list_available_package_managers",
     "get_package_manager_info",
     "check_package_manager_available",
-    "package_manager_process_scenario",
+    "process_scenario",
 ]

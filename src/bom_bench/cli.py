@@ -20,7 +20,7 @@ from bom_bench.package_managers import (
     check_package_manager_available,
     get_package_manager_info,
     list_available_package_managers,
-    package_manager_process_scenario,
+    process_scenario,
 )
 
 logger = get_logger(__name__)
@@ -128,7 +128,7 @@ class BomBenchCLI:
             output_dir = output_base / "scenarios" / package_manager_name / scenario.name
 
             # Process scenario using new atomic operation
-            result = package_manager_process_scenario(package_manager_name, scenario, output_dir)
+            result = process_scenario(package_manager_name, scenario, output_dir)
 
             if result is None:
                 return ProcessingResult(

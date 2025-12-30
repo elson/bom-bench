@@ -11,7 +11,7 @@ from bom_bench.package_managers import (
     check_package_manager_available,
     get_package_manager_info,
     list_available_package_managers,
-    package_manager_process_scenario,
+    process_scenario,
 )
 
 
@@ -91,7 +91,7 @@ class TestUVPackageManagerPluginAPI:
 
             # This test will actually try to run uv lock, which will fail/be unsatisfiable
             # without a packse server. We're testing the interface.
-            result = package_manager_process_scenario("uv", simple_scenario, output_dir)
+            result = process_scenario("uv", simple_scenario, output_dir)
 
             # Result should be ProcessScenarioResult
             assert result is not None
@@ -118,5 +118,5 @@ class TestUVPackageManagerPluginAPI:
         """Test processing scenario with non-existent PM."""
         with tempfile.TemporaryDirectory() as tmpdir:
             output_dir = Path(tmpdir)
-            result = package_manager_process_scenario("nonexistent", simple_scenario, output_dir)
+            result = process_scenario("nonexistent", simple_scenario, output_dir)
             assert result is None
