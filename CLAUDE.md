@@ -1,144 +1,253 @@
-# Purpose
-- Provide concise, actionable guidance to AI coding agents working on this repository.
+# CLAUDE.md
 
-# Big picture
-- See `./README.md` for context.
+This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
-# Project status
-- This project is in early, pre-alpha stage. 
-- Breaking changes are completely acceptable, there are no real users yet. 
-- Do not add shims, aliases, switches or similar code to maintain backward compatibility
+## Purpose
+Provide concise, actionable guidance to AI coding agents working on this repository.
 
-# Project & Context Management
-- Create a `branch-analysis.md` doc in the `.claude` folder in the root of the project, use it to document files, edits, decision logs and explorations as you work.
-- Official plans should be stored inside the project rot `.claude` folder as well, in a `plans/` sub-folder.
+## Big Picture
+bom-bench is a benchmarking tool for SCA (Software Composition Analysis) tools. It uses a **plugin-based architecture** with Pluggy to support multiple package managers and SCA tools. The workflow is:
+1. Generate manifests and lock files from test scenarios (setup phase)
+2. Run SCA tools against generated projects (benchmark phase)
+3. Compare actual vs expected SBOMs using PURL matching
 
-# Key files and folders
-- `./src/bom_bench/` - main package with modular plugin architecture
-  - `cli.py` - CLI orchestration and entry points
-  - `plugins/` - Pluggy-based plugin system and hook specifications
-  - `package_managers/` - package manager plugins (e.g., uv.py)
-  - `sca_tools/` - SCA tool plugins (cdxgen.py, syft.py)
-  - `benchmarking/` - benchmark runner, comparison, and storage
-  - `data/` - data source loading
-  - `models/` - data models
-- `./data/` - data sources (packse, etc.) - fetched automatically if needed
-- `./output/scenarios/{pm}/{scenario}/` - generated projects with `assets/` subdirectory
+## Project Status
+- Early, pre-alpha stage
+- Breaking changes are completely acceptable, there are no real users yet
+- Do not add backward compatibility code (shims, aliases, switches)
 
-# Available tools
-- `uv` - Python package manager and build tool
-- `packse` - Python package and CLI tool. The script uses the Python API (`packse.fetch`, `packse.inspect`) to fetch and load scenarios programmatically.
-- `cdxgen` - CycloneDX SBOM generator (SCA tool plugin)
-- `syft` - Anchore Syft SBOM generator (SCA tool plugin)
+## Project & Context Management
+- Create a `.claude/scratchpad.md` doc to document files, edits, decision logs and explorations
+- Store official plans in `.claude/plans/` subfolder
 
-# Developer workflows
-- Use `uv` to manage environments and runs where possible.
-- Create or manage a venv with `uv venv`.
-- Declare any non-stdlib dependencies in the `pyproject.toml` file
-- Run commands inside the `uv` environment using `uv run`, for example:
+## Commands
 
+### Development
 ```bash
-# Generate manifests, lock files, and expected SBOMs (requires packse server)
-uv run bom-bench setup
+# Install dependencies
+uv pip install -e ".[dev]"
 
-# Run SCA tool benchmarks against generated projects
-uv run bom-bench benchmark --tools cdxgen,syft
+# Run all tests (210+ unit tests)
+uv run pytest tests/ -v
 
-# List available SCA tools
+# Run specific test file
+uv run pytest tests/unit/test_package_managers.py -xvs
+
+# Run single test
+uv run pytest tests/unit/test_models.py::TestProcessStatus -xvs
+
+# Type checking
+mypy src/bom_bench/
+
+# Linting/formatting
+ruff check src/bom_bench/
+ruff format src/bom_bench/
+```
+
+### Application Usage
+```bash
+# Generate test projects (requires packse server at http://127.0.0.1:3141)
+uv run bom-bench setup --pm uv
+
+# Run benchmarks
+uv run bom-bench benchmark --pm uv --tools cdxgen,syft
+
+# List available tools
 uv run bom-bench list-tools --check
 ```
 
-# Testing
-- Use test driven development (TDD). Write the test first. Watch it fail. Write minimal code to pass.
-- Test your work by running `uv run bom-bench setup` and checking the output
-- Run the test suite: `uv run pytest tests/ -v`
-- To test setup/benchmark, ensure packse server is running at http://127.0.0.1:3141 first.
+## Testing
+- **IMPORTANT:** Use TDD (Test-Driven Development). Write test first, watch it fail, write minimal code to pass
+- Run full test suite before committing
+- Integration tests require packse server running
+- Mock external dependencies in unit tests
 
-# Project-specific conventions
-- Target interpreter: Python 3.12 — keep syntax and stdlib usage compatible.
-- Dependencies: Uses `packse`, `pluggy`, `packageurl-python` packages (declared in `pyproject.toml`).
-- Output structure (`output/scenarios/{pm}/{scenario}/`):
-  - `expected.cdx.json` - ground truth CycloneDX SBOM (pure format, only for satisfiable scenarios)
-  - `meta.json` - scenario metadata with `satisfiable` flag and `package_manager_result` (exit_code, stdout, stderr)
-  - `assets/pyproject.toml` - generated manifest
-  - `assets/uv.lock` - lock file
-- Benchmark outputs (`output/benchmarks/{tool}/{pm}/{scenario}/`):
-  - `actual.cdx.json` - SBOM generated by SCA tool
-  - `result.json` - comparison metrics
-- Filtering rules:
-  - Only process scenarios with `resolver_options.universal: true`
-  - Exclude scenarios with "example" in the name
-- Dependency naming: use full scenario-prefixed package names without hash suffixes from `root.requires[].requirement` field (obtained via `packse.inspect.variables_for_templates(..., no_hash=True)`).
+## Key Architecture
 
-# Patterns & examples
-- Auto-fetch: Check if `./scenarios/` exists; if not, call `packse.fetch.fetch(dest=scenarios_dir)` to download scenarios.
-- Discovery: Use `packse.inspect.find_scenario_files(scenarios_dir)` to discover scenario files, then `packse.inspect.variables_for_templates(scenario_files, no_hash=True)` to load scenario data.
-- Iteration: Iterate through `template_vars['scenarios']` array, check `resolver_options.universal`, use `name` field for output directory.
-- Dependencies: Extract from `root.requires[].requirement` (e.g., "wrong-backtracking-basic-a==1.0.0").
+### Plugin System (Pluggy-based)
 
-# Integration points
-- `packse` Python API: scenarios are fetched using `packse.fetch.fetch()` and loaded using `packse.inspect` module.
-- `uv`: prefer `uv` tooling for venvs, installs, and running scripts; it centralizes environment management.
+**Two Plugin Types:**
 
-# What to avoid
-- Do not manually read TOML files from `./scenarios/`; always use the packse API (`packse.inspect.variables_for_templates()`).
-- Do not process scenarios where `resolver_options.universal != true`.
-- Keep external dependencies minimal; currently only `packse` is required.
+1. **Package Manager Plugins** (`package_managers/`)
+   - **2 hooks only** (simplified from 7 hooks):
+     - `register_package_managers()` → Returns dict with `{name, ecosystem, description, supported_sources, installed, version}`
+     - `process_scenario(pm_name, scenario, output_dir, timeout)` → Atomic operation that generates manifest, runs lock, creates SBOM
+   - Returns dict, framework converts to dataclass
+   - Example: `uv.py` for UV package manager
 
-# If you change behavior
-- Update `README.md` to reflect new flags, outputs, runtime requirements and additional usage instructions.
+2. **SCA Tool Plugins** (`sca_tools/`)
+   - 3 hooks:
+     - `register_sca_tools()` → Returns dict with tool info
+     - `check_tool_available(tool_name)` → Boolean availability check
+     - `scan_project(tool_name, project_dir, output_path, ...)` → Runs tool, returns dict with result
+   - Returns dict, framework converts to dataclass
+   - Examples: `cdxgen.py`, `syft.py`
 
-## bom-bench Module Architecture
+**Plugin Registration:** All plugins listed in `plugins/__init__.py::DEFAULT_PLUGINS` tuple.
 
-### Core Modules
+### Data Flow
 
-**cli.py** - CLI orchestration and entry point
-- Argument parsing and validation
-- Multi-PM orchestration
-- Progress reporting
+```
+Scenario (JSON)
+  → PM Plugin (process_scenario)
+    → Manifest (pyproject.toml)
+    → Lock file (uv.lock)
+    → Expected SBOM (expected.cdx.json) + meta.json
+  → SCA Plugin (scan_project)
+    → Actual SBOM (actual.cdx.json)
+  → Comparison (PURL matching)
+    → Metrics (precision, recall, F1)
+```
 
-**config.py** - Configuration constants
-- Default paths and settings
-- Project metadata (name, version)
+### Key Models
 
-### Plugin System (`plugins/`)
+- `Scenario` - Test scenario with dependencies
+- `ProcessScenarioResult` - PM processing result with status (SUCCESS/FAILED/TIMEOUT/UNSATISFIABLE)
+- `PMInfo` - PM metadata with `supported_sources` field
+- `SCAToolInfo` - SCA tool metadata
+- `ScanResult` - SCA tool scan result
+- `PurlMetrics` - Benchmark metrics (TP/FP/FN, precision/recall/F1)
 
-**hookspecs.py** - Pluggy hook specifications for PM and SCA tools
-**__init__.py** - Plugin manager, DEFAULT_PLUGINS tuple, initialization
+## Directory Structure
 
-### Package Managers (`package_managers/`)
+```
+src/bom_bench/
+├── cli.py              # CLI entry point using Click
+├── config.py           # Constants (paths, defaults)
+├── plugins/
+│   ├── __init__.py     # DEFAULT_PLUGINS, initialize_plugins()
+│   └── hookspecs.py    # Hook specifications (PackageManagerSpec, SCAToolSpec)
+├── package_managers/
+│   ├── __init__.py     # PM wrapper functions, PMInfo registry
+│   └── uv.py          # UV plugin (process_scenario, register_package_managers)
+├── sca_tools/
+│   ├── __init__.py     # SCA wrapper functions, tool registry
+│   ├── cdxgen.py      # CycloneDX generator plugin
+│   └── syft.py        # Syft plugin
+├── models/
+│   ├── scenario.py          # Scenario, Root, Requirement
+│   ├── package_manager.py   # PMInfo, ProcessStatus, ProcessScenarioResult
+│   ├── sca_tool.py          # SCAToolInfo, ScanResult, PurlMetrics
+│   └── result.py            # LockResult, ProcessingResult
+├── benchmarking/
+│   ├── runner.py       # BenchmarkRunner orchestration
+│   ├── comparison.py   # PURL extraction, normalization, comparison
+│   └── storage.py      # JSON/CSV persistence
+├── generators/sbom/
+│   └── cyclonedx.py   # SBOM generation utilities
+└── data/
+    └── loader.py      # Scenario loading abstraction
+```
 
-Plugin-based architecture using Pluggy hooks:
-- **uv.py** ✅ - UV package manager (includes packse scenario loading)
+## Output Structure
 
-### SCA Tools (`sca_tools/`)
+### Setup Output (`output/scenarios/{pm}/{scenario}/`)
+```
+scenarios/
+  uv/
+    test-scenario/
+      ├── expected.cdx.json    # Ground truth SBOM (only if satisfiable)
+      ├── meta.json            # {satisfiable, package_manager_result}
+      └── assets/
+          ├── pyproject.toml   # Generated manifest
+          └── uv.lock          # Lock file
+```
 
-Plugin-based SCA tool integrations:
-- **cdxgen.py** ✅ - CycloneDX generator
-- **syft.py** ✅ - Anchore Syft
+### Benchmark Output (`output/benchmarks/{tool}/{pm}/`)
+```
+benchmarks/
+  cdxgen/
+    uv/
+      ├── test-scenario/
+      │   ├── actual.cdx.json  # SBOM from SCA tool
+      │   └── result.json      # Comparison metrics
+      ├── summary.json         # Aggregated stats
+      └── results.csv          # All results
+```
 
-### Data Layer (`data/`)
+## Project-Specific Conventions
 
-**sources/packse.py** - Packse scenario loading (used by UV plugin)
+- **Target**: Python 3.12+
+- **Dependencies**: Declared in `pyproject.toml` (packse, pluggy, packageurl-python, tomlkit)
+- **Package Manager**: Use `uv` for all operations
+- **Filtering**: Only process scenarios with `resolver_options.universal: true`, exclude "example" in name
+- **SBOM Format**: CycloneDX 1.6
+- **PURL Normalization**:
+  - PyPI packages: lowercase, underscores→hyphens
+  - Remove qualifiers (version, VCS URLs)
 
-### Generators (`generators/`)
+## Plugin Development Patterns
 
-**uv/** ✅ - UV manifest (pyproject.toml) generation
-**sbom/** ✅ - CycloneDX SBOM generation
+### Adding a Package Manager Plugin
 
-### Models (`models/`)
+1. Create `package_managers/{pm_name}.py`
+2. Implement 2 hooks:
+   ```python
+   @hookimpl
+   def register_package_managers() -> dict:
+       return {
+           "name": "my-pm",
+           "ecosystem": "python",
+           "description": "My PM",
+           "supported_sources": ["my-source"],
+           "installed": shutil.which("my-pm") is not None,
+           "version": "1.0.0"
+       }
 
-**scenario.py** - Scenario data models
-**result.py** - Processing and lock results
-**package_manager.py** - PM metadata and PMInfo
-**sca.py** - SCA tool models, benchmark results, metrics
+   @hookimpl
+   def process_scenario(pm_name, scenario, output_dir, timeout=120) -> Optional[dict]:
+       if pm_name != "my-pm":
+           return None
+       # 1. Generate manifest
+       # 2. Run lock command
+       # 3. Parse lock, generate SBOM
+       # 4. Generate meta.json
+       return {
+           "pm_name": "my-pm",
+           "status": "success",  # or "failed", "timeout", "unsatisfiable"
+           "manifest_path": str(path),
+           "lock_file_path": str(path),
+           "sbom_path": str(path),
+           "meta_path": str(path),
+           "duration_seconds": 1.5,
+           "exit_code": 0
+       }
+   ```
+3. Add to `DEFAULT_PLUGINS` in `plugins/__init__.py`
 
-### Benchmarking (`benchmarking/`)
+### Adding an SCA Tool Plugin
 
-**runner.py** ✅ - Benchmark orchestration, scenario iteration
-**comparison.py** ✅ - SBOM comparison, PURL extraction and normalization
-**storage.py** ✅ - Result persistence (JSON, CSV)
-**collectors.py** - Result collection and normalization
-**reporters.py** - Benchmark report generation
+1. Create `sca_tools/{tool_name}.py`
+2. Implement 3 hooks (see existing plugins for examples)
+3. Add to `DEFAULT_PLUGINS`
 
-For detailed extension guides, see CONTRIBUTING.md
+## Important Implementation Details
+
+### Package Manager Plugin Flow
+- 2 hooks total - atomic `process_scenario` combines all operations
+- Output directory calculated by framework: `base_dir / "scenarios" / pm_name / scenario_name`
+- Scenario compatibility checked via `pm_info.supported_sources` (not a hook)
+
+### SCA Tool Plugin Flow
+- Tools run via subprocess against project directory (`assets/` folder)
+- Must handle timeouts, missing tools, parse errors
+- Return dict, framework converts to `ScanResult`
+
+### Comparison Logic
+- Extract PURLs from both expected and actual SBOMs
+- Normalize PURLs (lowercase, strip qualifiers)
+- Calculate set operations: TP = intersection, FP = actual - expected, FN = expected - actual
+- Metrics: precision = TP/(TP+FP), recall = TP/(TP+FN), F1 = harmonic mean
+
+## Common Pitfalls to Avoid
+
+- Don't call removed PM hooks (load_scenarios, validate_scenario, get_output_dir, generate_manifest, run_lock, generate_sbom_for_lock)
+- Don't use `data_source` field in PMInfo (use `supported_sources` list instead)
+- Don't manually parse TOML files (use packse API for scenarios, tomlkit for generation)
+- Don't skip TDD - write test first, watch it fail, then implement
+- Don't process non-universal scenarios (`resolver_options.universal: false`)
+
+## If You Change Behavior
+- Update README.md for user-facing changes
+- Update CLAUDE.md for architectural changes
+- Update scratchpad.md with decision rationale
