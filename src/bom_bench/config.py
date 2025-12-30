@@ -14,9 +14,6 @@ SCENARIOS_DIR = OUTPUT_DIR / "scenarios"
 BENCHMARKS_DIR = OUTPUT_DIR / "benchmarks"
 """Directory for benchmark outputs (actual SBOMs, metrics)"""
 
-# Default data source directories
-DEFAULT_PACKSE_DIR = DATA_DIR / "packse"
-
 # Default package manager
 DEFAULT_PACKAGE_MANAGER = "uv"
 """Default package manager to use when none is specified"""
