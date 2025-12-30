@@ -38,7 +38,7 @@ class SCAToolSpec:
     """
 
     @hookspec
-    def register_sca_tools(self) -> dict:
+    def register_sca_tools(self) -> dict:  # type: ignore[empty-body]
         """Register an SCA tool provided by this plugin.
 
         Called during plugin discovery to collect all available SCA tools.
@@ -64,6 +64,7 @@ class SCAToolSpec:
                     "installed": shutil.which("cdxgen") is not None
                 }
         """
+        ...
 
     @hookspec
     def scan_project(
@@ -121,7 +122,7 @@ class PackageManagerSpec:
     """
 
     @hookspec
-    def register_package_managers(self) -> dict:
+    def register_package_managers(self) -> dict:  # type: ignore[empty-body]
         """Register a package manager provided by this plugin.
 
         Called during plugin discovery to collect all available package managers.
@@ -148,6 +149,7 @@ class PackageManagerSpec:
                     "version": _get_uv_version()
                 }
         """
+        ...
 
     @hookspec
     def process_scenario(

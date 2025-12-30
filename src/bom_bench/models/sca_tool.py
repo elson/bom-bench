@@ -371,16 +371,18 @@ class BenchmarkSummary:
 
     def calculate_aggregates(self) -> None:
         """Calculate mean and median metrics from successful runs."""
-        successful_results = [
-            r for r in self.results if r.status == BenchmarkStatus.SUCCESS and r.metrics
+        successful_metrics = [
+            r.metrics
+            for r in self.results
+            if r.status == BenchmarkStatus.SUCCESS and r.metrics is not None
         ]
 
-        if not successful_results:
+        if not successful_metrics:
             return
 
-        precisions = [r.metrics.precision for r in successful_results]
-        recalls = [r.metrics.recall for r in successful_results]
-        f1_scores = [r.metrics.f1_score for r in successful_results]
+        precisions = [m.precision for m in successful_metrics]
+        recalls = [m.recall for m in successful_metrics]
+        f1_scores = [m.f1_score for m in successful_metrics]
 
         self.mean_precision = statistics.mean(precisions)
         self.mean_recall = statistics.mean(recalls)

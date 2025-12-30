@@ -25,7 +25,7 @@ def _serialize_result(result: BenchmarkResult) -> dict[str, Any]:
     Returns:
         Dictionary suitable for JSON serialization
     """
-    data = {
+    data: dict[str, Any] = {
         "scenario_name": result.scenario_name,
         "package_manager": result.package_manager,
         "tool_name": result.tool_name,
@@ -174,7 +174,7 @@ def export_benchmark_csv(results: list[BenchmarkResult], output_path: Path) -> N
         writer.writeheader()
 
         for result in results:
-            row = {
+            row: dict[str, Any] = {
                 "scenario_name": result.scenario_name,
                 "package_manager": result.package_manager,
                 "tool_name": result.tool_name,

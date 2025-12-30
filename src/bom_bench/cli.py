@@ -313,7 +313,7 @@ def cli(ctx, verbose, quiet, log_level):
 @click.option(
     "-o",
     "--output-dir",
-    type=click.Path(path_type=Path),
+    type=click.Path(path_type=Path),  # type: ignore[type-var]
     default=OUTPUT_DIR,
     show_default=True,
     help="Base output directory",
@@ -341,7 +341,7 @@ def setup(package_managers, scenarios, output_dir, no_universal_filter):
 @cli.command(name="run", hidden=True)
 @click.option("--pm", "--package-managers", "package_managers", default=DEFAULT_PACKAGE_MANAGER)
 @click.option("-s", "--scenarios", default=None)
-@click.option("-o", "--output-dir", type=click.Path(path_type=Path), default=OUTPUT_DIR)
+@click.option("-o", "--output-dir", type=click.Path(path_type=Path), default=OUTPUT_DIR)  # type: ignore[type-var]
 @click.option("--no-universal-filter", is_flag=True)
 @click.pass_context
 def run(ctx, **kwargs):
@@ -374,14 +374,14 @@ def run(ctx, **kwargs):
 @click.option(
     "-o",
     "--output-dir",
-    type=click.Path(path_type=Path),
+    type=click.Path(path_type=Path),  # type: ignore[type-var]
     default=OUTPUT_DIR,
     show_default=True,
     help="Directory containing generated projects from setup",
 )
 @click.option(
     "--benchmarks-dir",
-    type=click.Path(path_type=Path),
+    type=click.Path(path_type=Path),  # type: ignore[type-var]
     default=BENCHMARKS_DIR,
     show_default=True,
     help="Directory for benchmark outputs",
@@ -516,7 +516,7 @@ def clean(pm, dry_run):
 
 
 @cli.command(name="validate")
-@click.argument("sbom_path", type=click.Path(exists=True, path_type=Path))
+@click.argument("sbom_path", type=click.Path(exists=True, path_type=Path))  # type: ignore[type-var]
 def validate(sbom_path):
     """Validate SBOM file against schema (future implementation)."""
     raise click.ClickException("validate command not yet implemented")

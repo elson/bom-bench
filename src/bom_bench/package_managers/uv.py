@@ -75,7 +75,8 @@ def _generate_pyproject_toml(
         uv_table["required-environments"] = required_environments
         doc["tool"]["uv"] = uv_table
 
-    return tomlkit.dumps(doc)
+    result: str = tomlkit.dumps(doc)
+    return result
 
 
 def _parse_uv_lock(lock_file_path: Path) -> list[ExpectedPackage]:
@@ -244,7 +245,7 @@ def process_scenario(
 
         try:
             # Run uv lock with the packse index URL
-            result = subprocess.run(
+            proc_result = subprocess.run(
                 ["uv", "lock", "--index-url", PACKSE_INDEX_URL],
                 cwd=assets_dir,
                 capture_output=True,
@@ -255,15 +256,15 @@ def process_scenario(
             lock_duration = time.time() - lock_start_time
 
             # Determine lock status
-            lock_status = LockStatus.SUCCESS if result.returncode == 0 else LockStatus.FAILED
+            lock_status = LockStatus.SUCCESS if proc_result.returncode == 0 else LockStatus.FAILED
 
             lock_result = LockResult(
                 scenario_name=scenario.name,
                 package_manager="uv",
                 status=lock_status,
-                exit_code=result.returncode,
-                stdout=result.stdout,
-                stderr=result.stderr,
+                exit_code=proc_result.returncode,
+                stdout=proc_result.stdout,
+                stderr=proc_result.stderr,
                 lock_file=lock_file if lock_file.exists() else None,
                 duration_seconds=lock_duration,
             )

@@ -102,7 +102,8 @@ def load_scenario_meta(path: Path) -> dict[str, Any] | None:
     """
     try:
         with open(path) as f:
-            return json.load(f)
+            data: dict[str, Any] = json.load(f)
+            return data
 
     except FileNotFoundError:
         logger.debug(f"Meta file not found: {path}")
@@ -203,7 +204,8 @@ def load_actual_sbom(path: Path) -> dict[str, Any] | None:
     """
     try:
         with open(path) as f:
-            return json.load(f)
+            data: dict[str, Any] = json.load(f)
+            return data
 
     except FileNotFoundError:
         logger.debug(f"Actual SBOM not found: {path}")
