@@ -9,6 +9,10 @@
 - Breaking changes are completely acceptable, there are no real users yet. 
 - Do not add shims, aliases, switches or similar code to maintain backward compatibility
 
+# Project & Context Management
+- Create a `branch-analysis.md` doc in the `.claude` folder in the root of the project, use it to document files, edits, decision logs and explorations as you work.
+- Official plans should be stored inside the project rot `.claude` folder as well, in a `plans/` sub-folder.
+
 # Key files and folders
 - `./src/bom_bench/` - main package with modular plugin architecture
   - `cli.py` - CLI orchestration and entry points
