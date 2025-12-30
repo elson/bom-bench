@@ -1,11 +1,9 @@
 """Tests for benchmark runner."""
 
 import json
-import pytest
-from pathlib import Path
-from unittest.mock import patch, MagicMock
+from unittest.mock import MagicMock, patch
 
-from bom_bench.benchmarking.runner import BenchmarkRunner, PM_ECOSYSTEMS
+from bom_bench.benchmarking.runner import PM_ECOSYSTEMS, BenchmarkRunner
 from bom_bench.models.sca_tool import (
     BenchmarkResult,
     BenchmarkStatus,
@@ -44,11 +42,7 @@ class TestBenchmarkRunnerInit:
         benchmarks_dir = tmp_path / "benchmarks"
         tools = ["cdxgen"]
 
-        runner = BenchmarkRunner(
-            output_dir=output_dir,
-            benchmarks_dir=benchmarks_dir,
-            tools=tools
-        )
+        runner = BenchmarkRunner(output_dir=output_dir, benchmarks_dir=benchmarks_dir, tools=tools)
 
         assert runner.output_dir == output_dir
         assert runner.benchmarks_dir == benchmarks_dir
@@ -56,9 +50,7 @@ class TestBenchmarkRunnerInit:
 
     def test_init_multiple_tools(self, tmp_path):
         runner = BenchmarkRunner(
-            output_dir=tmp_path,
-            benchmarks_dir=tmp_path,
-            tools=["cdxgen", "syft", "trivy"]
+            output_dir=tmp_path, benchmarks_dir=tmp_path, tools=["cdxgen", "syft", "trivy"]
         )
 
         assert len(runner.tools) == 3
@@ -75,9 +67,7 @@ class TestBenchmarkScenario:
         scenario_dir.mkdir(parents=True)
 
         runner = BenchmarkRunner(
-            output_dir=output_dir,
-            benchmarks_dir=benchmarks_dir,
-            tools=["cdxgen"]
+            output_dir=output_dir, benchmarks_dir=benchmarks_dir, tools=["cdxgen"]
         )
 
         result = runner._benchmark_scenario(
@@ -85,7 +75,7 @@ class TestBenchmarkScenario:
             pm_name="uv",
             scenario_name="test-scenario",
             scenario_dir=scenario_dir,
-            ecosystem="python"
+            ecosystem="python",
         )
 
         assert result.status == BenchmarkStatus.MISSING_EXPECTED
@@ -106,9 +96,7 @@ class TestBenchmarkScenario:
         expected_path.write_text(json.dumps({"satisfiable": False}))
 
         runner = BenchmarkRunner(
-            output_dir=output_dir,
-            benchmarks_dir=benchmarks_dir,
-            tools=["cdxgen"]
+            output_dir=output_dir, benchmarks_dir=benchmarks_dir, tools=["cdxgen"]
         )
 
         result = runner._benchmark_scenario(
@@ -116,7 +104,7 @@ class TestBenchmarkScenario:
             pm_name="uv",
             scenario_name="test-scenario",
             scenario_dir=scenario_dir,
-            ecosystem="python"
+            ecosystem="python",
         )
 
         assert result.status == BenchmarkStatus.UNSATISFIABLE
@@ -132,17 +120,19 @@ class TestBenchmarkScenario:
 
         # Create valid expected SBOM
         expected_path = scenario_dir / "expected.cdx.json"
-        expected_path.write_text(json.dumps({
-            "satisfiable": True,
-            "sbom": {"components": [{"purl": "pkg:pypi/requests@2.28.0"}]}
-        }))
+        expected_path.write_text(
+            json.dumps(
+                {
+                    "satisfiable": True,
+                    "sbom": {"components": [{"purl": "pkg:pypi/requests@2.28.0"}]},
+                }
+            )
+        )
 
         mock_generate.return_value = None
 
         runner = BenchmarkRunner(
-            output_dir=output_dir,
-            benchmarks_dir=benchmarks_dir,
-            tools=["unknown-tool"]
+            output_dir=output_dir, benchmarks_dir=benchmarks_dir, tools=["unknown-tool"]
         )
 
         result = runner._benchmark_scenario(
@@ -150,7 +140,7 @@ class TestBenchmarkScenario:
             pm_name="uv",
             scenario_name="test-scenario",
             scenario_dir=scenario_dir,
-            ecosystem="python"
+            ecosystem="python",
         )
 
         assert result.status == BenchmarkStatus.SBOM_GENERATION_FAILED
@@ -166,21 +156,21 @@ class TestBenchmarkScenario:
 
         # Create valid expected SBOM
         expected_path = scenario_dir / "expected.cdx.json"
-        expected_path.write_text(json.dumps({
-            "satisfiable": True,
-            "sbom": {"components": [{"purl": "pkg:pypi/requests@2.28.0"}]}
-        }))
+        expected_path.write_text(
+            json.dumps(
+                {
+                    "satisfiable": True,
+                    "sbom": {"components": [{"purl": "pkg:pypi/requests@2.28.0"}]},
+                }
+            )
+        )
 
         mock_generate.return_value = ScanResult.failed(
-            tool_name="cdxgen",
-            error_message="Tool crashed",
-            status=ScanStatus.TOOL_FAILED
+            tool_name="cdxgen", error_message="Tool crashed", status=ScanStatus.TOOL_FAILED
         )
 
         runner = BenchmarkRunner(
-            output_dir=output_dir,
-            benchmarks_dir=benchmarks_dir,
-            tools=["cdxgen"]
+            output_dir=output_dir, benchmarks_dir=benchmarks_dir, tools=["cdxgen"]
         )
 
         result = runner._benchmark_scenario(
@@ -188,7 +178,7 @@ class TestBenchmarkScenario:
             pm_name="uv",
             scenario_name="test-scenario",
             scenario_dir=scenario_dir,
-            ecosystem="python"
+            ecosystem="python",
         )
 
         assert result.status == BenchmarkStatus.SBOM_GENERATION_FAILED
@@ -205,10 +195,14 @@ class TestBenchmarkScenario:
 
         # Create valid expected SBOM
         expected_path = scenario_dir / "expected.cdx.json"
-        expected_path.write_text(json.dumps({
-            "satisfiable": True,
-            "sbom": {"components": [{"purl": "pkg:pypi/requests@2.28.0"}]}
-        }))
+        expected_path.write_text(
+            json.dumps(
+                {
+                    "satisfiable": True,
+                    "sbom": {"components": [{"purl": "pkg:pypi/requests@2.28.0"}]},
+                }
+            )
+        )
 
         # Mock successful generation but no file created
         actual_dir = benchmarks_dir / "cdxgen" / "uv" / "test-scenario"
@@ -216,16 +210,12 @@ class TestBenchmarkScenario:
         actual_path = actual_dir / "actual.cdx.json"
 
         mock_generate.return_value = ScanResult.success(
-            tool_name="cdxgen",
-            sbom_path=actual_path,
-            duration_seconds=1.0
+            tool_name="cdxgen", sbom_path=actual_path, duration_seconds=1.0
         )
         # Don't create the file, so load will fail
 
         runner = BenchmarkRunner(
-            output_dir=output_dir,
-            benchmarks_dir=benchmarks_dir,
-            tools=["cdxgen"]
+            output_dir=output_dir, benchmarks_dir=benchmarks_dir, tools=["cdxgen"]
         )
 
         result = runner._benchmark_scenario(
@@ -233,7 +223,7 @@ class TestBenchmarkScenario:
             pm_name="uv",
             scenario_name="test-scenario",
             scenario_dir=scenario_dir,
-            ecosystem="python"
+            ecosystem="python",
         )
 
         assert result.status == BenchmarkStatus.PARSE_ERROR
@@ -249,15 +239,19 @@ class TestBenchmarkScenario:
 
         # Create expected SBOM with 2 packages
         expected_path = scenario_dir / "expected.cdx.json"
-        expected_path.write_text(json.dumps({
-            "satisfiable": True,
-            "sbom": {
-                "components": [
-                    {"purl": "pkg:pypi/requests@2.28.0"},
-                    {"purl": "pkg:pypi/urllib3@1.26.0"},
-                ]
-            }
-        }))
+        expected_path.write_text(
+            json.dumps(
+                {
+                    "satisfiable": True,
+                    "sbom": {
+                        "components": [
+                            {"purl": "pkg:pypi/requests@2.28.0"},
+                            {"purl": "pkg:pypi/urllib3@1.26.0"},
+                        ]
+                    },
+                }
+            )
+        )
 
         # Set up actual SBOM path
         actual_dir = benchmarks_dir / "cdxgen" / "uv" / "test-scenario"
@@ -265,23 +259,23 @@ class TestBenchmarkScenario:
         actual_path = actual_dir / "actual.cdx.json"
 
         # Create actual SBOM with matching packages
-        actual_path.write_text(json.dumps({
-            "components": [
-                {"purl": "pkg:pypi/requests@2.28.0"},
-                {"purl": "pkg:pypi/urllib3@1.26.0"},
-            ]
-        }))
+        actual_path.write_text(
+            json.dumps(
+                {
+                    "components": [
+                        {"purl": "pkg:pypi/requests@2.28.0"},
+                        {"purl": "pkg:pypi/urllib3@1.26.0"},
+                    ]
+                }
+            )
+        )
 
         mock_generate.return_value = ScanResult.success(
-            tool_name="cdxgen",
-            sbom_path=actual_path,
-            duration_seconds=1.5
+            tool_name="cdxgen", sbom_path=actual_path, duration_seconds=1.5
         )
 
         runner = BenchmarkRunner(
-            output_dir=output_dir,
-            benchmarks_dir=benchmarks_dir,
-            tools=["cdxgen"]
+            output_dir=output_dir, benchmarks_dir=benchmarks_dir, tools=["cdxgen"]
         )
 
         result = runner._benchmark_scenario(
@@ -289,7 +283,7 @@ class TestBenchmarkScenario:
             pm_name="uv",
             scenario_name="test-scenario",
             scenario_dir=scenario_dir,
-            ecosystem="python"
+            ecosystem="python",
         )
 
         assert result.status == BenchmarkStatus.SUCCESS
@@ -311,37 +305,41 @@ class TestBenchmarkScenario:
 
         # Expected: requests, urllib3
         expected_path = scenario_dir / "expected.cdx.json"
-        expected_path.write_text(json.dumps({
-            "satisfiable": True,
-            "sbom": {
-                "components": [
-                    {"purl": "pkg:pypi/requests@2.28.0"},
-                    {"purl": "pkg:pypi/urllib3@1.26.0"},
-                ]
-            }
-        }))
+        expected_path.write_text(
+            json.dumps(
+                {
+                    "satisfiable": True,
+                    "sbom": {
+                        "components": [
+                            {"purl": "pkg:pypi/requests@2.28.0"},
+                            {"purl": "pkg:pypi/urllib3@1.26.0"},
+                        ]
+                    },
+                }
+            )
+        )
 
         # Actual: requests, certifi (missing urllib3, extra certifi)
         actual_dir = benchmarks_dir / "cdxgen" / "uv" / "test-scenario"
         actual_dir.mkdir(parents=True)
         actual_path = actual_dir / "actual.cdx.json"
-        actual_path.write_text(json.dumps({
-            "components": [
-                {"purl": "pkg:pypi/requests@2.28.0"},
-                {"purl": "pkg:pypi/certifi@2023.0.0"},
-            ]
-        }))
+        actual_path.write_text(
+            json.dumps(
+                {
+                    "components": [
+                        {"purl": "pkg:pypi/requests@2.28.0"},
+                        {"purl": "pkg:pypi/certifi@2023.0.0"},
+                    ]
+                }
+            )
+        )
 
         mock_generate.return_value = ScanResult.success(
-            tool_name="cdxgen",
-            sbom_path=actual_path,
-            duration_seconds=1.5
+            tool_name="cdxgen", sbom_path=actual_path, duration_seconds=1.5
         )
 
         runner = BenchmarkRunner(
-            output_dir=output_dir,
-            benchmarks_dir=benchmarks_dir,
-            tools=["cdxgen"]
+            output_dir=output_dir, benchmarks_dir=benchmarks_dir, tools=["cdxgen"]
         )
 
         result = runner._benchmark_scenario(
@@ -349,7 +347,7 @@ class TestBenchmarkScenario:
             pm_name="uv",
             scenario_name="test-scenario",
             scenario_dir=scenario_dir,
-            ecosystem="python"
+            ecosystem="python",
         )
 
         assert result.status == BenchmarkStatus.SUCCESS
@@ -376,9 +374,7 @@ class TestBenchmarkRun:
         mock_list_pm.return_value = ["uv"]
 
         runner = BenchmarkRunner(
-            output_dir=output_dir,
-            benchmarks_dir=benchmarks_dir,
-            tools=["cdxgen"]
+            output_dir=output_dir, benchmarks_dir=benchmarks_dir, tools=["cdxgen"]
         )
 
         result = runner.run(package_managers="uv")
@@ -399,30 +395,28 @@ class TestBenchmarkRun:
 
         # Create expected SBOM
         expected_path = scenario_dir / "expected.cdx.json"
-        expected_path.write_text(json.dumps({
-            "satisfiable": True,
-            "sbom": {"components": [{"purl": "pkg:pypi/requests@2.28.0"}]}
-        }))
+        expected_path.write_text(
+            json.dumps(
+                {
+                    "satisfiable": True,
+                    "sbom": {"components": [{"purl": "pkg:pypi/requests@2.28.0"}]},
+                }
+            )
+        )
 
         # Set up actual SBOM location
         actual_dir = benchmarks_dir / "cdxgen" / "uv" / "scenario-1"
         actual_dir.mkdir(parents=True)
         actual_path = actual_dir / "actual.cdx.json"
-        actual_path.write_text(json.dumps({
-            "components": [{"purl": "pkg:pypi/requests@2.28.0"}]
-        }))
+        actual_path.write_text(json.dumps({"components": [{"purl": "pkg:pypi/requests@2.28.0"}]}))
 
         mock_get_tools.return_value = {"cdxgen": MagicMock()}
         mock_generate.return_value = ScanResult.success(
-            tool_name="cdxgen",
-            sbom_path=actual_path,
-            duration_seconds=1.0
+            tool_name="cdxgen", sbom_path=actual_path, duration_seconds=1.0
         )
 
         runner = BenchmarkRunner(
-            output_dir=output_dir,
-            benchmarks_dir=benchmarks_dir,
-            tools=["cdxgen"]
+            output_dir=output_dir, benchmarks_dir=benchmarks_dir, tools=["cdxgen"]
         )
 
         result = runner.run(package_managers="uv")
@@ -451,10 +445,14 @@ class TestBenchmarkRun:
             scenario_dir = output_dir / "scenarios" / "uv" / name
             scenario_dir.mkdir(parents=True)
             expected_path = scenario_dir / "expected.cdx.json"
-            expected_path.write_text(json.dumps({
-                "satisfiable": True,
-                "sbom": {"components": [{"purl": f"pkg:pypi/{name}@1.0.0"}]}
-            }))
+            expected_path.write_text(
+                json.dumps(
+                    {
+                        "satisfiable": True,
+                        "sbom": {"components": [{"purl": f"pkg:pypi/{name}@1.0.0"}]},
+                    }
+                )
+            )
 
         mock_get_tools.return_value = {"cdxgen": MagicMock()}
 
@@ -462,24 +460,19 @@ class TestBenchmarkRun:
             # project_dir is now assets_dir, get scenario name from parent
             scenario_name = project_dir.parent.name
             output_path.parent.mkdir(parents=True, exist_ok=True)
-            output_path.write_text(json.dumps({
-                "components": [{"purl": f"pkg:pypi/{scenario_name}@1.0.0"}]
-            }))
+            output_path.write_text(
+                json.dumps({"components": [{"purl": f"pkg:pypi/{scenario_name}@1.0.0"}]})
+            )
             return ScanResult.success("cdxgen", output_path, 1.0)
 
         mock_generate.side_effect = create_sbom
 
         runner = BenchmarkRunner(
-            output_dir=output_dir,
-            benchmarks_dir=benchmarks_dir,
-            tools=["cdxgen"]
+            output_dir=output_dir, benchmarks_dir=benchmarks_dir, tools=["cdxgen"]
         )
 
         # Only run scenario-1 and scenario-3
-        result = runner.run(
-            package_managers="uv",
-            scenarios=["scenario-1", "scenario-3"]
-        )
+        result = runner.run(package_managers="uv", scenarios=["scenario-1", "scenario-3"])
 
         assert result == 0
 
@@ -500,21 +493,22 @@ class TestBenchmarkRun:
         scenario_dir.mkdir(parents=True)
 
         expected_path = scenario_dir / "expected.cdx.json"
-        expected_path.write_text(json.dumps({
-            "satisfiable": True,
-            "sbom": {"components": [{"purl": "pkg:pypi/requests@2.28.0"}]}
-        }))
+        expected_path.write_text(
+            json.dumps(
+                {
+                    "satisfiable": True,
+                    "sbom": {"components": [{"purl": "pkg:pypi/requests@2.28.0"}]},
+                }
+            )
+        )
 
         mock_get_tools.return_value = {"cdxgen": MagicMock()}
         mock_generate.return_value = ScanResult.failed(
-            tool_name="cdxgen",
-            error_message="Tool crashed"
+            tool_name="cdxgen", error_message="Tool crashed"
         )
 
         runner = BenchmarkRunner(
-            output_dir=output_dir,
-            benchmarks_dir=benchmarks_dir,
-            tools=["cdxgen"]
+            output_dir=output_dir, benchmarks_dir=benchmarks_dir, tools=["cdxgen"]
         )
 
         result = runner.run(package_managers="uv")
@@ -533,9 +527,7 @@ class TestBenchmarkRun:
         mock_list_pm.return_value = ["uv", "pip", "pnpm"]
 
         runner = BenchmarkRunner(
-            output_dir=output_dir,
-            benchmarks_dir=benchmarks_dir,
-            tools=["cdxgen"]
+            output_dir=output_dir, benchmarks_dir=benchmarks_dir, tools=["cdxgen"]
         )
 
         result = runner.run(package_managers="all")
@@ -559,13 +551,13 @@ class TestLogResult:
             package_manager="uv",
             tool_name="cdxgen",
             status=BenchmarkStatus.SUCCESS,
-            metrics=metrics
+            metrics=metrics,
         )
 
         runner._log_result(result)
 
         # Verify logging occurred (exact format may vary)
-        assert "test" in caplog.text or True  # Logging config may vary
+        assert True  # Logging config may vary
 
     def test_log_unsatisfiable(self, tmp_path):
         """Test logging unsatisfiable result."""
@@ -576,7 +568,7 @@ class TestLogResult:
             package_manager="uv",
             tool_name="cdxgen",
             status=BenchmarkStatus.UNSATISFIABLE,
-            expected_satisfiable=False
+            expected_satisfiable=False,
         )
 
         # Should not raise
@@ -591,7 +583,7 @@ class TestLogResult:
             package_manager="uv",
             tool_name="cdxgen",
             status=BenchmarkStatus.SBOM_GENERATION_FAILED,
-            error_message="Tool not found"
+            error_message="Tool not found",
         )
 
         # Should not raise
@@ -609,10 +601,7 @@ class TestSaveResults:
 
         runner = BenchmarkRunner(tmp_path, benchmarks_dir, ["cdxgen"])
 
-        summary = BenchmarkSummary(
-            package_manager="uv",
-            tool_name="cdxgen"
-        )
+        summary = BenchmarkSummary(package_manager="uv", tool_name="cdxgen")
 
         metrics = PurlMetrics.calculate({"a"}, {"a"})
         result = BenchmarkResult(
@@ -620,7 +609,7 @@ class TestSaveResults:
             package_manager="uv",
             tool_name="cdxgen",
             status=BenchmarkStatus.SUCCESS,
-            metrics=metrics
+            metrics=metrics,
         )
         summary.add_result(result)
         summary.calculate_aggregates()

@@ -55,6 +55,10 @@ uv run bom-bench benchmark --pm uv --tools cdxgen,syft
 # List available tools
 uv run bom-bench list-tools --check
 ```
+## Coding style
+- Avoid comments, code is self describing
+- You don't need to add descriptions of **what** the code is doing (e.g. "loop over the inputs")
+- Use comments sparingly to note **why** something is done if the code itself does not make this clear
 
 ## Testing
 - **IMPORTANT:** Use TDD (Test-Driven Development). Write test first, watch it fail, write minimal code to pass

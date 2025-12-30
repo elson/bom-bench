@@ -8,7 +8,7 @@ This module handles:
 
 import json
 from pathlib import Path
-from typing import Any, Dict, Optional, Set, Tuple
+from typing import Any
 
 from packageurl import PackageURL
 
@@ -51,7 +51,7 @@ def normalize_purl(purl_string: str) -> str:
     return f"pkg:{purl.type}/{name}@{purl.version}"
 
 
-def extract_purls_from_cyclonedx(sbom: Dict[str, Any]) -> Set[str]:
+def extract_purls_from_cyclonedx(sbom: dict[str, Any]) -> set[str]:
     """Extract normalized PURLs from CycloneDX SBOM.
 
     Filters out the root project component (pkg:pypi/project@0.1.0) since
@@ -81,7 +81,7 @@ def extract_purls_from_cyclonedx(sbom: Dict[str, Any]) -> Set[str]:
     return purls
 
 
-def load_scenario_meta(path: Path) -> Optional[Dict[str, Any]]:
+def load_scenario_meta(path: Path) -> dict[str, Any] | None:
     """Load scenario metadata from meta.json.
 
     Meta file contains:
@@ -118,9 +118,8 @@ def load_scenario_meta(path: Path) -> Optional[Dict[str, Any]]:
 
 
 def load_expected_sbom(
-    path: Path,
-    meta_path: Optional[Path] = None
-) -> Tuple[Optional[Dict[str, Any]], bool]:
+    path: Path, meta_path: Path | None = None
+) -> tuple[dict[str, Any] | None, bool]:
     """Load expected SBOM from bom-bench output.
 
     Supports two formats:
@@ -191,7 +190,7 @@ def load_expected_sbom(
         return None, True
 
 
-def load_actual_sbom(path: Path) -> Optional[Dict[str, Any]]:
+def load_actual_sbom(path: Path) -> dict[str, Any] | None:
     """Load actual SBOM from SCA tool output.
 
     Actual SBOMs are raw CycloneDX format (no wrapper).
@@ -219,10 +218,7 @@ def load_actual_sbom(path: Path) -> Optional[Dict[str, Any]]:
         return None
 
 
-def compare_sboms(
-    expected_path: Path,
-    actual_path: Path
-) -> Tuple[Set[str], Set[str], bool]:
+def compare_sboms(expected_path: Path, actual_path: Path) -> tuple[set[str], set[str], bool]:
     """Compare expected and actual SBOMs.
 
     Args:

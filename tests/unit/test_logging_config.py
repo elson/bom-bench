@@ -2,7 +2,7 @@
 
 import logging
 
-from bom_bench.logging_config import setup_logging, get_logger, LOGGER_NAME
+from bom_bench.logging_config import LOGGER_NAME, get_logger, setup_logging
 
 
 class TestLoggingConfiguration:

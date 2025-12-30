@@ -1,19 +1,17 @@
 """Data source registry and utilities."""
 
 from pathlib import Path
-from typing import Dict, Type, List, Optional
 
-from bom_bench.data.sources.packse import PackseDataSource
 from bom_bench.config import DATA_DIR
-
+from bom_bench.data.sources.packse import PackseDataSource
 
 # Data source registry
-DATA_SOURCES: Dict[str, Type[PackseDataSource]] = {
+DATA_SOURCES: dict[str, type[PackseDataSource]] = {
     "packse": PackseDataSource,
 }
 
 
-def get_data_source(name: str, data_dir: Optional[Path] = None) -> PackseDataSource:
+def get_data_source(name: str, data_dir: Path | None = None) -> PackseDataSource:
     """Get a data source instance by name.
 
     Args:
@@ -28,9 +26,7 @@ def get_data_source(name: str, data_dir: Optional[Path] = None) -> PackseDataSou
     """
     if name not in DATA_SOURCES:
         available = ", ".join(DATA_SOURCES.keys())
-        raise ValueError(
-            f"Unknown data source: {name}. Available: {available}"
-        )
+        raise ValueError(f"Unknown data source: {name}. Available: {available}")
 
     source_class = DATA_SOURCES[name]
 
@@ -40,7 +36,7 @@ def get_data_source(name: str, data_dir: Optional[Path] = None) -> PackseDataSou
     return source_class(data_dir)
 
 
-def get_available_sources() -> List[str]:
+def get_available_sources() -> list[str]:
     """Get list of available data source names.
 
     Returns:
@@ -49,7 +45,7 @@ def get_available_sources() -> List[str]:
     return list(DATA_SOURCES.keys())
 
 
-def get_sources_for_pm(package_manager: str) -> List[str]:
+def get_sources_for_pm(package_manager: str) -> list[str]:
     """Get data sources that support a specific package manager.
 
     Args:

@@ -2,7 +2,6 @@
 
 import logging
 import sys
-from typing import Optional
 
 import click
 
@@ -44,11 +43,7 @@ class ColoredFormatter(logging.Formatter):
             return message
 
 
-def setup_logging(
-    verbose: bool = False,
-    quiet: bool = False,
-    log_level: Optional[str] = None
-) -> None:
+def setup_logging(verbose: bool = False, quiet: bool = False, log_level: str | None = None) -> None:
     """Configure logging for bom-bench.
 
     Args:
@@ -78,10 +73,7 @@ def setup_logging(
     handler.setLevel(level)
 
     # Create formatter
-    formatter = ColoredFormatter(
-        fmt="%(levelname)s: %(message)s",
-        datefmt="%Y-%m-%d %H:%M:%S"
-    )
+    formatter = ColoredFormatter(fmt="%(levelname)s: %(message)s", datefmt="%Y-%m-%d %H:%M:%S")
     handler.setFormatter(formatter)
 
     # Add handler to logger

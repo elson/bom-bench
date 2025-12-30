@@ -3,7 +3,6 @@
 from dataclasses import dataclass
 from enum import Enum
 from pathlib import Path
-from typing import List, Optional
 
 
 class ProcessStatus(Enum):
@@ -15,6 +14,7 @@ class ProcessStatus(Enum):
         TIMEOUT: Processing exceeded timeout limit
         UNSATISFIABLE: Dependencies cannot be satisfied
     """
+
     SUCCESS = "success"
     FAILED = "failed"
     TIMEOUT = "timeout"
@@ -39,15 +39,16 @@ class ProcessScenarioResult:
         exit_code: Exit code from lock command
         error_message: Error message if failed
     """
+
     pm_name: str
     status: ProcessStatus
     duration_seconds: float
     exit_code: int
-    manifest_path: Optional[Path] = None
-    lock_file_path: Optional[Path] = None
-    sbom_path: Optional[Path] = None
-    meta_path: Optional[Path] = None
-    error_message: Optional[str] = None
+    manifest_path: Path | None = None
+    lock_file_path: Path | None = None
+    sbom_path: Path | None = None
+    meta_path: Path | None = None
+    error_message: str | None = None
 
     @classmethod
     def success(
@@ -184,9 +185,9 @@ class PMInfo:
     name: str
     ecosystem: str
     description: str
-    supported_sources: List[str]
+    supported_sources: list[str]
     installed: bool = False
-    version: Optional[str] = None
+    version: str | None = None
 
     @classmethod
     def from_dict(cls, d: dict) -> "PMInfo":
@@ -204,7 +205,7 @@ class PMInfo:
             description=d["description"],
             supported_sources=d["supported_sources"],
             installed=d.get("installed", False),
-            version=d.get("version")
+            version=d.get("version"),
         )
 
 
@@ -218,10 +219,10 @@ class PackageManagerInfo:
     display_name: str
     """Human-readable display name"""
 
-    manifest_files: List[str]
+    manifest_files: list[str]
     """List of manifest files this PM generates (e.g., ['pyproject.toml'])"""
 
-    lock_files: List[str]
+    lock_files: list[str]
     """List of lock files this PM generates (e.g., ['uv.lock'])"""
 
     description: str = ""
@@ -242,7 +243,7 @@ UV_INFO = PackageManagerInfo(
     manifest_files=["pyproject.toml"],
     lock_files=["uv.lock"],
     description="Fast Python package manager and resolver",
-    ecosystem="python"
+    ecosystem="python",
 )
 
 PIP_INFO = PackageManagerInfo(
@@ -251,7 +252,7 @@ PIP_INFO = PackageManagerInfo(
     manifest_files=["pyproject.toml", "requirements.in"],
     lock_files=["requirements.txt"],
     description="Python package installer with pip-compile",
-    ecosystem="python"
+    ecosystem="python",
 )
 
 PNPM_INFO = PackageManagerInfo(
@@ -260,7 +261,7 @@ PNPM_INFO = PackageManagerInfo(
     manifest_files=["package.json"],
     lock_files=["pnpm-lock.yaml"],
     description="Fast, disk space efficient JavaScript package manager",
-    ecosystem="javascript"
+    ecosystem="javascript",
 )
 
 GRADLE_INFO = PackageManagerInfo(
@@ -269,5 +270,5 @@ GRADLE_INFO = PackageManagerInfo(
     manifest_files=["build.gradle", "build.gradle.kts"],
     lock_files=["gradle.lockfile"],
     description="Build automation tool for JVM languages",
-    ecosystem="java"
+    ecosystem="java",
 )

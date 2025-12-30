@@ -7,9 +7,8 @@ This module handles saving benchmark results in various formats:
 
 import csv
 import json
-from dataclasses import asdict
 from pathlib import Path
-from typing import Any, Dict, List
+from typing import Any
 
 from bom_bench.logging_config import get_logger
 from bom_bench.models.sca_tool import BenchmarkResult, BenchmarkSummary
@@ -17,7 +16,7 @@ from bom_bench.models.sca_tool import BenchmarkResult, BenchmarkSummary
 logger = get_logger(__name__)
 
 
-def _serialize_result(result: BenchmarkResult) -> Dict[str, Any]:
+def _serialize_result(result: BenchmarkResult) -> dict[str, Any]:
     """Convert BenchmarkResult to a JSON-serializable dictionary.
 
     Args:
@@ -69,7 +68,7 @@ def _serialize_result(result: BenchmarkResult) -> Dict[str, Any]:
     return data
 
 
-def _serialize_summary(summary: BenchmarkSummary) -> Dict[str, Any]:
+def _serialize_summary(summary: BenchmarkSummary) -> dict[str, Any]:
     """Convert BenchmarkSummary to a JSON-serializable dictionary.
 
     Args:
@@ -139,10 +138,7 @@ def save_benchmark_summary(summary: BenchmarkSummary, output_path: Path) -> None
     logger.debug(f"Saved benchmark summary to {output_path}")
 
 
-def export_benchmark_csv(
-    results: List[BenchmarkResult],
-    output_path: Path
-) -> None:
+def export_benchmark_csv(results: list[BenchmarkResult], output_path: Path) -> None:
     """Export benchmark results to CSV.
 
     Creates a CSV with one row per scenario, including:
@@ -189,23 +185,27 @@ def export_benchmark_csv(
 
             # Add metrics if present
             if result.metrics:
-                row.update({
-                    "true_positives": result.metrics.true_positives,
-                    "false_positives": result.metrics.false_positives,
-                    "false_negatives": result.metrics.false_negatives,
-                    "precision": f"{result.metrics.precision:.4f}",
-                    "recall": f"{result.metrics.recall:.4f}",
-                    "f1_score": f"{result.metrics.f1_score:.4f}",
-                })
+                row.update(
+                    {
+                        "true_positives": result.metrics.true_positives,
+                        "false_positives": result.metrics.false_positives,
+                        "false_negatives": result.metrics.false_negatives,
+                        "precision": f"{result.metrics.precision:.4f}",
+                        "recall": f"{result.metrics.recall:.4f}",
+                        "f1_score": f"{result.metrics.f1_score:.4f}",
+                    }
+                )
             else:
-                row.update({
-                    "true_positives": "",
-                    "false_positives": "",
-                    "false_negatives": "",
-                    "precision": "",
-                    "recall": "",
-                    "f1_score": "",
-                })
+                row.update(
+                    {
+                        "true_positives": "",
+                        "false_positives": "",
+                        "false_negatives": "",
+                        "precision": "",
+                        "recall": "",
+                        "f1_score": "",
+                    }
+                )
 
             # Add duration if present
             if result.sbom_result:

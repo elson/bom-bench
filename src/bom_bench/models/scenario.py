@@ -1,7 +1,7 @@
 """Scenario data models."""
 
 from dataclasses import dataclass, field
-from typing import List, Dict, Any, Optional
+from typing import Any
 
 
 @dataclass
@@ -11,11 +11,11 @@ class Requirement:
     requirement: str
     """Full requirement string (e.g., 'package-a>=1.0.0')"""
 
-    extras: List[str] = field(default_factory=list)
+    extras: list[str] = field(default_factory=list)
     """Optional extras for the requirement"""
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> "Requirement":
+    def from_dict(cls, data: dict[str, Any]) -> "Requirement":
         """Create Requirement from dictionary.
 
         Args:
@@ -24,24 +24,21 @@ class Requirement:
         Returns:
             Requirement instance
         """
-        return cls(
-            requirement=data.get("requirement", ""),
-            extras=data.get("extras", [])
-        )
+        return cls(requirement=data.get("requirement", ""), extras=data.get("extras", []))
 
 
 @dataclass
 class Root:
     """Root package configuration."""
 
-    requires: List[Requirement] = field(default_factory=list)
+    requires: list[Requirement] = field(default_factory=list)
     """List of package requirements"""
 
-    requires_python: Optional[str] = None
+    requires_python: str | None = None
     """Python version requirement (e.g., '>=3.12')"""
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> "Root":
+    def from_dict(cls, data: dict[str, Any]) -> "Root":
         """Create Root from dictionary.
 
         Args:
@@ -50,15 +47,9 @@ class Root:
         Returns:
             Root instance
         """
-        requires = [
-            Requirement.from_dict(r)
-            for r in data.get("requires", [])
-        ]
+        requires = [Requirement.from_dict(r) for r in data.get("requires", [])]
 
-        return cls(
-            requires=requires,
-            requires_python=data.get("requires_python")
-        )
+        return cls(requires=requires, requires_python=data.get("requires_python"))
 
 
 @dataclass
@@ -68,11 +59,11 @@ class ResolverOptions:
     universal: bool = False
     """Whether this scenario uses universal resolution"""
 
-    required_environments: List[str] = field(default_factory=list)
+    required_environments: list[str] = field(default_factory=list)
     """Required environments for universal resolution"""
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> "ResolverOptions":
+    def from_dict(cls, data: dict[str, Any]) -> "ResolverOptions":
         """Create ResolverOptions from dictionary.
 
         Args:
@@ -83,7 +74,7 @@ class ResolverOptions:
         """
         return cls(
             universal=data.get("universal", False),
-            required_environments=data.get("required_environments", [])
+            required_environments=data.get("required_environments", []),
         )
 
 
@@ -98,7 +89,7 @@ class ExpectedPackage:
     """Package version"""
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> "ExpectedPackage":
+    def from_dict(cls, data: dict[str, Any]) -> "ExpectedPackage":
         """Create ExpectedPackage from dictionary.
 
         Args:
@@ -107,24 +98,21 @@ class ExpectedPackage:
         Returns:
             ExpectedPackage instance
         """
-        return cls(
-            name=data.get("name", ""),
-            version=data.get("version", "")
-        )
+        return cls(name=data.get("name", ""), version=data.get("version", ""))
 
 
 @dataclass
 class Expected:
     """Expected resolution results."""
 
-    packages: List[ExpectedPackage] = field(default_factory=list)
+    packages: list[ExpectedPackage] = field(default_factory=list)
     """List of expected packages in the resolution"""
 
     satisfiable: bool = True
     """Whether the scenario is expected to be satisfiable"""
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> "Expected":
+    def from_dict(cls, data: dict[str, Any]) -> "Expected":
         """Create Expected from dictionary.
 
         Args:
@@ -133,15 +121,9 @@ class Expected:
         Returns:
             Expected instance
         """
-        packages = [
-            ExpectedPackage.from_dict(p)
-            for p in data.get("packages", [])
-        ]
+        packages = [ExpectedPackage.from_dict(p) for p in data.get("packages", [])]
 
-        return cls(
-            packages=packages,
-            satisfiable=data.get("satisfiable", True)
-        )
+        return cls(packages=packages, satisfiable=data.get("satisfiable", True))
 
 
 @dataclass
@@ -160,17 +142,17 @@ class Scenario:
     resolver_options: ResolverOptions
     """Resolver-specific options"""
 
-    description: Optional[str] = None
+    description: str | None = None
     """Human-readable description of the scenario"""
 
-    expected: Optional[Expected] = None
+    expected: Expected | None = None
     """Expected resolution result (for benchmarking)"""
 
     source: str = "packse"
     """Data source that provided this scenario"""
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any], source: str = "packse") -> "Scenario":
+    def from_dict(cls, data: dict[str, Any], source: str = "packse") -> "Scenario":
         """Create Scenario from packse dictionary.
 
         Args:
@@ -195,7 +177,7 @@ class Scenario:
             resolver_options=resolver_options,
             description=data.get("description"),
             expected=expected,
-            source=source
+            source=source,
         )
 
 
@@ -206,10 +188,10 @@ class ScenarioFilter:
     universal_only: bool = True
     """Only include scenarios with universal=true"""
 
-    exclude_patterns: List[str] = field(default_factory=lambda: ["example"])
+    exclude_patterns: list[str] = field(default_factory=lambda: ["example"])
     """Exclude scenarios whose names contain these patterns"""
 
-    include_sources: Optional[List[str]] = None
+    include_sources: list[str] | None = None
     """Only include scenarios from these sources (None = all sources)"""
 
     def matches(self, scenario: Scenario) -> bool:
@@ -231,8 +213,6 @@ class ScenarioFilter:
             return False
 
         # Check source filter
-        if self.include_sources is not None:
-            if scenario.source not in self.include_sources:
-                return False
-
-        return True
+        return not (
+            self.include_sources is not None and scenario.source not in self.include_sources
+        )

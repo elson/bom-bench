@@ -1,13 +1,11 @@
 """Integration tests for benchmark CLI commands."""
 
-import json
+from unittest.mock import MagicMock, patch
+
 import pytest
-from pathlib import Path
 from click.testing import CliRunner
-from unittest.mock import patch, MagicMock
 
 from bom_bench.cli import cli
-from bom_bench.models.sca_tool import ScanResult, ScanStatus
 
 
 @pytest.fixture
@@ -20,6 +18,7 @@ def runner():
 def reset_plugin_state():
     """Reset plugin state before and after each test."""
     from bom_bench.plugins import reset_plugins
+
     reset_plugins()
     yield
     reset_plugins()
@@ -67,19 +66,28 @@ class TestBenchmarkCommand:
         assert "Unknown SCA tool" in result.output
 
     @patch("bom_bench.benchmarking.runner.BenchmarkRunner")
-    def test_benchmark_runs_with_defaults(self, mock_runner_class, runner, reset_plugin_state, tmp_path):
+    def test_benchmark_runs_with_defaults(
+        self, mock_runner_class, runner, reset_plugin_state, tmp_path
+    ):
         """Test benchmark runs with default options."""
         mock_runner = MagicMock()
         mock_runner.run.return_value = 0
         mock_runner_class.return_value = mock_runner
 
-        result = runner.invoke(cli, [
-            "benchmark",
-            "--pm", "uv",
-            "--tools", "cdxgen",
-            "-o", str(tmp_path),
-            "--benchmarks-dir", str(tmp_path / "benchmarks"),
-        ])
+        runner.invoke(
+            cli,
+            [
+                "benchmark",
+                "--pm",
+                "uv",
+                "--tools",
+                "cdxgen",
+                "-o",
+                str(tmp_path),
+                "--benchmarks-dir",
+                str(tmp_path / "benchmarks"),
+            ],
+        )
 
         # Should create runner with correct args
         mock_runner_class.assert_called_once()
@@ -90,20 +98,30 @@ class TestBenchmarkCommand:
         mock_runner.run.assert_called_once()
 
     @patch("bom_bench.benchmarking.runner.BenchmarkRunner")
-    def test_benchmark_with_scenarios_filter(self, mock_runner_class, runner, reset_plugin_state, tmp_path):
+    def test_benchmark_with_scenarios_filter(
+        self, mock_runner_class, runner, reset_plugin_state, tmp_path
+    ):
         """Test benchmark with specific scenarios."""
         mock_runner = MagicMock()
         mock_runner.run.return_value = 0
         mock_runner_class.return_value = mock_runner
 
-        result = runner.invoke(cli, [
-            "benchmark",
-            "--pm", "uv",
-            "--tools", "cdxgen",
-            "--scenarios", "scenario-1,scenario-2",
-            "-o", str(tmp_path),
-            "--benchmarks-dir", str(tmp_path / "benchmarks"),
-        ])
+        runner.invoke(
+            cli,
+            [
+                "benchmark",
+                "--pm",
+                "uv",
+                "--tools",
+                "cdxgen",
+                "--scenarios",
+                "scenario-1,scenario-2",
+                "-o",
+                str(tmp_path),
+                "--benchmarks-dir",
+                str(tmp_path / "benchmarks"),
+            ],
+        )
 
         # Should pass scenarios to run
         mock_runner.run.assert_called_once()
@@ -111,19 +129,28 @@ class TestBenchmarkCommand:
         assert call_args[1]["scenarios"] == ["scenario-1", "scenario-2"]
 
     @patch("bom_bench.benchmarking.runner.BenchmarkRunner")
-    def test_benchmark_returns_runner_exit_code(self, mock_runner_class, runner, reset_plugin_state, tmp_path):
+    def test_benchmark_returns_runner_exit_code(
+        self, mock_runner_class, runner, reset_plugin_state, tmp_path
+    ):
         """Test that benchmark returns runner's exit code."""
         mock_runner = MagicMock()
         mock_runner.run.return_value = 1  # Simulate failure
         mock_runner_class.return_value = mock_runner
 
-        result = runner.invoke(cli, [
-            "benchmark",
-            "--pm", "uv",
-            "--tools", "cdxgen",
-            "-o", str(tmp_path),
-            "--benchmarks-dir", str(tmp_path / "benchmarks"),
-        ])
+        result = runner.invoke(
+            cli,
+            [
+                "benchmark",
+                "--pm",
+                "uv",
+                "--tools",
+                "cdxgen",
+                "-o",
+                str(tmp_path),
+                "--benchmarks-dir",
+                str(tmp_path / "benchmarks"),
+            ],
+        )
 
         assert result.exit_code == 1
 
@@ -153,11 +180,16 @@ class TestRunCommandDeprecation:
 
     def test_run_shows_deprecation_warning(self, runner, tmp_path):
         """Test that run shows deprecation warning."""
-        result = runner.invoke(cli, [
-            "run",
-            "--pm", "uv",
-            "-o", str(tmp_path),
-        ])
+        result = runner.invoke(
+            cli,
+            [
+                "run",
+                "--pm",
+                "uv",
+                "-o",
+                str(tmp_path),
+            ],
+        )
 
         # Check for deprecation warning in output
         # Note: exit code may be non-zero if setup fails for other reasons

@@ -1,6 +1,7 @@
 """Pytest configuration and fixtures for bom-bench tests."""
 
 import logging
+
 import pytest
 
 

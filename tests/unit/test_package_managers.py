@@ -5,20 +5,19 @@ from pathlib import Path
 
 import pytest
 
-from bom_bench.models.scenario import Scenario, Root, Requirement, ResolverOptions
-from bom_bench.models.package_manager import ProcessStatus, ProcessScenarioResult
-from bom_bench.plugins import initialize_plugins
+from bom_bench.models.package_manager import ProcessScenarioResult, ProcessStatus
+from bom_bench.models.scenario import Requirement, ResolverOptions, Root, Scenario
 from bom_bench.package_managers import (
-    package_manager_process_scenario,
-    list_available_package_managers,
     check_package_manager_available,
     get_package_manager_info,
+    list_available_package_managers,
+    package_manager_process_scenario,
 )
 
 
 class TestPackageManagerRegistry:
     """Test package manager registry functions via plugin API."""
-    
+
     def test_list_available_package_managers(self):
         """Test listing available package managers."""
         pms = list_available_package_managers()
@@ -48,13 +47,10 @@ class TestUVPackageManagerPluginAPI:
                     Requirement(requirement="package-a>=1.0.0"),
                     Requirement(requirement="package-b<2.0.0"),
                 ],
-                requires_python=">=3.12"
+                requires_python=">=3.12",
             ),
-            resolver_options=ResolverOptions(
-                universal=True,
-                required_environments=[]
-            ),
-            source="packse"
+            resolver_options=ResolverOptions(universal=True, required_environments=[]),
+            source="packse",
         )
 
     @pytest.fixture
@@ -66,13 +62,13 @@ class TestUVPackageManagerPluginAPI:
                 requires=[
                     Requirement(requirement="package-x>=1.0.0"),
                 ],
-                requires_python=">=3.8"
+                requires_python=">=3.8",
             ),
             resolver_options=ResolverOptions(
                 universal=True,
-                required_environments=["python_version >= '3.8'", "sys_platform == 'linux'"]
+                required_environments=["python_version >= '3.8'", "sys_platform == 'linux'"],
             ),
-            source="packse"
+            source="packse",
         )
 
     def test_get_pm_info_uv(self):
@@ -101,7 +97,12 @@ class TestUVPackageManagerPluginAPI:
             assert result is not None
             assert isinstance(result, ProcessScenarioResult)
             assert result.pm_name == "uv"
-            assert result.status in [ProcessStatus.SUCCESS, ProcessStatus.FAILED, ProcessStatus.TIMEOUT, ProcessStatus.UNSATISFIABLE]
+            assert result.status in [
+                ProcessStatus.SUCCESS,
+                ProcessStatus.FAILED,
+                ProcessStatus.TIMEOUT,
+                ProcessStatus.UNSATISFIABLE,
+            ]
             assert result.duration_seconds >= 0
 
             # Manifest should always be created

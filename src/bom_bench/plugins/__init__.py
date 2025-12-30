@@ -23,13 +23,13 @@ For package managers, import from bom_bench.package_managers:
     )
 """
 
+import contextlib
 import importlib
-from typing import Dict, List
 
 import pluggy
 
 from bom_bench.logging_config import get_logger
-from bom_bench.plugins.hookspecs import SCAToolSpec, PackageManagerSpec
+from bom_bench.plugins.hookspecs import PackageManagerSpec, SCAToolSpec
 
 logger = get_logger(__name__)
 
@@ -94,8 +94,8 @@ def initialize_plugins() -> None:
     _load_external_plugins()
 
     # Register via domain modules
-    from bom_bench.sca_tools import _register_tools
     from bom_bench.package_managers import _register_package_managers
+    from bom_bench.sca_tools import _register_tools
 
     _register_tools(pm)
     _register_package_managers(pm)
@@ -103,8 +103,8 @@ def initialize_plugins() -> None:
     _initialized = True
 
     # Get counts for logging
-    from bom_bench.sca_tools import _registered_tools
     from bom_bench.package_managers import _registered_pms
+    from bom_bench.sca_tools import _registered_tools
 
     logger.debug(
         f"Plugin system initialized with {len(_registered_tools)} tool(s) "
@@ -123,14 +123,12 @@ def reset_plugins() -> None:
 
     # Unregister all plugins from the plugin manager
     for plugin in list(pm.get_plugins()):
-        try:
+        with contextlib.suppress(Exception):
             pm.unregister(plugin)
-        except Exception:
-            pass
 
     # Reset domain module registries
-    from bom_bench.sca_tools import _reset_tools
     from bom_bench.package_managers import _reset_package_managers
+    from bom_bench.sca_tools import _reset_tools
 
     _reset_tools()
     _reset_package_managers()
@@ -138,7 +136,7 @@ def reset_plugins() -> None:
     _initialized = False
 
 
-def get_plugins() -> List[Dict]:
+def get_plugins() -> list[dict]:
     """Get information about loaded plugins.
 
     Returns:

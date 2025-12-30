@@ -1,10 +1,9 @@
 """SCA tool and benchmark result models."""
 
+import statistics
 from dataclasses import dataclass, field
 from enum import Enum
 from pathlib import Path
-from typing import List, Optional, Set
-import statistics
 
 import click
 
@@ -43,16 +42,16 @@ class SCAToolInfo:
     name: str
     """Tool identifier (e.g., 'cdxgen', 'syft')"""
 
-    version: Optional[str] = None
+    version: str | None = None
     """Tool version string"""
 
-    description: Optional[str] = None
+    description: str | None = None
     """Human-readable description"""
 
-    supported_ecosystems: List[str] = field(default_factory=list)
+    supported_ecosystems: list[str] = field(default_factory=list)
     """Ecosystems this tool supports (e.g., ['python', 'javascript'])"""
 
-    homepage: Optional[str] = None
+    homepage: str | None = None
     """Tool homepage URL"""
 
     installed: bool = False
@@ -74,7 +73,7 @@ class SCAToolInfo:
             description=d.get("description"),
             supported_ecosystems=d.get("supported_ecosystems", []),
             homepage=d.get("homepage"),
-            installed=d.get("installed", False)
+            installed=d.get("installed", False),
         )
 
 
@@ -92,31 +91,27 @@ class ScanResult:
     status: ScanStatus
     """Scan status"""
 
-    sbom_path: Optional[Path] = None
+    sbom_path: Path | None = None
     """Path to generated SBOM file (if successful)"""
 
     duration_seconds: float = 0.0
     """Time taken to generate SBOM"""
 
-    exit_code: Optional[int] = None
+    exit_code: int | None = None
     """Tool exit code (if subprocess)"""
 
-    error_message: Optional[str] = None
+    error_message: str | None = None
     """Error message if generation failed"""
 
-    stdout: Optional[str] = None
+    stdout: str | None = None
     """Tool stdout (for debugging)"""
 
-    stderr: Optional[str] = None
+    stderr: str | None = None
     """Tool stderr (for debugging)"""
 
     @classmethod
     def success(
-        cls,
-        tool_name: str,
-        sbom_path: Path,
-        duration_seconds: float,
-        exit_code: int = 0
+        cls, tool_name: str, sbom_path: Path, duration_seconds: float, exit_code: int = 0
     ) -> "ScanResult":
         """Create a successful result."""
         return cls(
@@ -124,7 +119,7 @@ class ScanResult:
             status=ScanStatus.SUCCESS,
             sbom_path=sbom_path,
             duration_seconds=duration_seconds,
-            exit_code=exit_code
+            exit_code=exit_code,
         )
 
     @classmethod
@@ -134,7 +129,7 @@ class ScanResult:
         error_message: str,
         status: ScanStatus = ScanStatus.TOOL_FAILED,
         duration_seconds: float = 0.0,
-        exit_code: Optional[int] = None
+        exit_code: int | None = None,
     ) -> "ScanResult":
         """Create a failed result."""
         return cls(
@@ -142,7 +137,7 @@ class ScanResult:
             status=status,
             error_message=error_message,
             duration_seconds=duration_seconds,
-            exit_code=exit_code
+            exit_code=exit_code,
         )
 
     @classmethod
@@ -170,7 +165,7 @@ class ScanResult:
             exit_code=d.get("exit_code"),
             error_message=d.get("error_message"),
             stdout=d.get("stdout"),
-            stderr=d.get("stderr")
+            stderr=d.get("stderr"),
         )
 
 
@@ -215,14 +210,14 @@ class PurlMetrics:
     f1_score: float = 0.0
     """Harmonic mean of precision and recall"""
 
-    expected_purls: Set[str] = field(default_factory=set)
+    expected_purls: set[str] = field(default_factory=set)
     """Set of expected PURLs"""
 
-    actual_purls: Set[str] = field(default_factory=set)
+    actual_purls: set[str] = field(default_factory=set)
     """Set of actual PURLs"""
 
     @classmethod
-    def calculate(cls, expected_purls: Set[str], actual_purls: Set[str]) -> "PurlMetrics":
+    def calculate(cls, expected_purls: set[str], actual_purls: set[str]) -> "PurlMetrics":
         """Calculate metrics from two sets of purls.
 
         Args:
@@ -242,9 +237,7 @@ class PurlMetrics:
         precision = tp / (tp + fp) if (tp + fp) > 0 else 1.0
         recall = tp / (tp + fn) if (tp + fn) > 0 else 1.0
         f1_score = (
-            2 * (precision * recall) / (precision + recall)
-            if (precision + recall) > 0
-            else 0.0
+            2 * (precision * recall) / (precision + recall) if (precision + recall) > 0 else 0.0
         )
 
         return cls(
@@ -275,22 +268,22 @@ class BenchmarkResult:
     status: BenchmarkStatus
     """Benchmark execution status"""
 
-    metrics: Optional[PurlMetrics] = None
+    metrics: PurlMetrics | None = None
     """Comparison metrics (None if benchmark failed)"""
 
     expected_satisfiable: bool = True
     """Whether the expected SBOM was satisfiable"""
 
-    sbom_result: Optional[ScanResult] = None
+    sbom_result: ScanResult | None = None
     """Result from SBOM generation"""
 
-    expected_sbom_path: Optional[Path] = None
+    expected_sbom_path: Path | None = None
     """Path to expected SBOM file"""
 
-    actual_sbom_path: Optional[Path] = None
+    actual_sbom_path: Path | None = None
     """Path to actual SBOM file from SCA tool"""
 
-    error_message: Optional[str] = None
+    error_message: str | None = None
     """Error message if benchmark failed"""
 
 
@@ -349,7 +342,7 @@ class BenchmarkSummary:
     total_false_negatives: int = 0
     """Sum of all false negatives"""
 
-    results: List[BenchmarkResult] = field(default_factory=list)
+    results: list[BenchmarkResult] = field(default_factory=list)
     """Individual benchmark results"""
 
     def add_result(self, result: BenchmarkResult) -> None:
@@ -379,8 +372,7 @@ class BenchmarkSummary:
     def calculate_aggregates(self) -> None:
         """Calculate mean and median metrics from successful runs."""
         successful_results = [
-            r for r in self.results
-            if r.status == BenchmarkStatus.SUCCESS and r.metrics
+            r for r in self.results if r.status == BenchmarkStatus.SUCCESS and r.metrics
         ]
 
         if not successful_results:
@@ -401,27 +393,22 @@ class BenchmarkSummary:
     def print_summary(self) -> None:
         """Print a formatted summary with colored output."""
         logger.info("")
-        logger.info(click.style(
-            f"Benchmark Summary ({self.tool_name} / {self.package_manager}):",
-            bold=True
-        ))
+        logger.info(
+            click.style(
+                f"Benchmark Summary ({self.tool_name} / {self.package_manager}):", bold=True
+            )
+        )
         logger.info(f"  Total Scenarios: {self.total_scenarios}")
         logger.info("")
 
         logger.info(click.style("Status Breakdown:", bold=True))
-        logger.info(
-            f"  Successful: {click.style(str(self.successful), fg='green')}"
-        )
+        logger.info(f"  Successful: {click.style(str(self.successful), fg='green')}")
         if self.sbom_failed > 0:
-            logger.warning(
-                f"  SBOM Failed: {click.style(str(self.sbom_failed), fg='red')}"
-            )
+            logger.warning(f"  SBOM Failed: {click.style(str(self.sbom_failed), fg='red')}")
         if self.unsatisfiable > 0:
             logger.info(f"  Unsatisfiable: {self.unsatisfiable}")
         if self.parse_errors > 0:
-            logger.warning(
-                f"  Parse Errors: {click.style(str(self.parse_errors), fg='red')}"
-            )
+            logger.warning(f"  Parse Errors: {click.style(str(self.parse_errors), fg='red')}")
         if self.missing_expected > 0:
             logger.warning(
                 f"  Missing Expected: {click.style(str(self.missing_expected), fg='red')}"

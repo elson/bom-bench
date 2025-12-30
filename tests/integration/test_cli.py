@@ -190,7 +190,7 @@ class TestScenarioFiltering:
 
     def test_filter_by_names(self, cli):
         """Test filtering scenarios by specific names."""
-        from bom_bench.models.scenario import Scenario, Root, ResolverOptions
+        from bom_bench.models.scenario import ResolverOptions, Root, Scenario
 
         scenarios = [
             Scenario(
@@ -226,13 +226,13 @@ class TestCLIProcessing:
 
     def test_process_scenario_success(self, cli):
         """Test successful scenario processing (will fail/be unsatisfiable without packse server)."""
+        from bom_bench.models.result import ProcessingStatus
         from bom_bench.models.scenario import (
-            Scenario,
-            Root,
             Requirement,
             ResolverOptions,
+            Root,
+            Scenario,
         )
-        from bom_bench.models.result import ProcessingStatus
 
         scenario = Scenario(
             name="test-scenario",
@@ -264,8 +264,8 @@ class TestCLIProcessing:
 
     def test_process_scenario_incompatible(self, cli):
         """Test processing incompatible scenario."""
-        from bom_bench.models.scenario import Scenario, Root, ResolverOptions
         from bom_bench.models.result import ProcessingStatus
+        from bom_bench.models.scenario import ResolverOptions, Root, Scenario
 
         scenario = Scenario(
             name="test-scenario",
@@ -284,8 +284,8 @@ class TestCLIProcessing:
 
     def test_process_scenario_invalid_pm(self, cli):
         """Test processing with invalid package manager."""
-        from bom_bench.models.scenario import Scenario, Root, ResolverOptions
         from bom_bench.models.result import ProcessingStatus
+        from bom_bench.models.scenario import ResolverOptions, Root, Scenario
 
         scenario = Scenario(
             name="test-scenario",
@@ -312,13 +312,13 @@ class TestSBOMGeneration:
 
     def test_sbom_generated_from_lock_file(self, cli):
         """Test that SBOM is generated from lock file after successful locking."""
+        from bom_bench.models.result import LockResult, LockStatus
         from bom_bench.models.scenario import (
-            Scenario,
-            Root,
             Requirement,
             ResolverOptions,
+            Root,
+            Scenario,
         )
-        from bom_bench.models.result import LockResult, LockStatus
         from bom_bench.package_managers.uv import _generate_sbom_for_lock_impl
 
         # Create minimal scenario
@@ -367,7 +367,7 @@ version = "2.0.0"
                 stdout="Resolved 2 packages",
                 stderr="",
                 lock_file=lock_file,
-                duration_seconds=0.1
+                duration_seconds=0.1,
             )
 
             sbom_path = _generate_sbom_for_lock_impl(scenario, output_dir, lock_result)
@@ -377,6 +377,7 @@ version = "2.0.0"
 
             # Verify SBOM is pure CycloneDX (no wrapper)
             import json
+
             with open(sbom_path) as f:
                 sbom = json.load(f)
 
@@ -401,13 +402,13 @@ version = "2.0.0"
 
     def test_sbom_result_on_lock_failure(self, cli):
         """Test that meta.json is generated with satisfiable=false when lock fails."""
+        from bom_bench.models.result import LockResult, LockStatus
         from bom_bench.models.scenario import (
-            Scenario,
-            Root,
             Requirement,
             ResolverOptions,
+            Root,
+            Scenario,
         )
-        from bom_bench.models.result import LockResult, LockStatus
         from bom_bench.package_managers.uv import _generate_sbom_for_lock_impl
 
         scenario = Scenario(
@@ -433,7 +434,7 @@ version = "2.0.0"
                 stdout="",
                 stderr="No solution found",
                 lock_file=None,
-                duration_seconds=0.1
+                duration_seconds=0.1,
             )
 
             result_path = _generate_sbom_for_lock_impl(scenario, output_dir, lock_result)
@@ -444,6 +445,7 @@ version = "2.0.0"
 
             # Verify meta.json structure
             import json
+
             meta_path = output_dir / "meta.json"
             assert meta_path.exists()
 
@@ -461,13 +463,13 @@ version = "2.0.0"
 
     def test_sbom_file_structure(self, cli):
         """Test the structure of generated SBOM file."""
+        from bom_bench.models.result import LockResult, LockStatus
         from bom_bench.models.scenario import (
-            Scenario,
-            Root,
             Requirement,
             ResolverOptions,
+            Root,
+            Scenario,
         )
-        from bom_bench.models.result import LockResult, LockStatus
         from bom_bench.package_managers.uv import _generate_sbom_for_lock_impl
 
         scenario = Scenario(
@@ -511,7 +513,7 @@ version = "2.31.0"
                 stdout="Resolved 1 package",
                 stderr="",
                 lock_file=lock_file,
-                duration_seconds=0.1
+                duration_seconds=0.1,
             )
 
             sbom_path = _generate_sbom_for_lock_impl(scenario, output_dir, lock_result)
@@ -520,6 +522,7 @@ version = "2.31.0"
 
             # Verify SBOM is pure CycloneDX (no wrapper)
             import json
+
             with open(sbom_path) as f:
                 sbom = json.load(f)
 

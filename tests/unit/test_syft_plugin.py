@@ -1,9 +1,6 @@
 """Tests for Syft plugin."""
 
-import json
-import pytest
-from pathlib import Path
-from unittest.mock import MagicMock, patch, mock_open
+from unittest.mock import MagicMock, mock_open, patch
 
 from bom_bench.sca_tools.syft import (
     _get_syft_version,
@@ -20,7 +17,7 @@ class TestSyftVersionDetection:
         """Test successful version extraction."""
         mock_run.return_value = MagicMock(
             returncode=0,
-            stdout="Application:   syft\nVersion:       1.39.0\nBuildDate:     2025-12-22T19:51:39Z\n"
+            stdout="Application:   syft\nVersion:       1.39.0\nBuildDate:     2025-12-22T19:51:39Z\n",
         )
 
         version = _get_syft_version()
@@ -41,6 +38,7 @@ class TestSyftVersionDetection:
     def test_get_syft_version_timeout(self, mock_run):
         """Test version command timeout."""
         import subprocess
+
         mock_run.side_effect = subprocess.TimeoutExpired("syft", 10)
 
         version = _get_syft_version()
@@ -60,8 +58,7 @@ class TestSyftVersionDetection:
     def test_get_syft_version_no_version_line(self, mock_run):
         """Test when output doesn't contain Version: line."""
         mock_run.return_value = MagicMock(
-            returncode=0,
-            stdout="Application:   syft\nBuildDate:     2025-12-22T19:51:39Z\n"
+            returncode=0, stdout="Application:   syft\nBuildDate:     2025-12-22T19:51:39Z\n"
         )
 
         version = _get_syft_version()
@@ -141,10 +138,7 @@ class TestSyftSBOMGeneration:
         mock_exists.return_value = True
 
         result = scan_project(
-            tool_name="syft",
-            project_dir=project_dir,
-            output_path=output_path,
-            ecosystem="python"
+            tool_name="syft", project_dir=project_dir, output_path=output_path, ecosystem="python"
         )
 
         assert result is not None
@@ -171,7 +165,7 @@ class TestSyftSBOMGeneration:
             tool_name="syft",
             project_dir=tmp_path,
             output_path=tmp_path / "out.json",
-            ecosystem="python"
+            ecosystem="python",
         )
 
         assert result is not None
@@ -187,7 +181,7 @@ class TestSyftSBOMGeneration:
             tool_name="syft",
             project_dir=tmp_path,
             output_path=tmp_path / "out.json",
-            ecosystem="python"
+            ecosystem="python",
         )
 
         assert result is not None
@@ -195,7 +189,7 @@ class TestSyftSBOMGeneration:
         assert "syft not found" in result["error_message"]
 
     @patch("subprocess.run")
-    @patch("builtins.open", new_callable=mock_open, read_data='invalid json{')
+    @patch("builtins.open", new_callable=mock_open, read_data="invalid json{")
     @patch("pathlib.Path.exists")
     def test_generate_sbom_invalid_json(self, mock_exists, mock_file, mock_run, tmp_path):
         """Test handling of invalid JSON output."""
@@ -206,7 +200,7 @@ class TestSyftSBOMGeneration:
             tool_name="syft",
             project_dir=tmp_path,
             output_path=tmp_path / "out.json",
-            ecosystem="python"
+            ecosystem="python",
         )
 
         assert result is not None
@@ -216,16 +210,13 @@ class TestSyftSBOMGeneration:
     @patch("subprocess.run")
     def test_generate_sbom_non_zero_exit(self, mock_run, tmp_path):
         """Test non-zero exit code handling."""
-        mock_run.return_value = MagicMock(
-            returncode=1,
-            stderr="Error: could not determine source"
-        )
+        mock_run.return_value = MagicMock(returncode=1, stderr="Error: could not determine source")
 
         result = scan_project(
             tool_name="syft",
             project_dir=tmp_path,
             output_path=tmp_path / "out.json",
-            ecosystem="python"
+            ecosystem="python",
         )
 
         assert result is not None
@@ -238,7 +229,7 @@ class TestSyftSBOMGeneration:
             tool_name="cdxgen",
             project_dir=tmp_path,
             output_path=tmp_path / "out.json",
-            ecosystem="python"
+            ecosystem="python",
         )
 
         assert result is None
@@ -254,11 +245,8 @@ class TestSyftSBOMGeneration:
         mock_run.return_value = MagicMock(returncode=0, stderr="")
         mock_exists.return_value = True
 
-        result = scan_project(
-            tool_name="syft",
-            project_dir=project_dir,
-            output_path=output_path,
-            ecosystem="python"
+        scan_project(
+            tool_name="syft", project_dir=project_dir, output_path=output_path, ecosystem="python"
         )
 
         # The parent directory should have been created
@@ -275,7 +263,7 @@ class TestSyftSBOMGeneration:
             tool_name="syft",
             project_dir=tmp_path,
             output_path=tmp_path / "out.json",
-            ecosystem="python"
+            ecosystem="python",
         )
 
         assert result is not None

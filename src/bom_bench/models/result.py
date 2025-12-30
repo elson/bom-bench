@@ -2,7 +2,6 @@
 
 from dataclasses import dataclass
 from enum import Enum
-from typing import Optional
 from pathlib import Path
 
 import click
@@ -42,10 +41,10 @@ class ProcessingResult:
     package_manager: str
     """Package manager used (e.g., 'uv', 'pip')"""
 
-    output_dir: Optional[Path] = None
+    output_dir: Path | None = None
     """Directory where output was generated"""
 
-    error_message: Optional[str] = None
+    error_message: str | None = None
     """Error message if processing failed"""
 
 
@@ -62,22 +61,22 @@ class LockResult:
     status: LockStatus
     """Lock generation status"""
 
-    exit_code: Optional[int] = None
+    exit_code: int | None = None
     """Exit code from lock command"""
 
-    stdout: Optional[str] = None
+    stdout: str | None = None
     """Standard output from lock command"""
 
-    stderr: Optional[str] = None
+    stderr: str | None = None
     """Standard error from lock command"""
 
-    lock_file: Optional[Path] = None
+    lock_file: Path | None = None
     """Path to generated lock file (e.g., uv.lock, requirements.txt)"""
 
-    error_message: Optional[str] = None
+    error_message: str | None = None
     """Error message if lock failed"""
 
-    duration_seconds: Optional[float] = None
+    duration_seconds: float | None = None
     """Time taken to generate lock file"""
 
 
@@ -97,10 +96,10 @@ class Summary:
     failed: int = 0
     """Number of scenarios that failed processing"""
 
-    package_manager: Optional[str] = None
+    package_manager: str | None = None
     """Package manager used (None if multiple)"""
 
-    data_source: Optional[str] = None
+    data_source: str | None = None
     """Data source used (None if multiple)"""
 
     def add_processing_result(self, result: ProcessingResult) -> None:

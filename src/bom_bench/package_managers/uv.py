@@ -9,18 +9,14 @@ import shutil
 import subprocess
 import time
 from pathlib import Path
-from typing import List, Optional
 
-import packse.fetch
-import packse.inspect
 import tomlkit
 
-from bom_bench.generators.sbom.cyclonedx import generate_sbom_file, generate_meta_file
+from bom_bench import hookimpl
+from bom_bench.generators.sbom.cyclonedx import generate_meta_file, generate_sbom_file
 from bom_bench.logging_config import get_logger
 from bom_bench.models.result import LockResult, LockStatus
-from bom_bench.models.scenario import Scenario, ExpectedPackage
-
-from bom_bench import hookimpl
+from bom_bench.models.scenario import ExpectedPackage, Scenario
 
 logger = get_logger(__name__)
 
@@ -41,9 +37,9 @@ PROJECT_VERSION = "0.1.0"
 def _generate_pyproject_toml(
     name: str,
     version: str,
-    dependencies: List[str],
-    requires_python: Optional[str] = None,
-    required_environments: Optional[List[str]] = None
+    dependencies: list[str],
+    requires_python: str | None = None,
+    required_environments: list[str] | None = None,
 ) -> str:
     """Generate complete pyproject.toml content for UV.
 
@@ -82,7 +78,7 @@ def _generate_pyproject_toml(
     return tomlkit.dumps(doc)
 
 
-def _parse_uv_lock(lock_file_path: Path) -> List[ExpectedPackage]:
+def _parse_uv_lock(lock_file_path: Path) -> list[ExpectedPackage]:
     """Parse uv.lock file and extract resolved packages.
 
     Args:
@@ -99,7 +95,7 @@ def _parse_uv_lock(lock_file_path: Path) -> List[ExpectedPackage]:
         raise FileNotFoundError(f"Lock file not found: {lock_file_path}")
 
     try:
-        with open(lock_file_path, "r", encoding="utf-8") as f:
+        with open(lock_file_path, encoding="utf-8") as f:
             lock_data = tomlkit.load(f)
 
         packages = []
@@ -113,28 +109,18 @@ def _parse_uv_lock(lock_file_path: Path) -> List[ExpectedPackage]:
             version = package.get("version")
 
             if name and version:
-                packages.append(
-                    ExpectedPackage(
-                        name=name,
-                        version=version
-                    )
-                )
+                packages.append(ExpectedPackage(name=name, version=version))
 
         return packages
 
     except Exception as e:
-        raise Exception(f"Failed to parse uv.lock file: {e}")
+        raise Exception(f"Failed to parse uv.lock file: {e}") from e
 
 
-def _get_uv_version() -> Optional[str]:
+def _get_uv_version() -> str | None:
     """Get UV version if installed."""
     try:
-        result = subprocess.run(
-            ["uv", "--version"],
-            capture_output=True,
-            text=True,
-            timeout=10
-        )
+        result = subprocess.run(["uv", "--version"], capture_output=True, text=True, timeout=10)
         if result.returncode == 0:
             # Format: "uv 0.5.11"
             parts = result.stdout.strip().split()
@@ -154,15 +140,13 @@ def register_package_managers() -> dict:
         "description": "Fast Python package manager and resolver",
         "supported_sources": ["packse"],
         "installed": shutil.which("uv") is not None,
-        "version": _get_uv_version()
+        "version": _get_uv_version(),
     }
 
 
 def _generate_sbom_for_lock_impl(
-    scenario: Scenario,
-    output_dir: Path,
-    lock_result: LockResult
-) -> Optional[Path]:
+    scenario: Scenario, output_dir: Path, lock_result: LockResult
+) -> Path | None:
     """Internal implementation for generating SBOM and meta files.
 
     Generates two files:
@@ -211,11 +195,8 @@ def _generate_sbom_for_lock_impl(
 
 @hookimpl
 def process_scenario(
-    pm_name: str,
-    scenario: Scenario,
-    output_dir: Path,
-    timeout: int = LOCK_TIMEOUT_SECONDS
-) -> Optional[dict]:
+    pm_name: str, scenario: Scenario, output_dir: Path, timeout: int = LOCK_TIMEOUT_SECONDS
+) -> dict | None:
     """Process a scenario: generate manifest, lock, and SBOM.
 
     This is the new simplified hook that combines generate_manifest, run_lock,
@@ -248,7 +229,7 @@ def process_scenario(
             version=PROJECT_VERSION,
             dependencies=dependencies,
             requires_python=requires_python,
-            required_environments=required_environments if required_environments else None
+            required_environments=required_environments if required_environments else None,
         )
 
         # Write to assets subdirectory
@@ -268,16 +249,13 @@ def process_scenario(
                 cwd=assets_dir,
                 capture_output=True,
                 text=True,
-                timeout=timeout
+                timeout=timeout,
             )
 
             lock_duration = time.time() - lock_start_time
 
             # Determine lock status
-            if result.returncode == 0:
-                lock_status = LockStatus.SUCCESS
-            else:
-                lock_status = LockStatus.FAILED
+            lock_status = LockStatus.SUCCESS if result.returncode == 0 else LockStatus.FAILED
 
             lock_result = LockResult(
                 scenario_name=scenario.name,
@@ -287,7 +265,7 @@ def process_scenario(
                 stdout=result.stdout,
                 stderr=result.stderr,
                 lock_file=lock_file if lock_file.exists() else None,
-                duration_seconds=lock_duration
+                duration_seconds=lock_duration,
             )
 
         except subprocess.TimeoutExpired:
@@ -301,11 +279,11 @@ def process_scenario(
                 stdout="",
                 stderr=f"Command timed out after {timeout} seconds",
                 error_message=f"Command timed out after {timeout} seconds",
-                duration_seconds=lock_duration
+                duration_seconds=lock_duration,
             )
 
         # 3. Generate SBOM and meta files
-        result_path = _generate_sbom_for_lock_impl(scenario, output_dir, lock_result)
+        _generate_sbom_for_lock_impl(scenario, output_dir, lock_result)
 
         duration = time.time() - start_time
 
@@ -318,10 +296,7 @@ def process_scenario(
             # Check if it's unsatisfiable (meta.json exists but no SBOM)
             meta_path = output_dir / "meta.json"
             sbom_path = output_dir / "expected.cdx.json"
-            if meta_path.exists() and not sbom_path.exists():
-                status = "unsatisfiable"
-            else:
-                status = "failed"
+            status = "unsatisfiable" if meta_path.exists() and not sbom_path.exists() else "failed"
 
         # Build result dict
         result = {
@@ -355,7 +330,5 @@ def process_scenario(
             "status": "failed",
             "duration_seconds": duration,
             "exit_code": 1,
-            "error_message": str(e)
+            "error_message": str(e),
         }
-
-

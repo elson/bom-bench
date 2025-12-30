@@ -6,8 +6,8 @@ They require cdxgen to be installed.
 
 import json
 import shutil
+
 import pytest
-from pathlib import Path
 
 from bom_bench.plugins import reset_plugins
 
@@ -55,25 +55,23 @@ requires-python = ">=3.12"
 
         # Create expected SBOM (empty, matching an empty project)
         expected_sbom = scenario_dir / "expected.cdx.json"
-        expected_sbom.write_text(json.dumps({
-            "satisfiable": True,
-            "sbom": {
-                "bomFormat": "CycloneDX",
-                "specVersion": "1.6",
-                "components": []
-            }
-        }))
+        expected_sbom.write_text(
+            json.dumps(
+                {
+                    "satisfiable": True,
+                    "sbom": {"bomFormat": "CycloneDX", "specVersion": "1.6", "components": []},
+                }
+            )
+        )
 
         # Initialize plugins and run benchmark
         initialize_plugins()
 
         runner = BenchmarkRunner(
-            output_dir=output_dir,
-            benchmarks_dir=benchmarks_dir,
-            tools=["cdxgen"]
+            output_dir=output_dir, benchmarks_dir=benchmarks_dir, tools=["cdxgen"]
         )
 
-        exit_code = runner.run(package_managers="uv")
+        runner.run(package_managers="uv")
 
         # Check that benchmark ran
         # Note: exit_code may be 0 or 1 depending on cdxgen's behavior
@@ -84,7 +82,7 @@ requires-python = ">=3.12"
         assert result_dir.exists(), f"Result directory not created: {result_dir}"
 
         # Check that actual SBOM was created
-        actual_sbom = result_dir / "actual.cdx.json"
+        result_dir / "actual.cdx.json"
         # cdxgen might succeed or fail depending on the project, but it should try
 
         # Check result.json was created
@@ -139,32 +137,34 @@ requires-python = ">=3.12"
 
         # Create expected SBOM with click
         expected_sbom = scenario_dir / "expected.cdx.json"
-        expected_sbom.write_text(json.dumps({
-            "satisfiable": True,
-            "sbom": {
-                "bomFormat": "CycloneDX",
-                "specVersion": "1.6",
-                "components": [
-                    {
-                        "type": "library",
-                        "name": "click",
-                        "version": "8.1.7",
-                        "purl": "pkg:pypi/click@8.1.7"
-                    }
-                ]
-            }
-        }))
+        expected_sbom.write_text(
+            json.dumps(
+                {
+                    "satisfiable": True,
+                    "sbom": {
+                        "bomFormat": "CycloneDX",
+                        "specVersion": "1.6",
+                        "components": [
+                            {
+                                "type": "library",
+                                "name": "click",
+                                "version": "8.1.7",
+                                "purl": "pkg:pypi/click@8.1.7",
+                            }
+                        ],
+                    },
+                }
+            )
+        )
 
         # Initialize and run
         initialize_plugins()
 
         runner = BenchmarkRunner(
-            output_dir=output_dir,
-            benchmarks_dir=benchmarks_dir,
-            tools=["cdxgen"]
+            output_dir=output_dir, benchmarks_dir=benchmarks_dir, tools=["cdxgen"]
         )
 
-        exit_code = runner.run(package_managers="uv")
+        runner.run(package_managers="uv")
 
         # Verify result was created
         result_json = benchmarks_dir / "cdxgen" / "uv" / "deps-scenario" / "result.json"

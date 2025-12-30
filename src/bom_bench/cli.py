@@ -1,27 +1,25 @@
 """Command-line interface for bom-bench."""
 
-import sys
 from pathlib import Path
-from typing import List, Optional
 
 import click
 
 from bom_bench.config import (
-    DEFAULT_PACKAGE_MANAGER,
-    OUTPUT_DIR,
     BENCHMARKS_DIR,
-    UNIVERSAL_SCENARIOS_ONLY,
+    DEFAULT_PACKAGE_MANAGER,
     EXCLUDE_NAME_PATTERNS,
+    OUTPUT_DIR,
+    UNIVERSAL_SCENARIOS_ONLY,
 )
 from bom_bench.data.loader import ScenarioLoader
 from bom_bench.logging_config import get_logger, setup_logging
-from bom_bench.models.scenario import ScenarioFilter, Scenario
+from bom_bench.models.package_manager import ProcessStatus
 from bom_bench.models.result import ProcessingResult, ProcessingStatus, Summary
-from bom_bench.models.package_manager import ProcessScenarioResult, ProcessStatus, PMInfo
+from bom_bench.models.scenario import Scenario, ScenarioFilter
 from bom_bench.package_managers import (
-    list_available_package_managers,
     check_package_manager_available,
     get_package_manager_info,
+    list_available_package_managers,
     package_manager_process_scenario,
 )
 
@@ -35,7 +33,7 @@ class BomBenchCLI:
         """Initialize CLI orchestrator."""
         self.scenario_loader = ScenarioLoader(auto_fetch=True)
 
-    def parse_package_managers(self, pm_arg: str) -> List[str]:
+    def parse_package_managers(self, pm_arg: str) -> list[str]:
         """Parse package manager argument.
 
         Args:
@@ -56,8 +54,7 @@ class BomBenchCLI:
         for pm in pms:
             if pm not in available:
                 raise ValueError(
-                    f"Unknown package manager: {pm}. "
-                    f"Available: {', '.join(available)}"
+                    f"Unknown package manager: {pm}. Available: {', '.join(available)}"
                 )
 
         return pms
@@ -65,7 +62,7 @@ class BomBenchCLI:
     def create_filter(
         self,
         universal_only: bool = UNIVERSAL_SCENARIOS_ONLY,
-        scenario_names: Optional[List[str]] = None
+        scenario_names: list[str] | None = None,
     ) -> ScenarioFilter:
         """Create scenario filter configuration.
 
@@ -81,11 +78,7 @@ class BomBenchCLI:
             exclude_patterns=EXCLUDE_NAME_PATTERNS,
         )
 
-    def filter_by_names(
-        self,
-        scenarios: List[Scenario],
-        names: List[str]
-    ) -> List[Scenario]:
+    def filter_by_names(self, scenarios: list[Scenario], names: list[str]) -> list[Scenario]:
         """Filter scenarios by specific names.
 
         Args:
@@ -99,10 +92,7 @@ class BomBenchCLI:
         return [s for s in scenarios if s.name in name_set]
 
     def process_scenario(
-        self,
-        scenario: Scenario,
-        package_manager_name: str,
-        output_base: Path
+        self, scenario: Scenario, package_manager_name: str, output_base: Path
     ) -> ProcessingResult:
         """Process a single scenario for a package manager.
 
@@ -120,7 +110,7 @@ class BomBenchCLI:
                 scenario_name=scenario.name,
                 status=ProcessingStatus.FAILED,
                 package_manager=package_manager_name,
-                error_message=f"Package manager '{package_manager_name}' not installed"
+                error_message=f"Package manager '{package_manager_name}' not installed",
             )
 
         # Check scenario compatibility using PM info
@@ -130,7 +120,7 @@ class BomBenchCLI:
                 scenario_name=scenario.name,
                 status=ProcessingStatus.SKIPPED,
                 package_manager=package_manager_name,
-                error_message=f"Scenario source '{scenario.source}' not compatible with {package_manager_name}"
+                error_message=f"Scenario source '{scenario.source}' not compatible with {package_manager_name}",
             )
 
         try:
@@ -138,18 +128,14 @@ class BomBenchCLI:
             output_dir = output_base / "scenarios" / package_manager_name / scenario.name
 
             # Process scenario using new atomic operation
-            result = package_manager_process_scenario(
-                package_manager_name,
-                scenario,
-                output_dir
-            )
+            result = package_manager_process_scenario(package_manager_name, scenario, output_dir)
 
             if result is None:
                 return ProcessingResult(
                     scenario_name=scenario.name,
                     status=ProcessingStatus.FAILED,
                     package_manager=package_manager_name,
-                    error_message=f"No plugin handled processing for PM '{package_manager_name}'"
+                    error_message=f"No plugin handled processing for PM '{package_manager_name}'",
                 )
 
             # Log generated files
@@ -164,14 +150,15 @@ class BomBenchCLI:
                     scenario_name=scenario.name,
                     status=ProcessingStatus.SUCCESS,
                     package_manager=package_manager_name,
-                    output_dir=output_dir
+                    output_dir=output_dir,
                 )
             else:
                 return ProcessingResult(
                     scenario_name=scenario.name,
                     status=ProcessingStatus.FAILED,
                     package_manager=package_manager_name,
-                    error_message=result.error_message or f"Processing failed with status: {result.status.value}"
+                    error_message=result.error_message
+                    or f"Processing failed with status: {result.status.value}",
                 )
 
         except Exception as e:
@@ -179,15 +166,15 @@ class BomBenchCLI:
                 scenario_name=scenario.name,
                 status=ProcessingStatus.FAILED,
                 package_manager=package_manager_name,
-                error_message=str(e)
+                error_message=str(e),
             )
 
     def execute(
         self,
         package_managers: str,
-        scenarios: Optional[str],
+        scenarios: str | None,
         output_dir: Path,
-        no_universal_filter: bool
+        no_universal_filter: bool,
     ) -> int:
         """Execute benchmark generation.
 
@@ -221,14 +208,11 @@ class BomBenchCLI:
                 logger.info(f"=== {pm_name.upper()} ===")
 
                 # Create filter
-                filter_config = self.create_filter(
-                    universal_only=not no_universal_filter
-                )
+                filter_config = self.create_filter(universal_only=not no_universal_filter)
 
                 # Load scenarios for this package manager
                 loaded_scenarios = self.scenario_loader.load_for_package_manager(
-                    pm_name,
-                    filter_config=filter_config
+                    pm_name, filter_config=filter_config
                 )
 
                 if not loaded_scenarios:
@@ -251,16 +235,12 @@ class BomBenchCLI:
                 summary = Summary(
                     total_scenarios=len(loaded_scenarios),
                     package_manager=pm_name,
-                    data_source=loaded_scenarios[0].source if loaded_scenarios else None
+                    data_source=loaded_scenarios[0].source if loaded_scenarios else None,
                 )
 
                 # Process each scenario
                 for scenario in loaded_scenarios:
-                    result = self.process_scenario(
-                        scenario,
-                        pm_name,
-                        output_dir
-                    )
+                    result = self.process_scenario(scenario, pm_name, output_dir)
                     summary.add_processing_result(result)
 
                     # Log errors
@@ -284,12 +264,14 @@ class BomBenchCLI:
 
 @click.group(invoke_without_command=True)
 @click.option(
-    "-v", "--verbose",
+    "-v",
+    "--verbose",
     is_flag=True,
     help="Enable verbose output (DEBUG level)",
 )
 @click.option(
-    "-q", "--quiet",
+    "-q",
+    "--quiet",
     is_flag=True,
     help="Show only warnings and errors",
 )
@@ -315,19 +297,22 @@ def cli(ctx, verbose, quiet, log_level):
 
 @cli.command(name="setup")
 @click.option(
-    "--pm", "--package-managers",
+    "--pm",
+    "--package-managers",
     "package_managers",
     default=DEFAULT_PACKAGE_MANAGER,
     show_default=True,
     help="Comma-separated list of package managers, or 'all'",
 )
 @click.option(
-    "-s", "--scenarios",
+    "-s",
+    "--scenarios",
     default=None,
     help="Comma-separated list of specific scenarios",
 )
 @click.option(
-    "-o", "--output-dir",
+    "-o",
+    "--output-dir",
     type=click.Path(path_type=Path),
     default=OUTPUT_DIR,
     show_default=True,
@@ -346,7 +331,7 @@ def setup(package_managers, scenarios, output_dir, no_universal_filter):
         package_managers=package_managers,
         scenarios=scenarios,
         output_dir=output_dir,
-        no_universal_filter=no_universal_filter
+        no_universal_filter=no_universal_filter,
     )
 
     raise SystemExit(exit_code)
@@ -367,24 +352,28 @@ def run(ctx, **kwargs):
 
 @cli.command(name="benchmark")
 @click.option(
-    "--pm", "--package-managers",
+    "--pm",
+    "--package-managers",
     "package_managers",
     default=DEFAULT_PACKAGE_MANAGER,
     show_default=True,
     help="Comma-separated list of package managers, or 'all'",
 )
 @click.option(
-    "-t", "--tools",
+    "-t",
+    "--tools",
     default=None,
     help="Comma-separated SCA tools to run (default: all available)",
 )
 @click.option(
-    "-s", "--scenarios",
+    "-s",
+    "--scenarios",
     default=None,
     help="Comma-separated list of specific scenarios",
 )
 @click.option(
-    "-o", "--output-dir",
+    "-o",
+    "--output-dir",
     type=click.Path(path_type=Path),
     default=OUTPUT_DIR,
     show_default=True,
@@ -407,13 +396,13 @@ def benchmark(package_managers, tools, scenarios, output_dir, benchmarks_dir):
     Example:
         bom-bench benchmark --pm uv --tools cdxgen
     """
+    from bom_bench.benchmarking.runner import BenchmarkRunner
     from bom_bench.plugins import initialize_plugins
     from bom_bench.sca_tools import (
+        check_tool_available,
         get_registered_tools,
         list_available_tools,
-        check_tool_available,
     )
-    from bom_bench.benchmarking.runner import BenchmarkRunner
 
     # Initialize plugin system
     initialize_plugins()
@@ -425,16 +414,14 @@ def benchmark(package_managers, tools, scenarios, output_dir, benchmarks_dir):
         for tool in tool_list:
             if tool not in registered:
                 raise click.ClickException(
-                    f"Unknown SCA tool: {tool}. "
-                    f"Available: {', '.join(registered.keys())}"
+                    f"Unknown SCA tool: {tool}. Available: {', '.join(registered.keys())}"
                 )
     else:
         tool_list = list_available_tools()
 
     if not tool_list:
         raise click.ClickException(
-            "No SCA tools available. "
-            "Install plugins or check tool installations."
+            "No SCA tools available. Install plugins or check tool installations."
         )
 
     # Check tool availability and warn
@@ -459,16 +446,9 @@ def benchmark(package_managers, tools, scenarios, output_dir, benchmarks_dir):
     logger.info("")
 
     # Create and run benchmark runner
-    runner = BenchmarkRunner(
-        output_dir=output_dir,
-        benchmarks_dir=benchmarks_dir,
-        tools=tool_list
-    )
+    runner = BenchmarkRunner(output_dir=output_dir, benchmarks_dir=benchmarks_dir, tools=tool_list)
 
-    exit_code = runner.run(
-        package_managers=package_managers,
-        scenarios=scenario_list
-    )
+    exit_code = runner.run(package_managers=package_managers, scenarios=scenario_list)
 
     raise SystemExit(exit_code)
 
@@ -483,8 +463,8 @@ def list_tools(check):
     """List available SCA tools from plugins."""
     from bom_bench.plugins import initialize_plugins
     from bom_bench.sca_tools import (
-        get_registered_tools,
         check_tool_available,
+        get_registered_tools,
     )
 
     # Initialize plugin system
@@ -504,7 +484,11 @@ def list_tools(check):
         status = ""
         if check:
             available = check_tool_available(name)
-            status = click.style(" [installed]", fg="green") if available else click.style(" [not found]", fg="red")
+            status = (
+                click.style(" [installed]", fg="green")
+                if available
+                else click.style(" [not found]", fg="red")
+            )
 
         click.echo(f"  {click.style(name, bold=True)}{status}")
 

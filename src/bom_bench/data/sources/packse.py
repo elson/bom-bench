@@ -1,7 +1,6 @@
 """Packse data source implementation."""
 
 from pathlib import Path
-from typing import List
 
 import packse.fetch
 import packse.inspect
@@ -49,7 +48,7 @@ class PackseDataSource:
             logger.error(f"Failed to fetch packse scenarios: {e}")
             raise
 
-    def load_scenarios(self) -> List[Scenario]:
+    def load_scenarios(self) -> list[Scenario]:
         """Load packse scenarios from local directory.
 
         Uses packse.inspect API to discover and parse scenario files,
@@ -75,10 +74,7 @@ class PackseDataSource:
 
             # Load scenarios using packse API
             # no_hash=True gives us full package names without hash suffixes
-            template_vars = packse.inspect.variables_for_templates(
-                scenario_files,
-                no_hash=True
-            )
+            template_vars = packse.inspect.variables_for_templates(scenario_files, no_hash=True)
 
             scenario_dicts = template_vars.get("scenarios", [])
 

@@ -5,6 +5,7 @@ Allows the package to be run as:
 """
 
 import sys
+
 from bom_bench.cli import main
 
 if __name__ == "__main__":

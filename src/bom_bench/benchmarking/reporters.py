@@ -18,9 +18,10 @@ Implementation TODO:
 - Support multiple output formats
 """
 
-from typing import List, Dict, Any, Optional
 from pathlib import Path
-from bom_bench.benchmarking.collectors import ScanResult, ResultCollector
+from typing import Any
+
+from bom_bench.benchmarking.collectors import ResultCollector, ScanResult
 
 
 class BenchmarkReporter:
@@ -120,7 +121,7 @@ class BenchmarkReporter:
         # - Charts (heatmaps, bar charts)
         # - Cross-PM and cross-tool comparisons
 
-    def calculate_metrics(self) -> Dict[str, Any]:
+    def calculate_metrics(self) -> dict[str, Any]:
         """Calculate comprehensive benchmark metrics.
 
         Returns:
@@ -146,10 +147,8 @@ class BenchmarkReporter:
 
 
 def generate_comparison_matrix(
-    results: List[ScanResult],
-    dimension1: str = "tool",
-    dimension2: str = "package_manager"
-) -> Dict[str, Dict[str, int]]:
+    results: list[ScanResult], dimension1: str = "tool", dimension2: str = "package_manager"
+) -> dict[str, dict[str, int]]:
     """Generate 2D comparison matrix from results.
 
     Args:

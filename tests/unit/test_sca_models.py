@@ -1,16 +1,17 @@
 """Tests for SCA tool and benchmark models."""
 
-import pytest
 from pathlib import Path
 
+import pytest
+
 from bom_bench.models.sca_tool import (
+    BenchmarkResult,
+    BenchmarkStatus,
+    BenchmarkSummary,
+    PurlMetrics,
+    ScanResult,
     ScanStatus,
     SCAToolInfo,
-    ScanResult,
-    BenchmarkStatus,
-    PurlMetrics,
-    BenchmarkResult,
-    BenchmarkSummary,
 )
 
 
@@ -24,7 +25,7 @@ class TestSCAToolInfo:
             version="10.0.0",
             description="CycloneDX Generator",
             supported_ecosystems=["python", "javascript"],
-            homepage="https://github.com/CycloneDX/cdxgen"
+            homepage="https://github.com/CycloneDX/cdxgen",
         )
 
         assert info.name == "cdxgen"
@@ -52,7 +53,7 @@ class TestSCAToolInfo:
             "description": "CycloneDX Generator",
             "supported_ecosystems": ["python", "javascript"],
             "homepage": "https://github.com/CycloneDX/cdxgen",
-            "installed": True
+            "installed": True,
         }
 
         info = SCAToolInfo.from_dict(data)
@@ -95,7 +96,7 @@ class TestScanResult:
             tool_name="cdxgen",
             sbom_path=Path("/output/sbom.json"),
             duration_seconds=1.5,
-            exit_code=0
+            exit_code=0,
         )
 
         assert result.tool_name == "cdxgen"
@@ -111,7 +112,7 @@ class TestScanResult:
             tool_name="cdxgen",
             error_message="Tool not found",
             status=ScanStatus.TOOL_NOT_FOUND,
-            duration_seconds=0.1
+            duration_seconds=0.1,
         )
 
         assert result.tool_name == "cdxgen"
@@ -125,7 +126,7 @@ class TestScanResult:
             tool_name="cdxgen",
             error_message="Timeout after 120s",
             status=ScanStatus.TIMEOUT,
-            duration_seconds=120.0
+            duration_seconds=120.0,
         )
 
         assert result.status == ScanStatus.TIMEOUT
@@ -138,7 +139,7 @@ class TestScanResult:
             "status": "success",
             "sbom_path": "/output/sbom.json",
             "duration_seconds": 1.5,
-            "exit_code": 0
+            "exit_code": 0,
         }
 
         result = ScanResult.from_dict(data)
@@ -157,7 +158,7 @@ class TestScanResult:
             "status": "tool_failed",
             "error_message": "Non-zero exit code",
             "duration_seconds": 0.5,
-            "exit_code": 1
+            "exit_code": 1,
         }
 
         result = ScanResult.from_dict(data)
@@ -174,7 +175,7 @@ class TestScanResult:
             "tool_name": "syft",
             "status": "timeout",
             "error_message": "Timeout after 120s",
-            "duration_seconds": 120.0
+            "duration_seconds": 120.0,
         }
 
         result = ScanResult.from_dict(data)
@@ -187,7 +188,7 @@ class TestScanResult:
         data = {
             "tool_name": "cdxgen",
             "status": "tool_not_found",
-            "error_message": "cdxgen not found in PATH"
+            "error_message": "cdxgen not found in PATH",
         }
 
         result = ScanResult.from_dict(data)
@@ -201,7 +202,7 @@ class TestScanResult:
             "tool_name": "cdxgen",
             "status": "parse_error",
             "error_message": "Invalid JSON output",
-            "duration_seconds": 1.0
+            "duration_seconds": 1.0,
         }
 
         result = ScanResult.from_dict(data)
@@ -215,7 +216,7 @@ class TestScanResult:
             "status": "tool_failed",
             "error_message": "Failed",
             "stdout": "Some output",
-            "stderr": "Error details"
+            "stderr": "Error details",
         }
 
         result = ScanResult.from_dict(data)
@@ -251,9 +252,9 @@ class TestPurlMetrics:
         assert metrics.true_positives == 2
         assert metrics.false_positives == 1  # d is FP
         assert metrics.false_negatives == 1  # c is FN
-        assert metrics.precision == pytest.approx(2/3)
-        assert metrics.recall == pytest.approx(2/3)
-        assert metrics.f1_score == pytest.approx(2/3)
+        assert metrics.precision == pytest.approx(2 / 3)
+        assert metrics.recall == pytest.approx(2 / 3)
+        assert metrics.f1_score == pytest.approx(2 / 3)
 
     def test_no_match(self):
         """Test metrics with no match."""
@@ -315,10 +316,7 @@ class TestBenchmarkResult:
 
     def test_create_successful_result(self):
         """Test creating successful BenchmarkResult."""
-        metrics = PurlMetrics.calculate(
-            {"pkg:pypi/a@1.0"},
-            {"pkg:pypi/a@1.0"}
-        )
+        metrics = PurlMetrics.calculate({"pkg:pypi/a@1.0"}, {"pkg:pypi/a@1.0"})
 
         result = BenchmarkResult(
             scenario_name="test-scenario",
@@ -327,7 +325,7 @@ class TestBenchmarkResult:
             status=BenchmarkStatus.SUCCESS,
             metrics=metrics,
             expected_sbom_path=Path("/expected.json"),
-            actual_sbom_path=Path("/actual.json")
+            actual_sbom_path=Path("/actual.json"),
         )
 
         assert result.scenario_name == "test-scenario"
@@ -343,7 +341,7 @@ class TestBenchmarkResult:
             package_manager="uv",
             tool_name="cdxgen",
             status=BenchmarkStatus.UNSATISFIABLE,
-            expected_satisfiable=False
+            expected_satisfiable=False,
         )
 
         assert result.status == BenchmarkStatus.UNSATISFIABLE
@@ -356,10 +354,7 @@ class TestBenchmarkSummary:
 
     def test_create_summary(self):
         """Test creating BenchmarkSummary."""
-        summary = BenchmarkSummary(
-            package_manager="uv",
-            tool_name="cdxgen"
-        )
+        summary = BenchmarkSummary(package_manager="uv", tool_name="cdxgen")
 
         assert summary.package_manager == "uv"
         assert summary.tool_name == "cdxgen"
@@ -377,7 +372,7 @@ class TestBenchmarkSummary:
             package_manager="uv",
             tool_name="cdxgen",
             status=BenchmarkStatus.SUCCESS,
-            metrics=metrics
+            metrics=metrics,
         )
 
         summary.add_result(result)
@@ -396,7 +391,7 @@ class TestBenchmarkSummary:
             package_manager="uv",
             tool_name="cdxgen",
             status=BenchmarkStatus.SBOM_GENERATION_FAILED,
-            error_message="Tool failed"
+            error_message="Tool failed",
         )
 
         summary.add_result(result)
@@ -410,13 +405,10 @@ class TestBenchmarkSummary:
         summary = BenchmarkSummary(package_manager="uv", tool_name="cdxgen")
 
         # Add results with different metrics
-        for precision, recall in [(0.8, 0.9), (0.9, 0.8), (1.0, 1.0)]:
+        for precision, _recall in [(0.8, 0.9), (0.9, 0.8), (1.0, 1.0)]:
             expected = {"a", "b", "c", "d", "e"}
             # Create actual set to get approximately these metrics
-            if precision == 1.0:
-                actual = expected
-            else:
-                actual = {"a", "b", "c", "f"}  # 3 TP, 1 FP, 2 FN
+            actual = expected if precision == 1.0 else {"a", "b", "c", "f"}  # 3 TP, 1 FP, 2 FN
 
             metrics = PurlMetrics.calculate(expected, actual)
             result = BenchmarkResult(
@@ -424,7 +416,7 @@ class TestBenchmarkSummary:
                 package_manager="uv",
                 tool_name="cdxgen",
                 status=BenchmarkStatus.SUCCESS,
-                metrics=metrics
+                metrics=metrics,
             )
             summary.add_result(result)
 
@@ -445,7 +437,7 @@ class TestBenchmarkSummary:
             scenario_name="test",
             package_manager="uv",
             tool_name="cdxgen",
-            status=BenchmarkStatus.SBOM_GENERATION_FAILED
+            status=BenchmarkStatus.SBOM_GENERATION_FAILED,
         )
         summary.add_result(result)
 

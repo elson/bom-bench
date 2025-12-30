@@ -2,13 +2,12 @@
 
 import csv
 import json
-import pytest
 from pathlib import Path
 
 from bom_bench.benchmarking.storage import (
+    export_benchmark_csv,
     save_benchmark_result,
     save_benchmark_summary,
-    export_benchmark_csv,
 )
 from bom_bench.models.sca_tool import (
     BenchmarkResult,
@@ -28,8 +27,7 @@ class TestSaveBenchmarkResult:
         output_path = tmp_path / "result.json"
 
         metrics = PurlMetrics.calculate(
-            {"pkg:pypi/a@1.0", "pkg:pypi/b@2.0"},
-            {"pkg:pypi/a@1.0", "pkg:pypi/b@2.0"}
+            {"pkg:pypi/a@1.0", "pkg:pypi/b@2.0"}, {"pkg:pypi/a@1.0", "pkg:pypi/b@2.0"}
         )
 
         result = BenchmarkResult(
@@ -61,9 +59,7 @@ class TestSaveBenchmarkResult:
         output_path = tmp_path / "result.json"
 
         sbom_result = ScanResult.failed(
-            tool_name="cdxgen",
-            error_message="Tool not found",
-            status=ScanStatus.TOOL_NOT_FOUND
+            tool_name="cdxgen", error_message="Tool not found", status=ScanStatus.TOOL_NOT_FOUND
         )
 
         result = BenchmarkResult(
@@ -72,7 +68,7 @@ class TestSaveBenchmarkResult:
             tool_name="cdxgen",
             status=BenchmarkStatus.SBOM_GENERATION_FAILED,
             sbom_result=sbom_result,
-            error_message="SBOM generation failed"
+            error_message="SBOM generation failed",
         )
 
         save_benchmark_result(result, output_path)
@@ -116,16 +112,13 @@ class TestSaveBenchmarkSummary:
 
         # Add some results
         for i in range(3):
-            metrics = PurlMetrics.calculate(
-                {f"pkg:pypi/a{i}@1.0"},
-                {f"pkg:pypi/a{i}@1.0"}
-            )
+            metrics = PurlMetrics.calculate({f"pkg:pypi/a{i}@1.0"}, {f"pkg:pypi/a{i}@1.0"})
             result = BenchmarkResult(
                 scenario_name=f"scenario-{i}",
                 package_manager="uv",
                 tool_name="cdxgen",
                 status=BenchmarkStatus.SUCCESS,
-                metrics=metrics
+                metrics=metrics,
             )
             summary.add_result(result)
 
@@ -154,30 +147,36 @@ class TestSaveBenchmarkSummary:
         )
 
         # Add success
-        summary.add_result(BenchmarkResult(
-            scenario_name="success",
-            package_manager="uv",
-            tool_name="cdxgen",
-            status=BenchmarkStatus.SUCCESS,
-            metrics=PurlMetrics.calculate({"a"}, {"a"})
-        ))
+        summary.add_result(
+            BenchmarkResult(
+                scenario_name="success",
+                package_manager="uv",
+                tool_name="cdxgen",
+                status=BenchmarkStatus.SUCCESS,
+                metrics=PurlMetrics.calculate({"a"}, {"a"}),
+            )
+        )
 
         # Add failure
-        summary.add_result(BenchmarkResult(
-            scenario_name="failure",
-            package_manager="uv",
-            tool_name="cdxgen",
-            status=BenchmarkStatus.SBOM_GENERATION_FAILED
-        ))
+        summary.add_result(
+            BenchmarkResult(
+                scenario_name="failure",
+                package_manager="uv",
+                tool_name="cdxgen",
+                status=BenchmarkStatus.SBOM_GENERATION_FAILED,
+            )
+        )
 
         # Add unsatisfiable
-        summary.add_result(BenchmarkResult(
-            scenario_name="unsatisfiable",
-            package_manager="uv",
-            tool_name="cdxgen",
-            status=BenchmarkStatus.UNSATISFIABLE,
-            expected_satisfiable=False
-        ))
+        summary.add_result(
+            BenchmarkResult(
+                scenario_name="unsatisfiable",
+                package_manager="uv",
+                tool_name="cdxgen",
+                status=BenchmarkStatus.UNSATISFIABLE,
+                expected_satisfiable=False,
+            )
+        )
 
         summary.calculate_aggregates()
         save_benchmark_summary(summary, output_path)
@@ -205,16 +204,14 @@ class TestExportCsv:
                 tool_name="cdxgen",
                 status=BenchmarkStatus.SUCCESS,
                 metrics=PurlMetrics.calculate({"a", "b"}, {"a", "b"}),
-                sbom_result=ScanResult.success(
-                    "cdxgen", Path("/sbom.json"), 1.5, 0
-                )
+                sbom_result=ScanResult.success("cdxgen", Path("/sbom.json"), 1.5, 0),
             ),
             BenchmarkResult(
                 scenario_name="scenario-2",
                 package_manager="uv",
                 tool_name="cdxgen",
                 status=BenchmarkStatus.SBOM_GENERATION_FAILED,
-                error_message="Tool failed"
+                error_message="Tool failed",
             ),
         ]
 

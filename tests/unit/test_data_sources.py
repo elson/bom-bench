@@ -1,18 +1,18 @@
 """Tests for data sources."""
 
-import pytest
 from pathlib import Path
-from unittest.mock import MagicMock, patch
+from unittest.mock import patch
+
+import pytest
 
 from bom_bench.data import (
-    get_data_source,
     get_available_sources,
+    get_data_source,
     get_sources_for_pm,
-    DATA_SOURCES,
 )
-from bom_bench.data.sources.packse import PackseDataSource
 from bom_bench.data.loader import ScenarioLoader
-from bom_bench.models.scenario import Scenario, Root, ResolverOptions, ScenarioFilter
+from bom_bench.data.sources.packse import PackseDataSource
+from bom_bench.models.scenario import ResolverOptions, Root, Scenario, ScenarioFilter
 
 
 class TestDataSourceRegistry:
@@ -85,6 +85,7 @@ class TestPackseDataSource:
     def test_fetch(self, mock_fetch, tmp_path, caplog):
         """Test fetching packse scenarios."""
         import logging
+
         caplog.set_level(logging.INFO)
 
         data_dir = tmp_path / "packse"
@@ -111,15 +112,10 @@ class TestPackseDataSource:
 
     @patch("packse.inspect.find_scenario_files")
     @patch("packse.inspect.variables_for_templates")
-    def test_load_scenarios(
-        self,
-        mock_variables,
-        mock_find_files,
-        tmp_path,
-        caplog
-    ):
+    def test_load_scenarios(self, mock_variables, mock_find_files, tmp_path, caplog):
         """Test loading packse scenarios."""
         import logging
+
         caplog.set_level(logging.INFO)
 
         data_dir = tmp_path / "packse"
@@ -207,12 +203,7 @@ class TestScenarioLoader:
 
     @patch.object(PackseDataSource, "load_scenarios")
     @patch.object(PackseDataSource, "needs_fetch")
-    def test_load_from_source(
-        self,
-        mock_needs_fetch,
-        mock_load,
-        tmp_path
-    ):
+    def test_load_from_source(self, mock_needs_fetch, mock_load, tmp_path):
         """Test loading from a single source."""
         mock_needs_fetch.return_value = False
         mock_load.return_value = [
@@ -234,13 +225,7 @@ class TestScenarioLoader:
     @patch.object(PackseDataSource, "fetch")
     @patch.object(PackseDataSource, "load_scenarios")
     @patch.object(PackseDataSource, "needs_fetch")
-    def test_load_from_source_auto_fetch(
-        self,
-        mock_needs_fetch,
-        mock_load,
-        mock_fetch,
-        tmp_path
-    ):
+    def test_load_from_source_auto_fetch(self, mock_needs_fetch, mock_load, mock_fetch, tmp_path):
         """Test auto-fetching when data is missing."""
         mock_needs_fetch.return_value = True
         mock_load.return_value = []
@@ -253,12 +238,7 @@ class TestScenarioLoader:
 
     @patch.object(PackseDataSource, "load_scenarios")
     @patch.object(PackseDataSource, "needs_fetch")
-    def test_load_from_source_with_filter(
-        self,
-        mock_needs_fetch,
-        mock_load,
-        tmp_path
-    ):
+    def test_load_from_source_with_filter(self, mock_needs_fetch, mock_load, tmp_path):
         """Test loading with a filter."""
         mock_needs_fetch.return_value = False
         mock_load.return_value = [
@@ -286,12 +266,7 @@ class TestScenarioLoader:
 
     @patch.object(PackseDataSource, "load_scenarios")
     @patch.object(PackseDataSource, "needs_fetch")
-    def test_load_for_package_manager(
-        self,
-        mock_needs_fetch,
-        mock_load,
-        tmp_path
-    ):
+    def test_load_for_package_manager(self, mock_needs_fetch, mock_load, tmp_path):
         """Test loading for specific package manager."""
         mock_needs_fetch.return_value = False
         mock_load.return_value = [
@@ -311,12 +286,7 @@ class TestScenarioLoader:
 
     @patch.object(PackseDataSource, "load_scenarios")
     @patch.object(PackseDataSource, "needs_fetch")
-    def test_load_default(
-        self,
-        mock_needs_fetch,
-        mock_load,
-        tmp_path
-    ):
+    def test_load_default(self, mock_needs_fetch, mock_load, tmp_path):
         """Test loading from default source."""
         mock_needs_fetch.return_value = False
         mock_load.return_value = [

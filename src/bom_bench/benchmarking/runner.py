@@ -5,10 +5,19 @@ comparing their output with expected SBOMs, and collecting metrics.
 """
 
 from pathlib import Path
-from typing import List, Optional
 
 import click
 
+from bom_bench.benchmarking.comparison import (
+    extract_purls_from_cyclonedx,
+    load_actual_sbom,
+    load_expected_sbom,
+)
+from bom_bench.benchmarking.storage import (
+    export_benchmark_csv,
+    save_benchmark_result,
+    save_benchmark_summary,
+)
 from bom_bench.logging_config import get_logger
 from bom_bench.models.sca_tool import (
     BenchmarkResult,
@@ -17,18 +26,8 @@ from bom_bench.models.sca_tool import (
     PurlMetrics,
     ScanStatus,
 )
-from bom_bench.sca_tools import scan_project, get_registered_tools
-from bom_bench.benchmarking.comparison import (
-    extract_purls_from_cyclonedx,
-    load_expected_sbom,
-    load_actual_sbom,
-)
-from bom_bench.benchmarking.storage import (
-    save_benchmark_result,
-    save_benchmark_summary,
-    export_benchmark_csv,
-)
 from bom_bench.package_managers import list_available_package_managers
+from bom_bench.sca_tools import get_registered_tools, scan_project
 
 logger = get_logger(__name__)
 
@@ -55,12 +54,7 @@ class BenchmarkRunner:
     5. Saves results in JSON and CSV formats
     """
 
-    def __init__(
-        self,
-        output_dir: Path,
-        benchmarks_dir: Path,
-        tools: List[str]
-    ):
+    def __init__(self, output_dir: Path, benchmarks_dir: Path, tools: list[str]):
         """Initialize benchmark runner.
 
         Args:
@@ -72,11 +66,7 @@ class BenchmarkRunner:
         self.benchmarks_dir = benchmarks_dir
         self.tools = tools
 
-    def run(
-        self,
-        package_managers: str,
-        scenarios: Optional[List[str]] = None
-    ) -> int:
+    def run(self, package_managers: str, scenarios: list[str] | None = None) -> int:
         """Run benchmarks for all tools and package managers.
 
         Args:
@@ -96,7 +86,7 @@ class BenchmarkRunner:
 
         # Run benchmarks for each tool
         for tool_name in self.tools:
-            tool_info = get_registered_tools().get(tool_name)
+            get_registered_tools().get(tool_name)
             logger.info("")
             logger.info(click.style(f"=== Tool: {tool_name} ===", bold=True))
 
@@ -120,10 +110,7 @@ class BenchmarkRunner:
                     continue
 
                 # Create summary for this tool/PM combination
-                summary = BenchmarkSummary(
-                    package_manager=pm_name,
-                    tool_name=tool_name
-                )
+                summary = BenchmarkSummary(package_manager=pm_name, tool_name=tool_name)
 
                 # Benchmark each scenario
                 for scenario_dir in scenario_dirs:
@@ -132,7 +119,7 @@ class BenchmarkRunner:
                         pm_name=pm_name,
                         scenario_name=scenario_dir.name,
                         scenario_dir=scenario_dir,
-                        ecosystem=PM_ECOSYSTEMS.get(pm_name, "unknown")
+                        ecosystem=PM_ECOSYSTEMS.get(pm_name, "unknown"),
                     )
                     summary.add_result(result)
 
@@ -154,12 +141,7 @@ class BenchmarkRunner:
         return 1 if has_errors else 0
 
     def _benchmark_scenario(
-        self,
-        tool_name: str,
-        pm_name: str,
-        scenario_name: str,
-        scenario_dir: Path,
-        ecosystem: str
+        self, tool_name: str, pm_name: str, scenario_name: str, scenario_dir: Path, ecosystem: str
     ) -> BenchmarkResult:
         """Benchmark a single scenario.
 
@@ -186,14 +168,13 @@ class BenchmarkRunner:
                 package_manager=pm_name,
                 tool_name=tool_name,
                 status=BenchmarkStatus.MISSING_EXPECTED,
-                error_message="meta.json and expected.cdx.json not found"
+                error_message="meta.json and expected.cdx.json not found",
             )
 
         # Load expected SBOM and check satisfiability
         # Pass meta_path if it exists (new format), otherwise use legacy format
         expected_sbom, satisfiable = load_expected_sbom(
-            expected_path,
-            meta_path=meta_path if meta_path.exists() else None
+            expected_path, meta_path=meta_path if meta_path.exists() else None
         )
 
         if not satisfiable:
@@ -204,7 +185,7 @@ class BenchmarkRunner:
                 tool_name=tool_name,
                 status=BenchmarkStatus.UNSATISFIABLE,
                 expected_satisfiable=False,
-                expected_sbom_path=expected_path
+                expected_sbom_path=expected_path,
             )
 
         # Generate SBOM using plugin (scan the assets directory with project files)
@@ -212,7 +193,7 @@ class BenchmarkRunner:
             tool_name=tool_name,
             project_dir=assets_dir,
             output_path=actual_path,
-            ecosystem=ecosystem
+            ecosystem=ecosystem,
         )
 
         if sbom_result is None:
@@ -221,7 +202,7 @@ class BenchmarkRunner:
                 package_manager=pm_name,
                 tool_name=tool_name,
                 status=BenchmarkStatus.SBOM_GENERATION_FAILED,
-                error_message=f"No plugin handled tool '{tool_name}'"
+                error_message=f"No plugin handled tool '{tool_name}'",
             )
 
         if sbom_result.status != ScanStatus.SUCCESS:
@@ -231,7 +212,7 @@ class BenchmarkRunner:
                 tool_name=tool_name,
                 status=BenchmarkStatus.SBOM_GENERATION_FAILED,
                 sbom_result=sbom_result,
-                error_message=sbom_result.error_message
+                error_message=sbom_result.error_message,
             )
 
         # Load actual SBOM
@@ -245,7 +226,7 @@ class BenchmarkRunner:
                 status=BenchmarkStatus.PARSE_ERROR,
                 sbom_result=sbom_result,
                 actual_sbom_path=actual_path,
-                error_message="Failed to parse actual SBOM"
+                error_message="Failed to parse actual SBOM",
             )
 
         # Extract and compare PURLs
@@ -262,7 +243,7 @@ class BenchmarkRunner:
             metrics=metrics,
             sbom_result=sbom_result,
             expected_sbom_path=expected_path,
-            actual_sbom_path=actual_path
+            actual_sbom_path=actual_path,
         )
 
     def _log_result(self, result: BenchmarkResult) -> None:
@@ -283,12 +264,7 @@ class BenchmarkRunner:
         else:
             logger.info(f"    {result.scenario_name}: {result.status.value}")
 
-    def _save_results(
-        self,
-        summary: BenchmarkSummary,
-        tool_name: str,
-        pm_name: str
-    ) -> None:
+    def _save_results(self, summary: BenchmarkSummary, tool_name: str, pm_name: str) -> None:
         """Save benchmark results to files."""
         base_dir = self.benchmarks_dir / tool_name / pm_name
         base_dir.mkdir(parents=True, exist_ok=True)

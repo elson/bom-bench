@@ -19,14 +19,12 @@ Example plugin implementation:
 """
 
 from pathlib import Path
-from typing import TYPE_CHECKING, List, Optional
+from typing import TYPE_CHECKING
 
 import pluggy
 
 if TYPE_CHECKING:
-    from bom_bench.models.package_manager import PMInfo
     from bom_bench.models.scenario import Scenario
-    from bom_bench.models.result import LockResult
 
 hookspec = pluggy.HookspecMarker("bom_bench")
 
@@ -74,8 +72,8 @@ class SCAToolSpec:
         project_dir: Path,
         output_path: Path,
         ecosystem: str,
-        timeout: int = 120
-    ) -> Optional[dict]:
+        timeout: int = 120,
+    ) -> dict | None:
         """Scan a project using the specified tool to generate SBOM.
 
         This is the core hook - plugins invoke their tool and return results.
@@ -153,12 +151,8 @@ class PackageManagerSpec:
 
     @hookspec
     def process_scenario(
-        self,
-        pm_name: str,
-        scenario: "Scenario",
-        output_dir: Path,
-        timeout: int = 120
-    ) -> Optional[dict]:
+        self, pm_name: str, scenario: "Scenario", output_dir: Path, timeout: int = 120
+    ) -> dict | None:
         """Process a scenario: generate manifest, lock, and SBOM (new atomic operation).
 
         This is the new simplified hook that combines generate_manifest, run_lock,

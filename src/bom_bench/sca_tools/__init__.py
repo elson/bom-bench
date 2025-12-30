@@ -14,15 +14,14 @@ Available plugins:
 """
 
 from pathlib import Path
-from typing import Dict, List, Optional
 
 from bom_bench.logging_config import get_logger
-from bom_bench.models.sca_tool import SCAToolInfo, ScanResult
+from bom_bench.models.sca_tool import ScanResult, SCAToolInfo
 
 logger = get_logger(__name__)
 
 # Track registered tools
-_registered_tools: Dict[str, SCAToolInfo] = {}
+_registered_tools: dict[str, SCAToolInfo] = {}
 
 
 def _register_tools(pm) -> None:
@@ -53,18 +52,19 @@ def _reset_tools() -> None:
     _registered_tools = {}
 
 
-def get_registered_tools() -> Dict[str, SCAToolInfo]:
+def get_registered_tools() -> dict[str, SCAToolInfo]:
     """Get all registered SCA tools.
 
     Returns:
         Dictionary mapping tool name to SCAToolInfo.
     """
     from bom_bench.plugins import initialize_plugins
+
     initialize_plugins()
     return _registered_tools.copy()
 
 
-def list_available_tools() -> List[str]:
+def list_available_tools() -> list[str]:
     """Get list of available tool names.
 
     Returns:
@@ -73,7 +73,7 @@ def list_available_tools() -> List[str]:
     return list(get_registered_tools().keys())
 
 
-def get_tool_info(tool_name: str) -> Optional[SCAToolInfo]:
+def get_tool_info(tool_name: str) -> SCAToolInfo | None:
     """Get info for a specific tool.
 
     Args:
@@ -103,12 +103,8 @@ def check_tool_available(tool_name: str) -> bool:
 
 
 def scan_project(
-    tool_name: str,
-    project_dir: Path,
-    output_path: Path,
-    ecosystem: str,
-    timeout: int = 120
-) -> Optional[ScanResult]:
+    tool_name: str, project_dir: Path, output_path: Path, ecosystem: str, timeout: int = 120
+) -> ScanResult | None:
     """Scan project using a registered tool to generate SBOM.
 
     Args:
@@ -121,7 +117,7 @@ def scan_project(
     Returns:
         ScanResult with execution details, or None if tool not found.
     """
-    from bom_bench.plugins import pm, initialize_plugins
+    from bom_bench.plugins import initialize_plugins, pm
 
     initialize_plugins()
 
@@ -134,7 +130,7 @@ def scan_project(
         project_dir=project_dir,
         output_path=output_path,
         ecosystem=ecosystem,
-        timeout=timeout
+        timeout=timeout,
     )
 
     # Plugins return dicts, convert to ScanResult

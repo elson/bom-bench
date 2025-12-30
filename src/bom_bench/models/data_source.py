@@ -1,7 +1,6 @@
 """Data source metadata models."""
 
 from dataclasses import dataclass
-from typing import List
 
 
 @dataclass
@@ -14,7 +13,7 @@ class DataSourceInfo:
     display_name: str
     """Human-readable display name"""
 
-    supported_pms: List[str]
+    supported_pms: list[str]
     """List of package managers this source supports (e.g., ['uv', 'pip'])"""
 
     description: str = ""
@@ -35,7 +34,7 @@ PACKSE_INFO = DataSourceInfo(
     display_name="Packse",
     supported_pms=["uv", "pip"],
     description="Python packaging scenarios for testing dependency resolution",
-    url="https://github.com/zanieb/packse"
+    url="https://github.com/zanieb/packse",
 )
 
 PNPM_TESTS_INFO = DataSourceInfo(
@@ -43,7 +42,7 @@ PNPM_TESTS_INFO = DataSourceInfo(
     display_name="pnpm Test Cases",
     supported_pms=["pnpm"],
     description="Test cases from the pnpm repository",
-    url="https://github.com/pnpm/pnpm"
+    url="https://github.com/pnpm/pnpm",
 )
 
 GRADLE_TESTKIT_INFO = DataSourceInfo(
@@ -51,5 +50,5 @@ GRADLE_TESTKIT_INFO = DataSourceInfo(
     display_name="Gradle TestKit",
     supported_pms=["gradle"],
     description="Gradle dependency resolution test scenarios",
-    url="https://github.com/gradle/gradle"
+    url="https://github.com/gradle/gradle",
 )

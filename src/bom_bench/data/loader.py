@@ -1,11 +1,9 @@
 """Scenario loading and filtering across multiple data sources."""
 
-from typing import List, Optional
-
+from bom_bench.config import DEFAULT_DATA_SOURCE
 from bom_bench.data import get_data_source, get_sources_for_pm
 from bom_bench.logging_config import get_logger
 from bom_bench.models.scenario import Scenario, ScenarioFilter
-from bom_bench.config import DEFAULT_DATA_SOURCE
 
 logger = get_logger(__name__)
 
@@ -22,10 +20,8 @@ class ScenarioLoader:
         self.auto_fetch = auto_fetch
 
     def load_from_source(
-        self,
-        source_name: str,
-        filter_config: Optional[ScenarioFilter] = None
-    ) -> List[Scenario]:
+        self, source_name: str, filter_config: ScenarioFilter | None = None
+    ) -> list[Scenario]:
         """Load scenarios from a single data source.
 
         Args:
@@ -55,9 +51,9 @@ class ScenarioLoader:
     def load_for_package_manager(
         self,
         package_manager: str,
-        filter_config: Optional[ScenarioFilter] = None,
-        sources: Optional[List[str]] = None
-    ) -> List[Scenario]:
+        filter_config: ScenarioFilter | None = None,
+        sources: list[str] | None = None,
+    ) -> list[Scenario]:
         """Load scenarios compatible with a specific package manager.
 
         Args:
@@ -96,10 +92,7 @@ class ScenarioLoader:
 
         return all_scenarios
 
-    def load_default(
-        self,
-        filter_config: Optional[ScenarioFilter] = None
-    ) -> List[Scenario]:
+    def load_default(self, filter_config: ScenarioFilter | None = None) -> list[Scenario]:
         """Load scenarios from the default data source.
 
         Args:
@@ -110,10 +103,7 @@ class ScenarioLoader:
         """
         return self.load_from_source(DEFAULT_DATA_SOURCE, filter_config)
 
-    def load_all_sources(
-        self,
-        filter_config: Optional[ScenarioFilter] = None
-    ) -> List[Scenario]:
+    def load_all_sources(self, filter_config: ScenarioFilter | None = None) -> list[Scenario]:
         """Load scenarios from all available data sources.
 
         Args:

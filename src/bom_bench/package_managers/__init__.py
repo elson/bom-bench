@@ -13,7 +13,6 @@ Available plugins:
 """
 
 from pathlib import Path
-from typing import Dict, List, Optional
 
 from bom_bench.logging_config import get_logger
 from bom_bench.models.package_manager import PMInfo, ProcessScenarioResult
@@ -21,7 +20,7 @@ from bom_bench.models.package_manager import PMInfo, ProcessScenarioResult
 logger = get_logger(__name__)
 
 # Track registered package managers
-_registered_pms: Dict[str, PMInfo] = {}
+_registered_pms: dict[str, PMInfo] = {}
 
 
 def _register_package_managers(pm) -> None:
@@ -51,18 +50,19 @@ def _reset_package_managers() -> None:
     _registered_pms = {}
 
 
-def get_registered_package_managers() -> Dict[str, PMInfo]:
+def get_registered_package_managers() -> dict[str, PMInfo]:
     """Get all registered package managers.
 
     Returns:
         Dictionary mapping PM name to PMInfo.
     """
     from bom_bench.plugins import initialize_plugins
+
     initialize_plugins()
     return _registered_pms.copy()
 
 
-def list_available_package_managers() -> List[str]:
+def list_available_package_managers() -> list[str]:
     """Get list of available package manager names.
 
     Returns:
@@ -71,7 +71,7 @@ def list_available_package_managers() -> List[str]:
     return list(get_registered_package_managers().keys())
 
 
-def get_package_manager_info(pm_name: str) -> Optional[PMInfo]:
+def get_package_manager_info(pm_name: str) -> PMInfo | None:
     """Get info for a specific package manager.
 
     Args:
@@ -99,11 +99,8 @@ def check_package_manager_available(pm_name: str) -> bool:
 
 
 def package_manager_process_scenario(
-    pm_name: str,
-    scenario,
-    output_dir: Path,
-    timeout: int = 120
-) -> Optional[ProcessScenarioResult]:
+    pm_name: str, scenario, output_dir: Path, timeout: int = 120
+) -> ProcessScenarioResult | None:
     """Process a scenario: generate manifest, lock, and SBOM (new atomic operation).
 
     This is the new simplified interface that combines generate_manifest, run_lock,
@@ -118,7 +115,7 @@ def package_manager_process_scenario(
     Returns:
         ProcessScenarioResult, or None if PM not found.
     """
-    from bom_bench.plugins import pm, initialize_plugins
+    from bom_bench.plugins import initialize_plugins, pm
 
     initialize_plugins()
 
@@ -127,10 +124,7 @@ def package_manager_process_scenario(
         return None
 
     results = pm.hook.process_scenario(
-        pm_name=pm_name,
-        scenario=scenario,
-        output_dir=output_dir,
-        timeout=timeout
+        pm_name=pm_name, scenario=scenario, output_dir=output_dir, timeout=timeout
     )
 
     for result in results:

@@ -1,16 +1,16 @@
 """Tests for SBOM comparison logic."""
 
 import json
+
 import pytest
-from pathlib import Path
 
 from bom_bench.benchmarking.comparison import (
-    normalize_purl,
-    extract_purls_from_cyclonedx,
-    load_expected_sbom,
-    load_actual_sbom,
     compare_sboms,
+    extract_purls_from_cyclonedx,
+    load_actual_sbom,
+    load_expected_sbom,
     load_scenario_meta,
+    normalize_purl,
 )
 
 
@@ -72,11 +72,7 @@ class TestExtractPurls:
 
     def test_extract_single_purl(self):
         """Test extraction of single PURL."""
-        sbom = {
-            "components": [
-                {"name": "pkg", "version": "1.0", "purl": "pkg:pypi/package@1.0.0"}
-            ]
-        }
+        sbom = {"components": [{"name": "pkg", "version": "1.0", "purl": "pkg:pypi/package@1.0.0"}]}
         purls = extract_purls_from_cyclonedx(sbom)
         assert len(purls) == 1
         assert "pkg:pypi/package@1.0.0" in purls
@@ -108,11 +104,7 @@ class TestExtractPurls:
 
     def test_extract_normalizes_purls(self):
         """Test that extracted PURLs are normalized."""
-        sbom = {
-            "components": [
-                {"name": "pkg", "purl": "pkg:pypi/My_Package@1.0.0"}
-            ]
-        }
+        sbom = {"components": [{"name": "pkg", "purl": "pkg:pypi/My_Package@1.0.0"}]}
         purls = extract_purls_from_cyclonedx(sbom)
         assert "pkg:pypi/my-package@1.0.0" in purls
 
@@ -152,10 +144,8 @@ class TestLoadExpectedSbom:
             "satisfiable": True,
             "sbom": {
                 "bomFormat": "CycloneDX",
-                "components": [
-                    {"name": "pkg", "purl": "pkg:pypi/package@1.0.0"}
-                ]
-            }
+                "components": [{"name": "pkg", "purl": "pkg:pypi/package@1.0.0"}],
+            },
         }
         sbom_path.write_text(json.dumps(sbom_data))
 
@@ -204,9 +194,7 @@ class TestLoadActualSbom:
         sbom_path = tmp_path / "actual.cdx.json"
         sbom_data = {
             "bomFormat": "CycloneDX",
-            "components": [
-                {"name": "pkg", "purl": "pkg:pypi/package@1.0.0"}
-            ]
+            "components": [{"name": "pkg", "purl": "pkg:pypi/package@1.0.0"}],
         }
         sbom_path.write_text(json.dumps(sbom_data))
 
@@ -248,7 +236,7 @@ class TestCompareSboms:
                     {"purl": "pkg:pypi/package-a@1.0.0"},
                     {"purl": "pkg:pypi/package-b@2.0.0"},
                 ]
-            }
+            },
         }
         actual_data = {
             "components": [
@@ -260,9 +248,7 @@ class TestCompareSboms:
         expected_path.write_text(json.dumps(expected_data))
         actual_path.write_text(json.dumps(actual_data))
 
-        expected_purls, actual_purls, satisfiable = compare_sboms(
-            expected_path, actual_path
-        )
+        expected_purls, actual_purls, satisfiable = compare_sboms(expected_path, actual_path)
 
         assert satisfiable is True
         assert expected_purls == actual_purls
@@ -279,9 +265,7 @@ class TestCompareSboms:
         expected_path.write_text(json.dumps(expected_data))
         actual_path.write_text(json.dumps(actual_data))
 
-        expected_purls, actual_purls, satisfiable = compare_sboms(
-            expected_path, actual_path
-        )
+        expected_purls, actual_purls, satisfiable = compare_sboms(expected_path, actual_path)
 
         assert satisfiable is False
         assert expected_purls == set()
@@ -298,7 +282,7 @@ class TestCompareSboms:
                     {"purl": "pkg:pypi/a@1.0.0"},
                     {"purl": "pkg:pypi/b@2.0.0"},
                 ]
-            }
+            },
         }
         actual_data = {
             "components": [
@@ -310,9 +294,7 @@ class TestCompareSboms:
         expected_path.write_text(json.dumps(expected_data))
         actual_path.write_text(json.dumps(actual_data))
 
-        expected_purls, actual_purls, satisfiable = compare_sboms(
-            expected_path, actual_path
-        )
+        expected_purls, actual_purls, satisfiable = compare_sboms(expected_path, actual_path)
 
         assert satisfiable is True
         # a is in both (TP)
@@ -337,8 +319,8 @@ class TestLoadScenarioMeta:
             "package_manager_result": {
                 "exit_code": 0,
                 "stdout": "Resolved 5 packages\n",
-                "stderr": ""
-            }
+                "stderr": "",
+            },
         }
         meta_path.write_text(json.dumps(meta_data))
 
@@ -357,8 +339,8 @@ class TestLoadScenarioMeta:
             "package_manager_result": {
                 "exit_code": 1,
                 "stdout": "",
-                "stderr": "No solution found\n"
-            }
+                "stderr": "No solution found\n",
+            },
         }
         meta_path.write_text(json.dumps(meta_data))
 
@@ -395,15 +377,16 @@ class TestLoadExpectedSbomPureCycloneDX:
         sbom_data = {
             "bomFormat": "CycloneDX",
             "specVersion": "1.6",
-            "components": [
-                {"name": "pkg", "purl": "pkg:pypi/package@1.0.0"}
-            ]
+            "components": [{"name": "pkg", "purl": "pkg:pypi/package@1.0.0"}],
         }
         sbom_path.write_text(json.dumps(sbom_data))
 
         # Need corresponding meta.json
         meta_path = tmp_path / "meta.json"
-        meta_data = {"satisfiable": True, "package_manager_result": {"exit_code": 0, "stdout": "", "stderr": ""}}
+        meta_data = {
+            "satisfiable": True,
+            "package_manager_result": {"exit_code": 0, "stdout": "", "stderr": ""},
+        }
         meta_path.write_text(json.dumps(meta_data))
 
         sbom, satisfiable = load_expected_sbom(sbom_path, meta_path)
@@ -419,7 +402,10 @@ class TestLoadExpectedSbomPureCycloneDX:
         sbom_path = tmp_path / "expected.cdx.json"
 
         meta_path = tmp_path / "meta.json"
-        meta_data = {"satisfiable": False, "package_manager_result": {"exit_code": 1, "stdout": "", "stderr": "No solution"}}
+        meta_data = {
+            "satisfiable": False,
+            "package_manager_result": {"exit_code": 1, "stdout": "", "stderr": "No solution"},
+        }
         meta_path.write_text(json.dumps(meta_data))
 
         sbom, satisfiable = load_expected_sbom(sbom_path, meta_path)

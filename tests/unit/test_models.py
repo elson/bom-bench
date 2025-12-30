@@ -1,30 +1,29 @@
 """Tests for data models."""
 
-import pytest
 from pathlib import Path
 
+from bom_bench.models.data_source import PACKSE_INFO, DataSourceInfo
+from bom_bench.models.package_manager import (
+    UV_INFO,
+    PackageManagerInfo,
+    PMInfo,
+    ProcessScenarioResult,
+    ProcessStatus,
+)
+from bom_bench.models.result import (
+    LockResult,
+    LockStatus,
+    ProcessingResult,
+    ProcessingStatus,
+    Summary,
+)
 from bom_bench.models.scenario import (
     Requirement,
-    Root,
     ResolverOptions,
+    Root,
     Scenario,
     ScenarioFilter,
 )
-from bom_bench.models.result import (
-    ProcessingResult,
-    LockResult,
-    Summary,
-    ProcessingStatus,
-    LockStatus,
-)
-from bom_bench.models.package_manager import (
-    PackageManagerInfo,
-    UV_INFO,
-    PMInfo,
-    ProcessStatus,
-    ProcessScenarioResult,
-)
-from bom_bench.models.data_source import DataSourceInfo, PACKSE_INFO
 
 
 class TestRequirement:

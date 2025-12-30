@@ -1,22 +1,21 @@
 """Tests for plugin system."""
 
-import pytest
 from pathlib import Path
-from unittest.mock import patch, MagicMock
+from unittest.mock import MagicMock, patch
 
+from bom_bench.models.sca_tool import ScanStatus, SCAToolInfo
 from bom_bench.plugins import (
+    get_plugins,
     initialize_plugins,
     reset_plugins,
-    get_plugins,
 )
 from bom_bench.sca_tools import (
-    get_registered_tools,
-    list_available_tools,
-    get_tool_info,
     check_tool_available,
+    get_registered_tools,
+    get_tool_info,
+    list_available_tools,
     scan_project,
 )
-from bom_bench.models.sca_tool import SCAToolInfo, ScanResult, ScanStatus
 
 
 class TestPluginInitialization:
@@ -140,7 +139,7 @@ class TestSBOMGeneration:
             tool_name="nonexistent",
             project_dir=Path("/project"),
             output_path=Path("/output.json"),
-            ecosystem="python"
+            ecosystem="python",
         )
 
         assert result is None
@@ -152,17 +151,10 @@ class TestSBOMGeneration:
         output_path = tmp_path / "sbom.json"
         output_path.write_text('{"bomFormat": "CycloneDX"}')
 
-        mock_run.return_value = MagicMock(
-            returncode=0,
-            stdout="",
-            stderr=""
-        )
+        mock_run.return_value = MagicMock(returncode=0, stdout="", stderr="")
 
         result = scan_project(
-            tool_name="cdxgen",
-            project_dir=tmp_path,
-            output_path=output_path,
-            ecosystem="python"
+            tool_name="cdxgen", project_dir=tmp_path, output_path=output_path, ecosystem="python"
         )
 
         assert result is not None
@@ -175,16 +167,11 @@ class TestSBOMGeneration:
         output_path = tmp_path / "sbom.json"
 
         mock_run.return_value = MagicMock(
-            returncode=1,
-            stdout="",
-            stderr="Error: something went wrong"
+            returncode=1, stdout="", stderr="Error: something went wrong"
         )
 
         result = scan_project(
-            tool_name="cdxgen",
-            project_dir=tmp_path,
-            output_path=output_path,
-            ecosystem="python"
+            tool_name="cdxgen", project_dir=tmp_path, output_path=output_path, ecosystem="python"
         )
 
         assert result is not None

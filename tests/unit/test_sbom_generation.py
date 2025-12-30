@@ -4,15 +4,12 @@ import json
 import tempfile
 from pathlib import Path
 
-import pytest
-
 from bom_bench.generators.sbom.cyclonedx import (
-    normalize_package_name,
     create_purl,
-    generate_cyclonedx_sbom,
-    generate_sbom_result,
-    generate_sbom_file,
     generate_meta_file,
+    generate_sbom_file,
+    generate_sbom_result,
+    normalize_package_name,
 )
 from bom_bench.models.scenario import ExpectedPackage
 
@@ -80,7 +77,7 @@ class TestCycloneDXGeneration:
                 scenario_name="test-scenario",
                 output_path=output_path,
                 packages=[],
-                satisfiable=True
+                satisfiable=True,
             )
 
             assert result.exists()
@@ -116,7 +113,7 @@ class TestCycloneDXGeneration:
                 scenario_name="test-scenario",
                 output_path=output_path,
                 packages=packages,
-                satisfiable=True
+                satisfiable=True,
             )
 
             assert result.exists()
@@ -159,7 +156,7 @@ class TestCycloneDXGeneration:
                 scenario_name="my-test-scenario",
                 output_path=output_path,
                 packages=packages,
-                satisfiable=True
+                satisfiable=True,
             )
 
             with open(result) as f:
@@ -200,7 +197,7 @@ class TestCycloneDXGeneration:
                 scenario_name="test-scenario",
                 output_path=output_path,
                 packages=packages,
-                satisfiable=True
+                satisfiable=True,
             )
 
             with open(result) as f:
@@ -231,10 +228,7 @@ class TestCycloneDXGeneration:
 
             packages = [ExpectedPackage(name="test", version="1.0.0")]
             result = generate_sbom_result(
-                scenario_name="test",
-                output_path=nested_path,
-                packages=packages,
-                satisfiable=True
+                scenario_name="test", output_path=nested_path, packages=packages, satisfiable=True
             )
 
             assert nested_path.parent.exists()
@@ -247,10 +241,7 @@ class TestCycloneDXGeneration:
         with tempfile.TemporaryDirectory() as tmpdir:
             output_path = Path(tmpdir) / "expected.cdx.json"
             result = generate_sbom_result(
-                scenario_name="test",
-                output_path=output_path,
-                packages=packages,
-                satisfiable=True
+                scenario_name="test", output_path=output_path, packages=packages, satisfiable=True
             )
 
             # Should not raise exception

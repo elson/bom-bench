@@ -1,9 +1,9 @@
 """CycloneDX SBOM generator for expected packages."""
 
 import json
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
-from typing import Dict, List, Optional, Any
+from typing import Any
 
 from cyclonedx.model import ExternalReference, ExternalReferenceType, XsUri
 from cyclonedx.model.bom import Bom
@@ -39,18 +39,13 @@ def create_purl(package: ExpectedPackage) -> PackageURL:
         PackageURL object for the package
     """
     normalized_name = normalize_package_name(package.name)
-    purl = PackageURL(
-        type="pypi",
-        name=normalized_name,
-        version=package.version
-    )
+    purl = PackageURL(type="pypi", name=normalized_name, version=package.version)
     return purl
 
 
 def generate_cyclonedx_sbom(
-    scenario_name: str,
-    expected_packages: List[ExpectedPackage]
-) -> Dict[str, Any]:
+    scenario_name: str, expected_packages: list[ExpectedPackage]
+) -> dict[str, Any]:
     """Generate CycloneDX 1.6 SBOM from expected packages.
 
     Creates a minimal CycloneDX SBOM containing the expected packages
@@ -69,20 +64,17 @@ def generate_cyclonedx_sbom(
     """
     # Create metadata component (the root application)
     metadata_component = Component(
-        type=ComponentType.APPLICATION,
-        name=scenario_name,
-        version="0.1.0"
+        type=ComponentType.APPLICATION, name=scenario_name, version="0.1.0"
     )
 
     # Create BOM with metadata
     bom = Bom()
     bom.metadata.component = metadata_component
-    bom.metadata.timestamp = datetime.now(timezone.utc)
+    bom.metadata.timestamp = datetime.now(UTC)
 
     # Add external reference to bom-bench
     bom_bench_ref = ExternalReference(
-        type=ExternalReferenceType.BUILD_SYSTEM,
-        url=XsUri("https://github.com/your-org/bom-bench")
+        type=ExternalReferenceType.BUILD_SYSTEM, url=XsUri("https://github.com/your-org/bom-bench")
     )
     bom.metadata.component.external_references.add(bom_bench_ref)
 
@@ -97,7 +89,7 @@ def generate_cyclonedx_sbom(
             type=ComponentType.LIBRARY,
             name=normalize_package_name(package.name),
             version=package.version,
-            purl=purl
+            purl=purl,
         )
 
         bom.components.add(component)
@@ -149,8 +141,8 @@ def generate_cyclonedx_sbom(
 def generate_sbom_result(
     scenario_name: str,
     output_path: Path,
-    packages: Optional[List[ExpectedPackage]] = None,
-    satisfiable: bool = True
+    packages: list[ExpectedPackage] | None = None,
+    satisfiable: bool = True,
 ) -> Path:
     """Generate SBOM result file with satisfiable status.
 
@@ -173,7 +165,7 @@ def generate_sbom_result(
     # Ensure output directory exists
     output_path.parent.mkdir(parents=True, exist_ok=True)
 
-    result: Dict[str, Any] = {"satisfiable": satisfiable}
+    result: dict[str, Any] = {"satisfiable": satisfiable}
 
     # Only include SBOM if satisfiable and packages is not None (empty list is ok)
     if satisfiable and packages is not None:
@@ -190,7 +182,7 @@ def generate_sbom_result(
 def generate_sbom_file(
     scenario_name: str,
     output_path: Path,
-    packages: List[ExpectedPackage],
+    packages: list[ExpectedPackage],
 ) -> Path:
     """Generate pure CycloneDX SBOM file (no wrapper).
 
@@ -256,7 +248,7 @@ def generate_meta_file(
             "exit_code": exit_code,
             "stdout": stdout,
             "stderr": stderr,
-        }
+        },
     }
 
     # Write formatted JSON

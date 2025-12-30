@@ -11,10 +11,9 @@ Implementation TODO:
 - Calculate accuracy metrics (true/false positives)
 """
 
-from typing import List, Dict, Any, Optional
 from dataclasses import dataclass
 from enum import Enum
-from pathlib import Path
+from typing import Any
 
 
 class SeverityLevel(Enum):
@@ -46,13 +45,13 @@ class VulnerabilityFinding:
     severity: SeverityLevel
     """Normalized severity level"""
 
-    description: Optional[str] = None
+    description: str | None = None
     """Vulnerability description"""
 
-    fixed_version: Optional[str] = None
+    fixed_version: str | None = None
     """Version that fixes the vulnerability"""
 
-    tool_name: Optional[str] = None
+    tool_name: str | None = None
     """SCA tool that found this vulnerability"""
 
 
@@ -69,7 +68,7 @@ class ScanResult:
     tool_name: str
     """SCA tool name"""
 
-    findings: List[VulnerabilityFinding]
+    findings: list[VulnerabilityFinding]
     """List of vulnerability findings"""
 
     scan_duration_seconds: float
@@ -78,7 +77,7 @@ class ScanResult:
     success: bool = True
     """Whether scan completed successfully"""
 
-    error_message: Optional[str] = None
+    error_message: str | None = None
     """Error message if scan failed"""
 
 
@@ -94,14 +93,14 @@ class ResultCollector:
 
     def __init__(self):
         """Initialize result collector."""
-        self.results: List[ScanResult] = []
+        self.results: list[ScanResult] = []
 
     def add_grype_result(
         self,
         scenario_name: str,
         package_manager: str,
-        grype_output: Dict[str, Any],
-        duration: float
+        grype_output: dict[str, Any],
+        duration: float,
     ) -> None:
         """Parse and add Grype scan results.
 
@@ -132,8 +131,8 @@ class ResultCollector:
         self,
         scenario_name: str,
         package_manager: str,
-        trivy_output: Dict[str, Any],
-        duration: float
+        trivy_output: dict[str, Any],
+        duration: float,
     ) -> None:
         """Parse and add Trivy scan results.
 
@@ -153,7 +152,7 @@ class ResultCollector:
 
         # TODO: Similar to add_grype_result but for Trivy format
 
-    def get_all_results(self) -> List[ScanResult]:
+    def get_all_results(self) -> list[ScanResult]:
         """Get all collected scan results.
 
         Returns:
@@ -161,7 +160,7 @@ class ResultCollector:
         """
         return self.results
 
-    def get_results_by_pm(self, package_manager: str) -> List[ScanResult]:
+    def get_results_by_pm(self, package_manager: str) -> list[ScanResult]:
         """Get results filtered by package manager.
 
         Args:
@@ -172,7 +171,7 @@ class ResultCollector:
         """
         return [r for r in self.results if r.package_manager == package_manager]
 
-    def get_results_by_tool(self, tool_name: str) -> List[ScanResult]:
+    def get_results_by_tool(self, tool_name: str) -> list[ScanResult]:
         """Get results filtered by SCA tool.
 
         Args:
@@ -183,7 +182,7 @@ class ResultCollector:
         """
         return [r for r in self.results if r.tool_name == tool_name]
 
-    def deduplicate_findings(self) -> List[VulnerabilityFinding]:
+    def deduplicate_findings(self) -> list[VulnerabilityFinding]:
         """Deduplicate vulnerability findings across all results.
 
         Returns:
