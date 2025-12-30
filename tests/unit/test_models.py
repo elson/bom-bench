@@ -17,7 +17,13 @@ from bom_bench.models.result import (
     ProcessingStatus,
     LockStatus,
 )
-from bom_bench.models.package_manager import PackageManagerInfo, UV_INFO
+from bom_bench.models.package_manager import (
+    PackageManagerInfo,
+    UV_INFO,
+    PMInfo,
+    ProcessStatus,
+    ProcessScenarioResult,
+)
 from bom_bench.models.data_source import DataSourceInfo, PACKSE_INFO
 
 
@@ -327,3 +333,195 @@ class TestDataSourceInfo:
         assert PACKSE_INFO.name == "packse"
         assert "uv" in PACKSE_INFO.supported_pms
         assert "pip" in PACKSE_INFO.supported_pms
+
+
+class TestProcessStatus:
+    """Tests for ProcessStatus enum."""
+
+    def test_process_status_values(self):
+        """Test ProcessStatus enum values."""
+        assert ProcessStatus.SUCCESS.value == "success"
+        assert ProcessStatus.FAILED.value == "failed"
+        assert ProcessStatus.TIMEOUT.value == "timeout"
+        assert ProcessStatus.UNSATISFIABLE.value == "unsatisfiable"
+
+
+class TestProcessScenarioResult:
+    """Tests for ProcessScenarioResult dataclass."""
+
+    def test_create_success_result(self):
+        """Test creating a successful ProcessScenarioResult."""
+        result = ProcessScenarioResult(
+            pm_name="uv",
+            status=ProcessStatus.SUCCESS,
+            manifest_path=Path("/output/assets/pyproject.toml"),
+            lock_file_path=Path("/output/assets/uv.lock"),
+            sbom_path=Path("/output/expected.cdx.json"),
+            meta_path=Path("/output/meta.json"),
+            duration_seconds=1.5,
+            exit_code=0,
+        )
+
+        assert result.pm_name == "uv"
+        assert result.status == ProcessStatus.SUCCESS
+        assert result.manifest_path == Path("/output/assets/pyproject.toml")
+        assert result.lock_file_path == Path("/output/assets/uv.lock")
+        assert result.sbom_path == Path("/output/expected.cdx.json")
+        assert result.duration_seconds == 1.5
+        assert result.exit_code == 0
+        assert result.error_message is None
+
+    def test_create_failed_result(self):
+        """Test creating a failed ProcessScenarioResult."""
+        result = ProcessScenarioResult(
+            pm_name="uv",
+            status=ProcessStatus.FAILED,
+            duration_seconds=0.5,
+            exit_code=1,
+            error_message="Lock failed",
+        )
+
+        assert result.pm_name == "uv"
+        assert result.status == ProcessStatus.FAILED
+        assert result.exit_code == 1
+        assert result.error_message == "Lock failed"
+        assert result.manifest_path is None
+        assert result.sbom_path is None
+
+    def test_success_factory(self):
+        """Test ProcessScenarioResult.success() factory method."""
+        result = ProcessScenarioResult.success(
+            pm_name="uv",
+            manifest_path=Path("/output/assets/pyproject.toml"),
+            lock_file_path=Path("/output/assets/uv.lock"),
+            sbom_path=Path("/output/expected.cdx.json"),
+            meta_path=Path("/output/meta.json"),
+            duration_seconds=1.5,
+            exit_code=0,
+        )
+
+        assert result.status == ProcessStatus.SUCCESS
+        assert result.pm_name == "uv"
+        assert result.exit_code == 0
+
+    def test_failed_factory(self):
+        """Test ProcessScenarioResult.failed() factory method."""
+        result = ProcessScenarioResult.failed(
+            pm_name="uv",
+            duration_seconds=0.5,
+            exit_code=1,
+            error_message="Lock command failed",
+        )
+
+        assert result.status == ProcessStatus.FAILED
+        assert result.pm_name == "uv"
+        assert result.exit_code == 1
+        assert result.error_message == "Lock command failed"
+
+    def test_unsatisfiable_factory(self):
+        """Test ProcessScenarioResult.unsatisfiable() factory method."""
+        result = ProcessScenarioResult.unsatisfiable(
+            pm_name="uv",
+            manifest_path=Path("/output/assets/pyproject.toml"),
+            meta_path=Path("/output/meta.json"),
+            duration_seconds=1.0,
+            exit_code=1,
+        )
+
+        assert result.status == ProcessStatus.UNSATISFIABLE
+        assert result.pm_name == "uv"
+        assert result.manifest_path == Path("/output/assets/pyproject.toml")
+        assert result.meta_path == Path("/output/meta.json")
+        assert result.sbom_path is None  # No SBOM for unsatisfiable scenarios
+
+    def test_from_dict(self):
+        """Test ProcessScenarioResult.from_dict() conversion."""
+        data = {
+            "pm_name": "uv",
+            "status": "success",
+            "manifest_path": "/output/assets/pyproject.toml",
+            "lock_file_path": "/output/assets/uv.lock",
+            "sbom_path": "/output/expected.cdx.json",
+            "meta_path": "/output/meta.json",
+            "duration_seconds": 1.5,
+            "exit_code": 0,
+        }
+
+        result = ProcessScenarioResult.from_dict(data)
+
+        assert result.pm_name == "uv"
+        assert result.status == ProcessStatus.SUCCESS
+        assert result.manifest_path == Path("/output/assets/pyproject.toml")
+        assert result.duration_seconds == 1.5
+
+    def test_from_dict_with_missing_optional_fields(self):
+        """Test from_dict with missing optional fields."""
+        data = {
+            "pm_name": "uv",
+            "status": "failed",
+            "duration_seconds": 0.5,
+            "exit_code": 1,
+            "error_message": "Failed",
+        }
+
+        result = ProcessScenarioResult.from_dict(data)
+
+        assert result.pm_name == "uv"
+        assert result.status == ProcessStatus.FAILED
+        assert result.manifest_path is None
+        assert result.sbom_path is None
+
+
+class TestPMInfo:
+    """Tests for PMInfo dataclass."""
+
+    def test_create_pminfo(self):
+        """Test creating PMInfo."""
+        info = PMInfo(
+            name="uv",
+            ecosystem="python",
+            description="Fast Python package manager",
+            supported_sources=["packse"],
+            installed=True,
+            version="0.5.11",
+        )
+
+        assert info.name == "uv"
+        assert info.ecosystem == "python"
+        assert info.supported_sources == ["packse"]
+        assert info.installed is True
+        assert info.version == "0.5.11"
+
+    def test_pminfo_from_dict(self):
+        """Test PMInfo.from_dict() with supported_sources."""
+        data = {
+            "name": "uv",
+            "ecosystem": "python",
+            "description": "Fast Python package manager",
+            "supported_sources": ["packse"],
+            "installed": True,
+            "version": "0.5.11",
+        }
+
+        info = PMInfo.from_dict(data)
+
+        assert info.name == "uv"
+        assert info.ecosystem == "python"
+        assert info.supported_sources == ["packse"]
+        assert info.installed is True
+
+    def test_pminfo_from_dict_defaults(self):
+        """Test PMInfo.from_dict() with default values."""
+        data = {
+            "name": "pip",
+            "ecosystem": "python",
+            "description": "Python package installer",
+            "supported_sources": ["pypi"],
+        }
+
+        info = PMInfo.from_dict(data)
+
+        assert info.name == "pip"
+        assert info.supported_sources == ["pypi"]
+        assert info.installed is False  # Default value
+        assert info.version is None  # Default value

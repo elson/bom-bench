@@ -58,7 +58,7 @@ uv run bom-bench list-tools --check
 
 ## Testing
 - **IMPORTANT:** Use TDD (Test-Driven Development). Write test first, watch it fail, write minimal code to pass
-- Run full test suite before committing
+- Run full test suite before committing (`uv run pytest tests/ -v`)
 - Integration tests require packse server running
 - Mock external dependencies in unit tests
 

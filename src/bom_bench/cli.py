@@ -17,14 +17,12 @@ from bom_bench.data.loader import ScenarioLoader
 from bom_bench.logging_config import get_logger, setup_logging
 from bom_bench.models.scenario import ScenarioFilter, Scenario
 from bom_bench.models.result import ProcessingResult, ProcessingStatus, Summary
+from bom_bench.models.package_manager import ProcessScenarioResult, ProcessStatus, PMInfo
 from bom_bench.package_managers import (
     list_available_package_managers,
     check_package_manager_available,
-    package_manager_validate_scenario,
-    package_manager_get_output_dir,
-    package_manager_generate_manifest,
-    package_manager_run_lock,
-    package_manager_generate_sbom_for_lock,
+    get_package_manager_info,
+    package_manager_process_scenario,
 )
 
 logger = get_logger(__name__)
@@ -125,59 +123,56 @@ class BomBenchCLI:
                 error_message=f"Package manager '{package_manager_name}' not installed"
             )
 
-        # Validate scenario compatibility
-        if not package_manager_validate_scenario(package_manager_name, scenario):
+        # Check scenario compatibility using PM info
+        pm_info = get_package_manager_info(package_manager_name)
+        if pm_info is None or scenario.source not in pm_info.supported_sources:
             return ProcessingResult(
                 scenario_name=scenario.name,
                 status=ProcessingStatus.SKIPPED,
                 package_manager=package_manager_name,
-                error_message=f"Scenario not compatible with {package_manager_name}"
+                error_message=f"Scenario source '{scenario.source}' not compatible with {package_manager_name}"
             )
 
         try:
-            # Get output directory (hierarchical: output/scenarios/{pm}/{scenario}/)
-            output_dir = package_manager_get_output_dir(package_manager_name, output_base, scenario.name)
-            if output_dir is None:
-                return ProcessingResult(
-                    scenario_name=scenario.name,
-                    status=ProcessingStatus.FAILED,
-                    package_manager=package_manager_name,
-                    error_message=f"Could not get output directory for {package_manager_name}"
-                )
+            # Calculate output directory (standard pattern: output/scenarios/{pm}/{scenario}/)
+            output_dir = output_base / "scenarios" / package_manager_name / scenario.name
 
-            # Generate manifest
-            manifest_path = package_manager_generate_manifest(package_manager_name, scenario, output_dir)
-            if manifest_path is None:
-                return ProcessingResult(
-                    scenario_name=scenario.name,
-                    status=ProcessingStatus.FAILED,
-                    package_manager=package_manager_name,
-                    error_message=f"Failed to generate manifest for {package_manager_name}"
-                )
-
-            logger.info(f"Generated: {manifest_path}")
-
-            # Run lock command
-            assets_dir = output_dir / "assets"
-            lock_result = package_manager_run_lock(package_manager_name, assets_dir, scenario.name)
-
-            # Generate SBOM from lock result
-            if lock_result:
-                package_manager_generate_sbom_for_lock(
-                    package_manager_name, scenario, output_dir, lock_result
-                )
-
-            # Log SBOM generation if it exists
-            sbom_path = output_dir / "expected.cdx.json"
-            if sbom_path.exists():
-                logger.info(f"Generated expected SBOM: {sbom_path}")
-
-            return ProcessingResult(
-                scenario_name=scenario.name,
-                status=ProcessingStatus.SUCCESS,
-                package_manager=package_manager_name,
-                output_dir=output_dir
+            # Process scenario using new atomic operation
+            result = package_manager_process_scenario(
+                package_manager_name,
+                scenario,
+                output_dir
             )
+
+            if result is None:
+                return ProcessingResult(
+                    scenario_name=scenario.name,
+                    status=ProcessingStatus.FAILED,
+                    package_manager=package_manager_name,
+                    error_message=f"No plugin handled processing for PM '{package_manager_name}'"
+                )
+
+            # Log generated files
+            if result.manifest_path:
+                logger.info(f"Generated: {result.manifest_path}")
+            if result.sbom_path:
+                logger.info(f"Generated expected SBOM: {result.sbom_path}")
+
+            # Convert ProcessScenarioResult to ProcessingResult
+            if result.status == ProcessStatus.SUCCESS:
+                return ProcessingResult(
+                    scenario_name=scenario.name,
+                    status=ProcessingStatus.SUCCESS,
+                    package_manager=package_manager_name,
+                    output_dir=output_dir
+                )
+            else:
+                return ProcessingResult(
+                    scenario_name=scenario.name,
+                    status=ProcessingStatus.FAILED,
+                    package_manager=package_manager_name,
+                    error_message=result.error_message or f"Processing failed with status: {result.status.value}"
+                )
 
         except Exception as e:
             return ProcessingResult(

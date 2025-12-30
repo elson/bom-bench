@@ -134,7 +134,7 @@ class PackageManagerSpec:
                 - name: Package manager identifier (required)
                 - ecosystem: Package ecosystem (required)
                 - description: Human-readable description (required)
-                - data_source: Name of data source this PM uses (required)
+                - supported_sources: List of data sources this PM supports (required)
                 - installed: Whether the PM is installed (required)
                 - version: PM version string (optional)
 
@@ -144,160 +144,63 @@ class PackageManagerSpec:
                 return {
                     "name": "uv",
                     "ecosystem": "python",
-                    "description": "UV Python package manager",
-                    "data_source": "packse",
+                    "description": "Fast Python package manager",
+                    "supported_sources": ["packse"],
                     "installed": shutil.which("uv") is not None,
                     "version": _get_uv_version()
                 }
         """
 
     @hookspec
-    def load_scenarios(
-        self,
-        pm_name: str,
-        data_dir: Path
-    ) -> Optional[List["Scenario"]]:
-        """Load scenarios for a package manager.
-
-        Args:
-            pm_name: Package manager name (e.g., "uv")
-            data_dir: Base data directory
-
-        Returns:
-            List of scenarios, or None if not handled by this plugin.
-
-        Example implementation:
-            @hookimpl
-            def load_scenarios(pm_name, data_dir):
-                if pm_name != "uv":
-                    return None
-                # Load and return packse scenarios
-        """
-
-    @hookspec
-    def generate_manifest(
-        self,
-        pm_name: str,
-        scenario: "Scenario",
-        output_dir: Path
-    ) -> Optional[Path]:
-        """Generate manifest file for a scenario.
-
-        Args:
-            pm_name: Package manager name
-            scenario: Scenario to generate manifest for
-            output_dir: Output directory
-
-        Returns:
-            Path to manifest file, or None if not handled.
-
-        Example implementation:
-            @hookimpl
-            def generate_manifest(pm_name, scenario, output_dir):
-                if pm_name != "uv":
-                    return None
-                # Generate pyproject.toml and return path
-        """
-
-    @hookspec
-    def run_lock(
-        self,
-        pm_name: str,
-        project_dir: Path,
-        scenario_name: str,
-        timeout: int = 120
-    ) -> Optional["LockResult"]:
-        """Run lock command for a project.
-
-        Args:
-            pm_name: Package manager name
-            project_dir: Directory containing manifest
-            scenario_name: Name of scenario
-            timeout: Timeout in seconds
-
-        Returns:
-            LockResult, or None if not handled.
-
-        Example implementation:
-            @hookimpl
-            def run_lock(pm_name, project_dir, scenario_name, timeout):
-                if pm_name != "uv":
-                    return None
-                # Run uv lock and return LockResult
-        """
-
-
-    @hookspec
-    def get_output_dir(
-        self,
-        pm_name: str,
-        base_dir: Path,
-        scenario_name: str
-    ) -> Optional[Path]:
-        """Get output directory for a scenario.
-
-        Args:
-            pm_name: Package manager name
-            base_dir: Base output directory
-            scenario_name: Name of the scenario
-
-        Returns:
-            Path to scenario output directory, or None if not handled.
-
-        Example implementation:
-            @hookimpl
-            def get_output_dir(pm_name, base_dir, scenario_name):
-                if pm_name != "uv":
-                    return None
-                return base_dir / "scenarios" / "uv" / scenario_name
-        """
-
-    @hookspec
-    def validate_scenario(
-        self,
-        pm_name: str,
-        scenario: "Scenario"
-    ) -> Optional[bool]:
-        """Check if a scenario is compatible with a package manager.
-
-        Args:
-            pm_name: Package manager name
-            scenario: Scenario to validate
-
-        Returns:
-            True if compatible, False if not, None if not handled.
-
-        Example implementation:
-            @hookimpl
-            def validate_scenario(pm_name, scenario):
-                if pm_name != "uv":
-                    return None
-                return scenario.source in ["packse"]
-        """
-
-    @hookspec
-    def generate_sbom_for_lock(
+    def process_scenario(
         self,
         pm_name: str,
         scenario: "Scenario",
         output_dir: Path,
-        lock_result: "LockResult"
-    ) -> Optional[Path]:
-        """Generate SBOM and meta files from lock result.
+        timeout: int = 120
+    ) -> Optional[dict]:
+        """Process a scenario: generate manifest, lock, and SBOM (new atomic operation).
+
+        This is the new simplified hook that combines generate_manifest, run_lock,
+        and generate_sbom_for_lock into a single atomic operation. Plugins have
+        full control over the workflow.
 
         Args:
-            pm_name: Package manager name
-            scenario: Scenario being processed
-            output_dir: Scenario output directory
-            lock_result: Result of lock operation
+            pm_name: Package manager name (e.g., "uv")
+            scenario: Scenario to process
+            output_dir: Scenario output directory (where files should be written)
+            timeout: Maximum execution time in seconds
 
         Returns:
-            Path to generated SBOM file, or None if not handled.
+            Dict with result info:
+                - pm_name: Package manager name
+                - status: "success", "failed", "timeout", "unsatisfiable"
+                - manifest_path: Path to generated manifest file
+                - lock_file_path: Path to lock file
+                - sbom_path: Path to generated SBOM (expected.cdx.json)
+                - meta_path: Path to meta.json file
+                - duration_seconds: Processing duration
+                - exit_code: Exit code from lock command
+                - error_message: Error message (on failure)
+            None if this plugin doesn't handle this PM.
 
         Example implementation:
             @hookimpl
-            def generate_sbom_for_lock(pm_name, scenario, output_dir, lock_result):
+            def process_scenario(pm_name, scenario, output_dir, timeout):
                 if pm_name != "uv":
                     return None
-                # Generate meta.json and expected.cdx.json
+                # 1. Generate manifest (pyproject.toml)
+                # 2. Run lock command (uv lock)
+                # 3. Parse lock file, generate expected.cdx.json
+                # 4. Generate meta.json
+                return {
+                    "pm_name": "uv",
+                    "status": "success",
+                    "manifest_path": str(manifest_path),
+                    "lock_file_path": str(lock_file_path),
+                    "sbom_path": str(sbom_path),
+                    "meta_path": str(meta_path),
+                    "duration_seconds": 1.5,
+                    "exit_code": 0
+                }
         """

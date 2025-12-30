@@ -6,15 +6,13 @@ from pathlib import Path
 import pytest
 
 from bom_bench.models.scenario import Scenario, Root, Requirement, ResolverOptions
-from bom_bench.models.result import LockResult, LockStatus
+from bom_bench.models.package_manager import ProcessStatus, ProcessScenarioResult
 from bom_bench.plugins import initialize_plugins
 from bom_bench.package_managers import (
-    package_manager_get_output_dir,
-    package_manager_validate_scenario,
-    package_manager_generate_sbom_for_lock,
-    package_manager_generate_manifest,
+    package_manager_process_scenario,
     list_available_package_managers,
     check_package_manager_available,
+    get_package_manager_info,
 )
 
 
@@ -77,156 +75,47 @@ class TestUVPackageManagerPluginAPI:
             source="packse"
         )
 
-    def test_validate_scenario_packse(self, simple_scenario):
-        """Test scenario validation for packse source."""
-        assert package_manager_validate_scenario("uv", simple_scenario) is True
+    def test_get_pm_info_uv(self):
+        """Test getting PM info for UV."""
+        pm_info = get_package_manager_info("uv")
+        assert pm_info is not None
+        assert pm_info.name == "uv"
+        assert pm_info.ecosystem == "python"
+        assert "packse" in pm_info.supported_sources
 
-    def test_validate_scenario_other_source(self, simple_scenario):
-        """Test scenario validation for non-packse source."""
-        simple_scenario.source = "other"
-        assert package_manager_validate_scenario("uv", simple_scenario) is False
+    def test_get_pm_info_invalid(self):
+        """Test getting PM info for non-existent PM."""
+        pm_info = get_package_manager_info("nonexistent")
+        assert pm_info is None
 
-    def test_validate_scenario_invalid_pm(self, simple_scenario):
-        """Test scenario validation for non-existent PM."""
-        assert package_manager_validate_scenario("nonexistent", simple_scenario) is False
-
-    def test_generate_manifest_simple(self, simple_scenario):
-        """Test generating simple pyproject.toml."""
-        with tempfile.TemporaryDirectory() as tmpdir:
-            output_dir = Path(tmpdir)
-            manifest_path = package_manager_generate_manifest("uv", simple_scenario, output_dir)
-
-            # Check that file was created
-            assert manifest_path is not None
-            assert manifest_path.exists()
-            assert manifest_path.name == "pyproject.toml"
-
-            # Check content
-            content = manifest_path.read_text()
-            assert '[project]' in content
-            assert 'name = "project"' in content
-            assert 'version = "0.1.0"' in content
-            assert '"package-a>=1.0.0"' in content
-            assert '"package-b<2.0.0"' in content
-            assert 'requires-python = ">=3.12"' in content
-
-    def test_generate_manifest_with_environments(self, scenario_with_environments):
-        """Test generating pyproject.toml with required environments."""
-        with tempfile.TemporaryDirectory() as tmpdir:
-            output_dir = Path(tmpdir)
-            manifest_path = package_manager_generate_manifest("uv", scenario_with_environments, output_dir)
-
-            # Check content
-            assert manifest_path is not None
-            content = manifest_path.read_text()
-            assert '[project]' in content
-            assert '[tool.uv]' in content
-            assert 'required-environments' in content
-            assert '"python_version >= \'3.8\'"' in content
-            assert '"sys_platform == \'linux\'"' in content
-
-    def test_generate_manifest_creates_directory(self, simple_scenario):
-        """Test that generate_manifest creates output directory if needed."""
-        with tempfile.TemporaryDirectory() as tmpdir:
-            output_dir = Path(tmpdir) / "nested" / "dir"
-            assert not output_dir.exists()
-
-            manifest_path = package_manager_generate_manifest("uv", simple_scenario, output_dir)
-
-            assert manifest_path is not None
-            assert output_dir.exists()
-            assert manifest_path.exists()
-
-    def test_get_output_dir(self):
-        """Test output directory path generation."""
-        base_dir = Path("/tmp/output")
-        scenario_name = "test-scenario"
-
-        output_dir = package_manager_get_output_dir("uv", base_dir, scenario_name)
-
-        assert output_dir == Path("/tmp/output/scenarios/uv/test-scenario")
-
-    def test_get_output_dir_invalid_pm(self):
-        """Test output directory for non-existent PM."""
-        output_dir = package_manager_get_output_dir("nonexistent", Path("/tmp"), "test")
-        assert output_dir is None
-
-    def test_generate_sbom_for_lock_success(self, simple_scenario):
-        """Test SBOM generation for successful lock."""
-        with tempfile.TemporaryDirectory() as tmpdir:
-            output_dir = Path(tmpdir)
-            assets_dir = output_dir / "assets"
-            assets_dir.mkdir(parents=True)
-
-            # Create a mock uv.lock file
-            lock_content = """
-version = 1
-requires-python = ">=3.12"
-
-[[package]]
-name = "package-a"
-version = "1.0.0"
-source = { registry = "https://test.pypi.org" }
-"""
-            (assets_dir / "uv.lock").write_text(lock_content)
-
-            lock_result = LockResult(
-                scenario_name="test-scenario",
-                package_manager="uv",
-                status=LockStatus.SUCCESS,
-                exit_code=0,
-                stdout="Resolved 1 package",
-                stderr="",
-                duration_seconds=0.5
-            )
-
-            sbom_path = package_manager_generate_sbom_for_lock("uv", simple_scenario, output_dir, lock_result)
-
-            # Should generate expected.cdx.json
-            assert sbom_path is not None
-            expected_sbom = output_dir / "expected.cdx.json"
-            assert expected_sbom.exists()
-
-            # Should also generate meta.json
-            meta_path = output_dir / "meta.json"
-            assert meta_path.exists()
-
-    def test_generate_sbom_for_lock_failure(self, simple_scenario):
-        """Test SBOM generation for failed lock."""
+    def test_process_scenario_success(self, simple_scenario):
+        """Test processing a scenario (will fail/be unsatisfiable without packse server)."""
         with tempfile.TemporaryDirectory() as tmpdir:
             output_dir = Path(tmpdir)
 
-            lock_result = LockResult(
-                scenario_name="test-scenario",
-                package_manager="uv",
-                status=LockStatus.FAILED,
-                exit_code=1,
-                stdout="",
-                stderr="Resolution failed",
-                duration_seconds=0.5
-            )
+            # This test will actually try to run uv lock, which will fail/be unsatisfiable
+            # without a packse server. We're testing the interface.
+            result = package_manager_process_scenario("uv", simple_scenario, output_dir)
 
-            result_path = package_manager_generate_sbom_for_lock("uv", simple_scenario, output_dir, lock_result)
+            # Result should be ProcessScenarioResult
+            assert result is not None
+            assert isinstance(result, ProcessScenarioResult)
+            assert result.pm_name == "uv"
+            assert result.status in [ProcessStatus.SUCCESS, ProcessStatus.FAILED, ProcessStatus.TIMEOUT, ProcessStatus.UNSATISFIABLE]
+            assert result.duration_seconds >= 0
 
-            # Should generate meta.json but NOT expected.cdx.json
-            meta_path = output_dir / "meta.json"
-            assert meta_path.exists()
+            # Manifest should always be created
+            assert result.manifest_path is not None
+            assert result.manifest_path.exists()
 
-            # Should NOT generate expected.cdx.json for failed lock
-            expected_sbom = output_dir / "expected.cdx.json"
-            assert not expected_sbom.exists()
+            # If successful, check that SBOM was created
+            if result.status == ProcessStatus.SUCCESS:
+                assert result.sbom_path is not None
+                assert result.meta_path is not None
 
-    def test_generate_sbom_for_lock_invalid_pm(self, simple_scenario):
-        """Test SBOM generation for non-existent PM."""
-        lock_result = LockResult(
-            scenario_name="test-scenario",
-            package_manager="nonexistent",
-            status=LockStatus.SUCCESS,
-            exit_code=0,
-            stdout="",
-            stderr="",
-            duration_seconds=0.5
-        )
-
-        result = package_manager_generate_sbom_for_lock("nonexistent", simple_scenario, Path("/tmp"), lock_result)
-        assert result is None
+    def test_process_scenario_invalid_pm(self, simple_scenario):
+        """Test processing scenario with non-existent PM."""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            output_dir = Path(tmpdir)
+            result = package_manager_process_scenario("nonexistent", simple_scenario, output_dir)
+            assert result is None

@@ -4,11 +4,8 @@ Provides functions for working with package managers:
     from bom_bench.package_managers import (
         list_available_package_managers,
         check_package_manager_available,
-        package_manager_generate_manifest,
-        package_manager_run_lock,
-        package_manager_get_output_dir,
-        package_manager_validate_scenario,
-        package_manager_generate_sbom_for_lock,
+        get_package_manager_info,
+        package_manager_process_scenario,
     )
 
 Available plugins:
@@ -19,7 +16,7 @@ from pathlib import Path
 from typing import Dict, List, Optional
 
 from bom_bench.logging_config import get_logger
-from bom_bench.models.package_manager import PMInfo
+from bom_bench.models.package_manager import PMInfo, ProcessScenarioResult
 
 logger = get_logger(__name__)
 
@@ -101,82 +98,25 @@ def check_package_manager_available(pm_name: str) -> bool:
     return pms[pm_name].installed
 
 
-def package_manager_load_scenarios(pm_name: str, data_dir: Path) -> List:
-    """Load scenarios for a package manager.
-
-    Args:
-        pm_name: Name of the package manager.
-        data_dir: Base data directory.
-
-    Returns:
-        List of scenarios.
-    """
-    from bom_bench.plugins import pm, initialize_plugins
-
-    initialize_plugins()
-
-    if pm_name not in _registered_pms:
-        logger.warning(f"Package manager '{pm_name}' not registered")
-        return []
-
-    results = pm.hook.load_scenarios(pm_name=pm_name, data_dir=data_dir)
-    for result in results:
-        if result is not None:
-            return result
-
-    logger.warning(f"No plugin handled scenario loading for PM '{pm_name}'")
-    return []
-
-
-def package_manager_generate_manifest(pm_name: str, scenario, output_dir: Path) -> Optional[Path]:
-    """Generate manifest for a scenario.
-
-    Args:
-        pm_name: Name of the package manager.
-        scenario: Scenario to generate manifest for.
-        output_dir: Output directory.
-
-    Returns:
-        Path to manifest file, or None if failed.
-    """
-    from bom_bench.plugins import pm, initialize_plugins
-
-    initialize_plugins()
-
-    if pm_name not in _registered_pms:
-        logger.warning(f"Package manager '{pm_name}' not registered")
-        return None
-
-    results = pm.hook.generate_manifest(
-        pm_name=pm_name,
-        scenario=scenario,
-        output_dir=output_dir
-    )
-
-    for result in results:
-        if result is not None:
-            return result
-
-    logger.warning(f"No plugin handled manifest generation for PM '{pm_name}'")
-    return None
-
-
-def package_manager_run_lock(
+def package_manager_process_scenario(
     pm_name: str,
-    project_dir: Path,
-    scenario_name: str,
+    scenario,
+    output_dir: Path,
     timeout: int = 120
-):
-    """Run lock command for a project.
+) -> Optional[ProcessScenarioResult]:
+    """Process a scenario: generate manifest, lock, and SBOM (new atomic operation).
+
+    This is the new simplified interface that combines generate_manifest, run_lock,
+    and generate_sbom_for_lock into a single atomic operation.
 
     Args:
         pm_name: Name of the package manager.
-        project_dir: Directory containing manifest.
-        scenario_name: Name of scenario.
+        scenario: Scenario to process.
+        output_dir: Output directory for scenario files.
         timeout: Timeout in seconds.
 
     Returns:
-        LockResult, or None if failed.
+        ProcessScenarioResult, or None if PM not found.
     """
     from bom_bench.plugins import pm, initialize_plugins
 
@@ -186,120 +126,19 @@ def package_manager_run_lock(
         logger.warning(f"Package manager '{pm_name}' not registered")
         return None
 
-    results = pm.hook.run_lock(
+    results = pm.hook.process_scenario(
         pm_name=pm_name,
-        project_dir=project_dir,
-        scenario_name=scenario_name,
+        scenario=scenario,
+        output_dir=output_dir,
         timeout=timeout
     )
 
     for result in results:
         if result is not None:
-            return result
+            # Convert dict to ProcessScenarioResult
+            return ProcessScenarioResult.from_dict(result)
 
-    logger.warning(f"No plugin handled lock for PM '{pm_name}'")
-    return None
-
-
-def package_manager_get_output_dir(pm_name: str, base_dir: Path, scenario_name: str) -> Optional[Path]:
-    """Get output directory for a package manager scenario.
-
-    Args:
-        pm_name: Name of the package manager.
-        base_dir: Base output directory.
-        scenario_name: Name of the scenario.
-
-    Returns:
-        Path to scenario output directory, or None if PM not found.
-    """
-    from bom_bench.plugins import pm, initialize_plugins
-
-    initialize_plugins()
-
-    if pm_name not in _registered_pms:
-        logger.warning(f"Package manager '{pm_name}' not registered")
-        return None
-
-    results = pm.hook.get_output_dir(
-        pm_name=pm_name,
-        base_dir=base_dir,
-        scenario_name=scenario_name
-    )
-
-    for result in results:
-        if result is not None:
-            return result
-
-    logger.warning(f"No plugin handled get_output_dir for PM '{pm_name}'")
-    return None
-
-
-def package_manager_validate_scenario(pm_name: str, scenario) -> bool:
-    """Check if scenario is compatible with package manager.
-
-    Args:
-        pm_name: Name of the package manager.
-        scenario: Scenario to validate.
-
-    Returns:
-        True if compatible, False otherwise.
-    """
-    from bom_bench.plugins import pm, initialize_plugins
-
-    initialize_plugins()
-
-    if pm_name not in _registered_pms:
-        return False
-
-    results = pm.hook.validate_scenario(
-        pm_name=pm_name,
-        scenario=scenario
-    )
-
-    for result in results:
-        if result is not None:
-            return result
-
-    return False  # Default to not compatible
-
-
-def package_manager_generate_sbom_for_lock(
-    pm_name: str,
-    scenario,
-    output_dir: Path,
-    lock_result
-) -> Optional[Path]:
-    """Generate SBOM and meta files from lock result.
-
-    Args:
-        pm_name: Name of the package manager.
-        scenario: Scenario being processed.
-        output_dir: Scenario output directory.
-        lock_result: Result of lock operation.
-
-    Returns:
-        Path to generated file, or None if failed.
-    """
-    from bom_bench.plugins import pm, initialize_plugins
-
-    initialize_plugins()
-
-    if pm_name not in _registered_pms:
-        logger.warning(f"Package manager '{pm_name}' not registered")
-        return None
-
-    results = pm.hook.generate_sbom_for_lock(
-        pm_name=pm_name,
-        scenario=scenario,
-        output_dir=output_dir,
-        lock_result=lock_result
-    )
-
-    for result in results:
-        if result is not None:
-            return result
-
-    logger.warning(f"No plugin handled generate_sbom_for_lock for PM '{pm_name}'")
+    logger.warning(f"No plugin handled process_scenario for PM '{pm_name}'")
     return None
 
 
@@ -308,10 +147,5 @@ __all__ = [
     "list_available_package_managers",
     "get_package_manager_info",
     "check_package_manager_available",
-    "package_manager_load_scenarios",
-    "package_manager_generate_manifest",
-    "package_manager_run_lock",
-    "package_manager_get_output_dir",
-    "package_manager_validate_scenario",
-    "package_manager_generate_sbom_for_lock",
+    "package_manager_process_scenario",
 ]

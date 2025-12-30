@@ -152,204 +152,10 @@ def register_package_managers() -> dict:
         "name": "uv",
         "ecosystem": "python",
         "description": "Fast Python package manager and resolver",
-        "data_source": "packse",
+        "supported_sources": ["packse"],
         "installed": shutil.which("uv") is not None,
         "version": _get_uv_version()
     }
-
-
-@hookimpl
-def load_scenarios(pm_name: str, data_dir: Path) -> Optional[List[Scenario]]:
-    """Load packse scenarios for UV.
-
-    Args:
-        pm_name: Package manager name
-        data_dir: Base data directory
-
-    Returns:
-        List of scenarios, or None if not handled.
-    """
-    if pm_name != "uv":
-        return None
-
-    packse_dir = data_dir / "packse"
-
-    # Fetch if needed
-    if not packse_dir.exists():
-        logger.info(f"Fetching packse scenarios to {packse_dir}...")
-        try:
-            if not packse_dir.parent.exists():
-                packse_dir.parent.mkdir(parents=True, exist_ok=True)
-            packse.fetch.fetch(dest=packse_dir)
-            logger.info("Successfully fetched packse scenarios")
-        except Exception as e:
-            logger.error(f"Failed to fetch packse scenarios: {e}")
-            raise
-
-    # Load scenarios
-    try:
-        scenario_files = list(packse.inspect.find_scenario_files(packse_dir))
-
-        if not scenario_files:
-            logger.warning(f"No packse scenario files found in {packse_dir}")
-            return []
-
-        template_vars = packse.inspect.variables_for_templates(
-            scenario_files,
-            no_hash=True
-        )
-
-        scenario_dicts = template_vars.get("scenarios", [])
-
-        if not scenario_dicts:
-            logger.warning("No scenarios loaded from packse")
-            return []
-
-        scenarios = [
-            Scenario.from_dict(scenario_dict, source="packse")
-            for scenario_dict in scenario_dicts
-        ]
-
-        logger.info(f"Loaded {len(scenarios)} packse scenarios")
-        return scenarios
-
-    except Exception as e:
-        logger.error(f"Failed to load packse scenarios: {e}")
-        raise
-
-
-@hookimpl
-def generate_manifest(
-    pm_name: str,
-    scenario: Scenario,
-    output_dir: Path
-) -> Optional[Path]:
-    """Generate pyproject.toml for UV.
-
-    Args:
-        pm_name: Package manager name
-        scenario: Scenario to generate manifest for
-        output_dir: Scenario output directory
-
-    Returns:
-        Path to manifest file, or None if not handled.
-    """
-    if pm_name != "uv":
-        return None
-
-    # Extract dependencies from scenario
-    dependencies = [
-        req.requirement
-        for req in scenario.root.requires
-    ]
-
-    # Extract requires-python
-    requires_python = scenario.root.requires_python
-
-    # Extract required-environments for universal resolution
-    required_environments = scenario.resolver_options.required_environments
-
-    # Generate pyproject.toml content
-    content = _generate_pyproject_toml(
-        name=PROJECT_NAME,
-        version=PROJECT_VERSION,
-        dependencies=dependencies,
-        requires_python=requires_python,
-        required_environments=required_environments if required_environments else None
-    )
-
-    # Write to assets subdirectory (keeps project files separate from meta files)
-    assets_dir = output_dir / "assets"
-    assets_dir.mkdir(parents=True, exist_ok=True)
-
-    manifest_path = assets_dir / "pyproject.toml"
-    manifest_path.write_text(content)
-
-    return manifest_path
-
-
-@hookimpl
-def run_lock(
-    pm_name: str,
-    project_dir: Path,
-    scenario_name: str,
-    timeout: int = LOCK_TIMEOUT_SECONDS
-) -> Optional[LockResult]:
-    """Execute uv lock command and capture output.
-
-    Args:
-        pm_name: Package manager name
-        project_dir: Directory containing the pyproject.toml (assets dir)
-        scenario_name: Name of the scenario (for logging)
-        timeout: Command timeout in seconds
-
-    Returns:
-        LockResult with execution details, or None if not handled.
-    """
-    if pm_name != "uv":
-        return None
-
-    lock_file = project_dir / "uv.lock"
-    start_time = time.time()
-
-    try:
-        # Run uv lock with the packse index URL
-        result = subprocess.run(
-            ["uv", "lock", "--index-url", PACKSE_INDEX_URL],
-            cwd=project_dir,
-            capture_output=True,
-            text=True,
-            timeout=timeout
-        )
-
-        duration = time.time() - start_time
-
-        # Determine status
-        if result.returncode == 0:
-            status = LockStatus.SUCCESS
-        else:
-            status = LockStatus.FAILED
-
-        return LockResult(
-            scenario_name=scenario_name,
-            package_manager="uv",
-            status=status,
-            exit_code=result.returncode,
-            stdout=result.stdout,
-            stderr=result.stderr,
-            lock_file=lock_file if lock_file.exists() else None,
-            duration_seconds=duration
-        )
-
-    except subprocess.TimeoutExpired:
-        duration = time.time() - start_time
-
-        logger.warning(f"  Timeout: {scenario_name}")
-
-        return LockResult(
-            scenario_name=scenario_name,
-            package_manager="uv",
-            status=LockStatus.TIMEOUT,
-            stdout="",
-            stderr=f"Command timed out after {timeout} seconds",
-            error_message=f"Command timed out after {timeout} seconds",
-            duration_seconds=duration
-        )
-
-    except Exception as e:
-        duration = time.time() - start_time
-
-        logger.error(f"  Error running uv lock for {scenario_name}: {e}")
-
-        return LockResult(
-            scenario_name=scenario_name,
-            package_manager="uv",
-            status=LockStatus.ERROR,
-            stdout="",
-            stderr=str(e),
-            error_message=str(e),
-            duration_seconds=duration
-        )
 
 
 def _generate_sbom_for_lock_impl(
@@ -404,58 +210,152 @@ def _generate_sbom_for_lock_impl(
 
 
 @hookimpl
-def get_output_dir(pm_name: str, base_dir: Path, scenario_name: str) -> Optional[Path]:
-    """Get output directory for a UV scenario.
-
-    Args:
-        pm_name: Package manager name
-        base_dir: Base output directory
-        scenario_name: Name of the scenario
-
-    Returns:
-        Path to scenario output directory, or None if not UV.
-    """
-    if pm_name != "uv":
-        return None
-    return base_dir / "scenarios" / "uv" / scenario_name
-
-
-@hookimpl
-def validate_scenario(pm_name: str, scenario: Scenario) -> Optional[bool]:
-    """Check if scenario is compatible with UV.
-
-    Args:
-        pm_name: Package manager name
-        scenario: Scenario to validate
-
-    Returns:
-        True if compatible, False if not, None if not UV.
-    """
-    if pm_name != "uv":
-        return None
-    return scenario.source in ["packse"]
-
-
-@hookimpl
-def generate_sbom_for_lock(
+def process_scenario(
     pm_name: str,
     scenario: Scenario,
     output_dir: Path,
-    lock_result: LockResult
-) -> Optional[Path]:
-    """Generate SBOM and meta files for a UV lock result.
+    timeout: int = LOCK_TIMEOUT_SECONDS
+) -> Optional[dict]:
+    """Process a scenario: generate manifest, lock, and SBOM.
+
+    This is the new simplified hook that combines generate_manifest, run_lock,
+    and generate_sbom_for_lock into a single atomic operation.
 
     Args:
         pm_name: Package manager name
-        scenario: Scenario being processed
-        output_dir: Scenario directory (contains assets/)
-        lock_result: Result of lock operation
+        scenario: Scenario to process
+        output_dir: Scenario output directory
+        timeout: Timeout in seconds
 
     Returns:
-        Path to generated SBOM/meta file, or None if not UV.
+        Dict with result info, or None if not UV.
     """
     if pm_name != "uv":
         return None
-    return _generate_sbom_for_lock_impl(scenario, output_dir, lock_result)
+
+    start_time = time.time()
+
+    try:
+        # 1. Generate manifest (pyproject.toml)
+        # Extract dependencies from scenario
+        dependencies = [req.requirement for req in scenario.root.requires]
+        requires_python = scenario.root.requires_python
+        required_environments = scenario.resolver_options.required_environments
+
+        # Generate pyproject.toml content
+        content = _generate_pyproject_toml(
+            name=PROJECT_NAME,
+            version=PROJECT_VERSION,
+            dependencies=dependencies,
+            requires_python=requires_python,
+            required_environments=required_environments if required_environments else None
+        )
+
+        # Write to assets subdirectory
+        assets_dir = output_dir / "assets"
+        assets_dir.mkdir(parents=True, exist_ok=True)
+        manifest_path = assets_dir / "pyproject.toml"
+        manifest_path.write_text(content)
+
+        # 2. Run lock command
+        lock_file = assets_dir / "uv.lock"
+        lock_start_time = time.time()
+
+        try:
+            # Run uv lock with the packse index URL
+            result = subprocess.run(
+                ["uv", "lock", "--index-url", PACKSE_INDEX_URL],
+                cwd=assets_dir,
+                capture_output=True,
+                text=True,
+                timeout=timeout
+            )
+
+            lock_duration = time.time() - lock_start_time
+
+            # Determine lock status
+            if result.returncode == 0:
+                lock_status = LockStatus.SUCCESS
+            else:
+                lock_status = LockStatus.FAILED
+
+            lock_result = LockResult(
+                scenario_name=scenario.name,
+                package_manager="uv",
+                status=lock_status,
+                exit_code=result.returncode,
+                stdout=result.stdout,
+                stderr=result.stderr,
+                lock_file=lock_file if lock_file.exists() else None,
+                duration_seconds=lock_duration
+            )
+
+        except subprocess.TimeoutExpired:
+            lock_duration = time.time() - lock_start_time
+            logger.warning(f"  Timeout: {scenario.name}")
+
+            lock_result = LockResult(
+                scenario_name=scenario.name,
+                package_manager="uv",
+                status=LockStatus.TIMEOUT,
+                stdout="",
+                stderr=f"Command timed out after {timeout} seconds",
+                error_message=f"Command timed out after {timeout} seconds",
+                duration_seconds=lock_duration
+            )
+
+        # 3. Generate SBOM and meta files
+        result_path = _generate_sbom_for_lock_impl(scenario, output_dir, lock_result)
+
+        duration = time.time() - start_time
+
+        # Determine status
+        if lock_result.status == LockStatus.SUCCESS:
+            status = "success"
+        elif lock_result.status == LockStatus.TIMEOUT:
+            status = "timeout"
+        else:
+            # Check if it's unsatisfiable (meta.json exists but no SBOM)
+            meta_path = output_dir / "meta.json"
+            sbom_path = output_dir / "expected.cdx.json"
+            if meta_path.exists() and not sbom_path.exists():
+                status = "unsatisfiable"
+            else:
+                status = "failed"
+
+        # Build result dict
+        result = {
+            "pm_name": "uv",
+            "status": status,
+            "duration_seconds": duration,
+            "exit_code": lock_result.exit_code or 0,
+            "manifest_path": str(manifest_path),
+            "lock_file_path": str(lock_result.lock_file) if lock_result.lock_file else None,
+        }
+
+        # Add optional paths if they exist
+        sbom_path = output_dir / "expected.cdx.json"
+        if sbom_path.exists():
+            result["sbom_path"] = str(sbom_path)
+
+        meta_path = output_dir / "meta.json"
+        if meta_path.exists():
+            result["meta_path"] = str(meta_path)
+
+        if lock_result.error_message:
+            result["error_message"] = lock_result.error_message
+
+        return result
+
+    except Exception as e:
+        duration = time.time() - start_time
+        logger.error(f"Error processing scenario {scenario.name}: {e}")
+        return {
+            "pm_name": "uv",
+            "status": "failed",
+            "duration_seconds": duration,
+            "exit_code": 1,
+            "error_message": str(e)
+        }
 
 

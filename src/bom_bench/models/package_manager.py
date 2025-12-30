@@ -1,7 +1,168 @@
 """Package manager metadata models."""
 
 from dataclasses import dataclass
+from enum import Enum
+from pathlib import Path
 from typing import List, Optional
+
+
+class ProcessStatus(Enum):
+    """Status of scenario processing operation.
+
+    Values:
+        SUCCESS: Processing completed successfully
+        FAILED: Processing failed due to error
+        TIMEOUT: Processing exceeded timeout limit
+        UNSATISFIABLE: Dependencies cannot be satisfied
+    """
+    SUCCESS = "success"
+    FAILED = "failed"
+    TIMEOUT = "timeout"
+    UNSATISFIABLE = "unsatisfiable"
+
+
+@dataclass
+class ProcessScenarioResult:
+    """Result of processing a scenario with a package manager.
+
+    This is the result returned by the process_scenario hook.
+    Replaces LockResult for the simplified PM plugin interface.
+
+    Attributes:
+        pm_name: Package manager name
+        status: Processing status
+        manifest_path: Path to generated manifest file
+        lock_file_path: Path to lock file
+        sbom_path: Path to generated SBOM (expected.cdx.json)
+        meta_path: Path to meta.json file
+        duration_seconds: Processing duration in seconds
+        exit_code: Exit code from lock command
+        error_message: Error message if failed
+    """
+    pm_name: str
+    status: ProcessStatus
+    duration_seconds: float
+    exit_code: int
+    manifest_path: Optional[Path] = None
+    lock_file_path: Optional[Path] = None
+    sbom_path: Optional[Path] = None
+    meta_path: Optional[Path] = None
+    error_message: Optional[str] = None
+
+    @classmethod
+    def success(
+        cls,
+        pm_name: str,
+        manifest_path: Path,
+        lock_file_path: Path,
+        sbom_path: Path,
+        meta_path: Path,
+        duration_seconds: float,
+        exit_code: int,
+    ) -> "ProcessScenarioResult":
+        """Create a successful result.
+
+        Args:
+            pm_name: Package manager name
+            manifest_path: Path to manifest file
+            lock_file_path: Path to lock file
+            sbom_path: Path to SBOM file
+            meta_path: Path to meta.json
+            duration_seconds: Processing duration
+            exit_code: Exit code
+
+        Returns:
+            ProcessScenarioResult with SUCCESS status
+        """
+        return cls(
+            pm_name=pm_name,
+            status=ProcessStatus.SUCCESS,
+            manifest_path=manifest_path,
+            lock_file_path=lock_file_path,
+            sbom_path=sbom_path,
+            meta_path=meta_path,
+            duration_seconds=duration_seconds,
+            exit_code=exit_code,
+        )
+
+    @classmethod
+    def failed(
+        cls,
+        pm_name: str,
+        duration_seconds: float,
+        exit_code: int,
+        error_message: str,
+    ) -> "ProcessScenarioResult":
+        """Create a failed result.
+
+        Args:
+            pm_name: Package manager name
+            duration_seconds: Processing duration
+            exit_code: Exit code
+            error_message: Error message
+
+        Returns:
+            ProcessScenarioResult with FAILED status
+        """
+        return cls(
+            pm_name=pm_name,
+            status=ProcessStatus.FAILED,
+            duration_seconds=duration_seconds,
+            exit_code=exit_code,
+            error_message=error_message,
+        )
+
+    @classmethod
+    def unsatisfiable(
+        cls,
+        pm_name: str,
+        manifest_path: Path,
+        meta_path: Path,
+        duration_seconds: float,
+        exit_code: int,
+    ) -> "ProcessScenarioResult":
+        """Create an unsatisfiable result.
+
+        Args:
+            pm_name: Package manager name
+            manifest_path: Path to manifest file
+            meta_path: Path to meta.json
+            duration_seconds: Processing duration
+            exit_code: Exit code
+
+        Returns:
+            ProcessScenarioResult with UNSATISFIABLE status
+        """
+        return cls(
+            pm_name=pm_name,
+            status=ProcessStatus.UNSATISFIABLE,
+            manifest_path=manifest_path,
+            meta_path=meta_path,
+            duration_seconds=duration_seconds,
+            exit_code=exit_code,
+        )
+
+    @classmethod
+    def from_dict(cls, d: dict) -> "ProcessScenarioResult":
+        """Create ProcessScenarioResult from plugin dict.
+
+        Args:
+            d: Dict with result fields
+
+        Returns:
+            ProcessScenarioResult instance
+        """
+        return cls(
+            pm_name=d["pm_name"],
+            status=ProcessStatus(d["status"]),
+            duration_seconds=d["duration_seconds"],
+            exit_code=d["exit_code"],
+            manifest_path=Path(d["manifest_path"]) if d.get("manifest_path") else None,
+            lock_file_path=Path(d["lock_file_path"]) if d.get("lock_file_path") else None,
+            sbom_path=Path(d["sbom_path"]) if d.get("sbom_path") else None,
+            meta_path=Path(d["meta_path"]) if d.get("meta_path") else None,
+            error_message=d.get("error_message"),
+        )
 
 
 @dataclass
@@ -15,7 +176,7 @@ class PMInfo:
         name: Package manager name (e.g., 'uv', 'pip')
         ecosystem: Package ecosystem (e.g., 'python', 'javascript')
         description: Human-readable description
-        data_source: Name of the data source this PM uses (1-to-1 mapping)
+        supported_sources: List of data sources this PM supports (e.g., ['packse'])
         installed: Whether the package manager is installed and available
         version: Optional version of the package manager
     """
@@ -23,7 +184,7 @@ class PMInfo:
     name: str
     ecosystem: str
     description: str
-    data_source: str
+    supported_sources: List[str]
     installed: bool = False
     version: Optional[str] = None
 
@@ -41,7 +202,7 @@ class PMInfo:
             name=d["name"],
             ecosystem=d["ecosystem"],
             description=d["description"],
-            data_source=d["data_source"],
+            supported_sources=d["supported_sources"],
             installed=d.get("installed", False),
             version=d.get("version")
         )
