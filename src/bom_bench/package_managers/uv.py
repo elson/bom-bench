@@ -3,22 +3,51 @@
 This plugin provides support for the UV Python package manager,
 including loading packse scenarios, generating pyproject.toml manifests,
 and running uv lock commands.
+
+This plugin follows the Datasette-style pattern: it only imports hookimpl
+from bom_bench. All other functionality is accessed via the injected
+bom_bench module parameter.
 """
 
 import shutil
 import subprocess
 import time
+from dataclasses import dataclass
+from enum import Enum
 from pathlib import Path
 
 import tomlkit
 
 from bom_bench import hookimpl
-from bom_bench.generators.sbom.cyclonedx import generate_meta_file, generate_sbom_file
-from bom_bench.logging_config import get_logger
-from bom_bench.models.result import LockResult, LockStatus
-from bom_bench.models.scenario import ExpectedPackage, Scenario
 
-logger = get_logger(__name__)
+
+class _LockStatus(Enum):
+    """Status of lock file generation (private to this plugin)."""
+
+    SUCCESS = "success"
+    FAILED = "failed"
+    TIMEOUT = "timeout"
+
+
+@dataclass
+class _LockResult:
+    """Result of lock file generation (private to this plugin)."""
+
+    status: _LockStatus
+    exit_code: int | None = None
+    stdout: str | None = None
+    stderr: str | None = None
+    error_message: str | None = None
+
+
+PM_NAME = "uv"
+"""Package manager name"""
+
+PROJECT_NAME = "project"
+"""Fixed project name for generated projects"""
+
+PROJECT_VERSION = "0.1.0"
+"""Fixed project version for generated projects"""
 
 # UV-specific configuration constants
 PACKSE_INDEX_URL = "http://127.0.0.1:3141/simple-html"
@@ -26,12 +55,6 @@ PACKSE_INDEX_URL = "http://127.0.0.1:3141/simple-html"
 
 LOCK_TIMEOUT_SECONDS = 120
 """Timeout for lock file generation (2 minutes)"""
-
-PROJECT_NAME = "project"
-"""Fixed project name for generated projects"""
-
-PROJECT_VERSION = "0.1.0"
-"""Fixed project version for generated projects"""
 
 
 def _generate_pyproject_toml(
@@ -73,20 +96,20 @@ def _generate_pyproject_toml(
 
         uv_table = tomlkit.table()
         uv_table["required-environments"] = required_environments
-        doc["tool"]["uv"] = uv_table
+        doc["tool"][PM_NAME] = uv_table
 
     result: str = tomlkit.dumps(doc)
     return result
 
 
-def _parse_uv_lock(lock_file_path: Path) -> list[ExpectedPackage]:
+def _parse_uv_lock(lock_file_path: Path) -> list[dict]:
     """Parse uv.lock file and extract resolved packages.
 
     Args:
         lock_file_path: Path to uv.lock file
 
     Returns:
-        List of ExpectedPackage objects representing resolved dependencies
+        List of package dicts with 'name' and 'version' keys
 
     Raises:
         FileNotFoundError: If lock file doesn't exist
@@ -110,7 +133,7 @@ def _parse_uv_lock(lock_file_path: Path) -> list[ExpectedPackage]:
             version = package.get("version")
 
             if name and version:
-                packages.append(ExpectedPackage(name=name, version=version))
+                packages.append({"name": name, "version": version})
 
         return packages
 
@@ -121,7 +144,7 @@ def _parse_uv_lock(lock_file_path: Path) -> list[ExpectedPackage]:
 def _get_uv_version() -> str | None:
     """Get UV version if installed."""
     try:
-        result = subprocess.run(["uv", "--version"], capture_output=True, text=True, timeout=10)
+        result = subprocess.run([PM_NAME, "--version"], capture_output=True, text=True, timeout=10)
         if result.returncode == 0:
             # Format: "uv 0.5.11"
             parts = result.stdout.strip().split()
@@ -136,17 +159,17 @@ def _get_uv_version() -> str | None:
 def register_package_managers() -> dict:
     """Register UV package manager."""
     return {
-        "name": "uv",
+        "name": PM_NAME,
         "ecosystem": "python",
         "description": "Fast Python package manager and resolver",
         "supported_sources": ["packse"],
-        "installed": shutil.which("uv") is not None,
+        "installed": shutil.which(PM_NAME) is not None,
         "version": _get_uv_version(),
     }
 
 
 def _generate_sbom_for_lock_impl(
-    scenario: Scenario, output_dir: Path, lock_result: LockResult
+    scenario: dict, output_dir: Path, lock_result: "_LockResult", bom_bench
 ) -> Path | None:
     """Internal implementation for generating SBOM and meta files.
 
@@ -158,17 +181,19 @@ def _generate_sbom_for_lock_impl(
         scenario: Scenario being processed
         output_dir: Scenario directory (contains assets/)
         lock_result: Result of lock operation
+        bom_bench: The bom_bench module with helper functions
 
     Returns:
         Path to generated SBOM file, or None if generation failed
     """
+    logger = bom_bench.get_logger(__name__)
     sbom_path = output_dir / "expected.cdx.json"
     meta_path = output_dir / "meta.json"
 
     try:
         # Always generate meta.json with PM result
-        satisfiable = lock_result.status == LockStatus.SUCCESS
-        generate_meta_file(
+        satisfiable = lock_result.status == _LockStatus.SUCCESS
+        bom_bench.generate_meta_file(
             output_path=meta_path,
             satisfiable=satisfiable,
             exit_code=lock_result.exit_code or 0,
@@ -177,12 +202,12 @@ def _generate_sbom_for_lock_impl(
         )
 
         # Only generate SBOM if lock succeeded
-        if lock_result.status == LockStatus.SUCCESS:
+        if lock_result.status == _LockStatus.SUCCESS:
             lock_file = output_dir / "assets" / "uv.lock"
             if lock_file.exists():
                 packages = _parse_uv_lock(lock_file)
-                return generate_sbom_file(
-                    scenario_name=scenario.name,
+                return bom_bench.generate_sbom_file(
+                    scenario_name=scenario["name"],
                     output_path=sbom_path,
                     packages=packages,
                 )
@@ -196,33 +221,36 @@ def _generate_sbom_for_lock_impl(
 
 @hookimpl
 def process_scenario(
-    pm_name: str, scenario: Scenario, output_dir: Path, timeout: int = LOCK_TIMEOUT_SECONDS
+    pm_name: str,
+    scenario: dict,
+    output_dir: Path,
+    bom_bench,
+    timeout: int = LOCK_TIMEOUT_SECONDS,
 ) -> dict | None:
     """Process a scenario: generate manifest, lock, and SBOM.
 
-    This is the new simplified hook that combines generate_manifest, run_lock,
-    and generate_sbom_for_lock into a single atomic operation.
-
     Args:
         pm_name: Package manager name
-        scenario: Scenario to process
+        scenario: Scenario as dict
         output_dir: Scenario output directory
+        bom_bench: The bom_bench module (for dependency injection)
         timeout: Timeout in seconds
 
     Returns:
         Dict with result info, or None if not UV.
     """
-    if pm_name != "uv":
+    if pm_name != PM_NAME:
         return None
 
+    logger = bom_bench.get_logger(__name__)
     start_time = time.time()
 
     try:
         # 1. Generate manifest (pyproject.toml)
-        # Extract dependencies from scenario
-        dependencies = [req.requirement for req in scenario.root.requires]
-        requires_python = scenario.root.requires_python
-        required_environments = scenario.resolver_options.required_environments
+        # Extract dependencies from scenario dict
+        dependencies = [req["requirement"] for req in scenario["root"]["requires"]]
+        requires_python = scenario["root"]["requires_python"]
+        required_environments = scenario["resolver_options"]["required_environments"]
 
         # Generate pyproject.toml content
         content = _generate_pyproject_toml(
@@ -240,58 +268,44 @@ def process_scenario(
         manifest_path.write_text(content)
 
         # 2. Run lock command
-        lock_file = assets_dir / "uv.lock"
-        lock_start_time = time.time()
-
         try:
-            # Run uv lock with the packse index URL
             proc_result = subprocess.run(
-                ["uv", "lock", "--index-url", PACKSE_INDEX_URL],
+                [PM_NAME, "lock", "--index-url", PACKSE_INDEX_URL],
                 cwd=assets_dir,
                 capture_output=True,
                 text=True,
                 timeout=timeout,
             )
 
-            lock_duration = time.time() - lock_start_time
-
             # Determine lock status
-            lock_status = LockStatus.SUCCESS if proc_result.returncode == 0 else LockStatus.FAILED
+            lock_status = _LockStatus.SUCCESS if proc_result.returncode == 0 else _LockStatus.FAILED
 
-            lock_result = LockResult(
-                scenario_name=scenario.name,
-                package_manager="uv",
+            lock_result = _LockResult(
                 status=lock_status,
                 exit_code=proc_result.returncode,
                 stdout=proc_result.stdout,
                 stderr=proc_result.stderr,
-                lock_file=lock_file if lock_file.exists() else None,
-                duration_seconds=lock_duration,
             )
 
         except subprocess.TimeoutExpired:
-            lock_duration = time.time() - lock_start_time
-            logger.warning(f"  Timeout: {scenario.name}")
+            logger.warning(f"  Timeout: {scenario['name']}")
 
-            lock_result = LockResult(
-                scenario_name=scenario.name,
-                package_manager="uv",
-                status=LockStatus.TIMEOUT,
+            lock_result = _LockResult(
+                status=_LockStatus.TIMEOUT,
                 stdout="",
                 stderr=f"Command timed out after {timeout} seconds",
                 error_message=f"Command timed out after {timeout} seconds",
-                duration_seconds=lock_duration,
             )
 
         # 3. Generate SBOM and meta files
-        _generate_sbom_for_lock_impl(scenario, output_dir, lock_result)
+        _generate_sbom_for_lock_impl(scenario, output_dir, lock_result, bom_bench)
 
         duration = time.time() - start_time
 
         # Determine status
-        if lock_result.status == LockStatus.SUCCESS:
+        if lock_result.status == _LockStatus.SUCCESS:
             status = "success"
-        elif lock_result.status == LockStatus.TIMEOUT:
+        elif lock_result.status == _LockStatus.TIMEOUT:
             status = "timeout"
         else:
             # Check if it's unsatisfiable (meta.json exists but no SBOM)
@@ -299,24 +313,13 @@ def process_scenario(
             sbom_path = output_dir / "expected.cdx.json"
             status = "unsatisfiable" if meta_path.exists() and not sbom_path.exists() else "failed"
 
-        # Build result dict
-        result = {
-            "pm_name": "uv",
+        # Build result dict (files discovered by convention, no paths returned)
+        result: dict = {
+            "pm_name": PM_NAME,
             "status": status,
             "duration_seconds": duration,
             "exit_code": lock_result.exit_code or 0,
-            "manifest_path": str(manifest_path),
-            "lock_file_path": str(lock_result.lock_file) if lock_result.lock_file else None,
         }
-
-        # Add optional paths if they exist
-        sbom_path = output_dir / "expected.cdx.json"
-        if sbom_path.exists():
-            result["sbom_path"] = str(sbom_path)
-
-        meta_path = output_dir / "meta.json"
-        if meta_path.exists():
-            result["meta_path"] = str(meta_path)
 
         if lock_result.error_message:
             result["error_message"] = lock_result.error_message
@@ -325,9 +328,9 @@ def process_scenario(
 
     except Exception as e:
         duration = time.time() - start_time
-        logger.error(f"Error processing scenario {scenario.name}: {e}")
+        logger.error(f"Error processing scenario {scenario['name']}: {e}")
         return {
-            "pm_name": "uv",
+            "pm_name": PM_NAME,
             "status": "failed",
             "duration_seconds": duration,
             "exit_code": 1,

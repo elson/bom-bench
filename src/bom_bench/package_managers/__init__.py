@@ -101,20 +101,21 @@ def check_package_manager_available(pm_name: str) -> bool:
 def process_scenario(
     pm_name: str, scenario, output_dir: Path, timeout: int = 120
 ) -> ProcessScenarioResult | None:
-    """Process a scenario: generate manifest, lock, and SBOM (new atomic operation).
+    """Process a scenario: generate manifest, lock, and SBOM.
 
-    This is the new simplified interface that combines generate_manifest, run_lock,
-    and generate_sbom_for_lock into a single atomic operation.
+    Converts the scenario to a dict and passes the bom_bench module
+    for dependency injection (Datasette-style plugin pattern).
 
     Args:
         pm_name: Name of the package manager.
-        scenario: Scenario to process.
+        scenario: Scenario to process (will be converted to dict).
         output_dir: Output directory for scenario files.
         timeout: Timeout in seconds.
 
     Returns:
         ProcessScenarioResult, or None if PM not found.
     """
+    import bom_bench
     from bom_bench.plugins import initialize_plugins, pm
 
     initialize_plugins()
@@ -123,13 +124,18 @@ def process_scenario(
         logger.warning(f"Package manager '{pm_name}' not registered")
         return None
 
+    scenario_dict = scenario.to_dict()
+
     results = pm.hook.process_scenario(
-        pm_name=pm_name, scenario=scenario, output_dir=output_dir, timeout=timeout
+        pm_name=pm_name,
+        scenario=scenario_dict,
+        output_dir=output_dir,
+        bom_bench=bom_bench,
+        timeout=timeout,
     )
 
     for result in results:
         if result is not None:
-            # Convert dict to ProcessScenarioResult
             return ProcessScenarioResult.from_dict(result)
 
     logger.warning(f"No plugin handled process_scenario for PM '{pm_name}'")

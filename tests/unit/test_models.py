@@ -139,6 +139,65 @@ class TestScenario:
         assert scenario.description == "Test description"
         assert scenario.source == "packse"
 
+    def test_scenario_to_dict(self):
+        """Test converting Scenario to dictionary for plugin injection."""
+        from bom_bench.models.scenario import Expected, ExpectedPackage
+
+        root = Root(
+            requires=[Requirement(requirement="package-a>=1.0.0", extras=["dev"])],
+            requires_python=">=3.12",
+        )
+        resolver = ResolverOptions(universal=True)
+        expected = Expected(
+            packages=[ExpectedPackage(name="package-a", version="1.0.0")],
+            satisfiable=True,
+        )
+        scenario = Scenario(
+            name="test-scenario",
+            root=root,
+            resolver_options=resolver,
+            description="A test scenario",
+            expected=expected,
+            source="packse",
+        )
+
+        result = scenario.to_dict()
+
+        assert result["name"] == "test-scenario"
+        assert result["description"] == "A test scenario"
+        assert result["source"] == "packse"
+        assert result["root"]["requires_python"] == ">=3.12"
+        assert result["root"]["requires"][0]["requirement"] == "package-a>=1.0.0"
+        assert result["root"]["requires"][0]["extras"] == ["dev"]
+        assert result["resolver_options"]["universal"] is True
+        assert result["expected"]["satisfiable"] is True
+        assert result["expected"]["packages"][0]["name"] == "package-a"
+        assert result["expected"]["packages"][0]["version"] == "1.0.0"
+
+    def test_scenario_to_dict_roundtrip(self):
+        """Test that from_dict(to_dict(scenario)) preserves data."""
+        from bom_bench.models.scenario import Expected, ExpectedPackage
+
+        original = Scenario(
+            name="roundtrip-test",
+            root=Root(
+                requires=[Requirement(requirement="pkg>=1.0")],
+                requires_python=">=3.10",
+            ),
+            resolver_options=ResolverOptions(universal=True),
+            expected=Expected(
+                packages=[ExpectedPackage(name="pkg", version="1.0.0")],
+                satisfiable=True,
+            ),
+        )
+
+        reconstructed = Scenario.from_dict(original.to_dict(), source=original.source)
+
+        assert reconstructed.name == original.name
+        assert reconstructed.root.requires_python == original.root.requires_python
+        assert len(reconstructed.root.requires) == len(original.root.requires)
+        assert reconstructed.resolver_options.universal == original.resolver_options.universal
+
 
 class TestScenarioFilter:
     """Tests for ScenarioFilter."""
@@ -348,24 +407,31 @@ class TestProcessStatus:
 class TestProcessScenarioResult:
     """Tests for ProcessScenarioResult dataclass."""
 
+    def test_no_path_fields(self):
+        """ProcessScenarioResult should not have path fields - files discovered by convention."""
+        result = ProcessScenarioResult(
+            pm_name="uv",
+            status=ProcessStatus.SUCCESS,
+            duration_seconds=1.5,
+            exit_code=0,
+        )
+        # These fields should NOT exist - framework discovers files by convention
+        assert not hasattr(result, "manifest_path")
+        assert not hasattr(result, "lock_file_path")
+        assert not hasattr(result, "sbom_path")
+        assert not hasattr(result, "meta_path")
+
     def test_create_success_result(self):
         """Test creating a successful ProcessScenarioResult."""
         result = ProcessScenarioResult(
             pm_name="uv",
             status=ProcessStatus.SUCCESS,
-            manifest_path=Path("/output/assets/pyproject.toml"),
-            lock_file_path=Path("/output/assets/uv.lock"),
-            sbom_path=Path("/output/expected.cdx.json"),
-            meta_path=Path("/output/meta.json"),
             duration_seconds=1.5,
             exit_code=0,
         )
 
         assert result.pm_name == "uv"
         assert result.status == ProcessStatus.SUCCESS
-        assert result.manifest_path == Path("/output/assets/pyproject.toml")
-        assert result.lock_file_path == Path("/output/assets/uv.lock")
-        assert result.sbom_path == Path("/output/expected.cdx.json")
         assert result.duration_seconds == 1.5
         assert result.exit_code == 0
         assert result.error_message is None
@@ -384,64 +450,12 @@ class TestProcessScenarioResult:
         assert result.status == ProcessStatus.FAILED
         assert result.exit_code == 1
         assert result.error_message == "Lock failed"
-        assert result.manifest_path is None
-        assert result.sbom_path is None
-
-    def test_success_factory(self):
-        """Test ProcessScenarioResult.success() factory method."""
-        result = ProcessScenarioResult.success(
-            pm_name="uv",
-            manifest_path=Path("/output/assets/pyproject.toml"),
-            lock_file_path=Path("/output/assets/uv.lock"),
-            sbom_path=Path("/output/expected.cdx.json"),
-            meta_path=Path("/output/meta.json"),
-            duration_seconds=1.5,
-            exit_code=0,
-        )
-
-        assert result.status == ProcessStatus.SUCCESS
-        assert result.pm_name == "uv"
-        assert result.exit_code == 0
-
-    def test_failed_factory(self):
-        """Test ProcessScenarioResult.failed() factory method."""
-        result = ProcessScenarioResult.failed(
-            pm_name="uv",
-            duration_seconds=0.5,
-            exit_code=1,
-            error_message="Lock command failed",
-        )
-
-        assert result.status == ProcessStatus.FAILED
-        assert result.pm_name == "uv"
-        assert result.exit_code == 1
-        assert result.error_message == "Lock command failed"
-
-    def test_unsatisfiable_factory(self):
-        """Test ProcessScenarioResult.unsatisfiable() factory method."""
-        result = ProcessScenarioResult.unsatisfiable(
-            pm_name="uv",
-            manifest_path=Path("/output/assets/pyproject.toml"),
-            meta_path=Path("/output/meta.json"),
-            duration_seconds=1.0,
-            exit_code=1,
-        )
-
-        assert result.status == ProcessStatus.UNSATISFIABLE
-        assert result.pm_name == "uv"
-        assert result.manifest_path == Path("/output/assets/pyproject.toml")
-        assert result.meta_path == Path("/output/meta.json")
-        assert result.sbom_path is None  # No SBOM for unsatisfiable scenarios
 
     def test_from_dict(self):
         """Test ProcessScenarioResult.from_dict() conversion."""
         data = {
             "pm_name": "uv",
             "status": "success",
-            "manifest_path": "/output/assets/pyproject.toml",
-            "lock_file_path": "/output/assets/uv.lock",
-            "sbom_path": "/output/expected.cdx.json",
-            "meta_path": "/output/meta.json",
             "duration_seconds": 1.5,
             "exit_code": 0,
         }
@@ -450,11 +464,11 @@ class TestProcessScenarioResult:
 
         assert result.pm_name == "uv"
         assert result.status == ProcessStatus.SUCCESS
-        assert result.manifest_path == Path("/output/assets/pyproject.toml")
         assert result.duration_seconds == 1.5
+        assert result.exit_code == 0
 
-    def test_from_dict_with_missing_optional_fields(self):
-        """Test from_dict with missing optional fields."""
+    def test_from_dict_with_error(self):
+        """Test from_dict with error message."""
         data = {
             "pm_name": "uv",
             "status": "failed",
@@ -467,8 +481,7 @@ class TestProcessScenarioResult:
 
         assert result.pm_name == "uv"
         assert result.status == ProcessStatus.FAILED
-        assert result.manifest_path is None
-        assert result.sbom_path is None
+        assert result.error_message == "Failed"
 
 
 class TestPMInfo:

@@ -138,11 +138,8 @@ class BomBenchCLI:
                     error_message=f"No plugin handled processing for PM '{package_manager_name}'",
                 )
 
-            # Log generated files
-            if result.manifest_path:
-                logger.info(f"Generated: {result.manifest_path}")
-            if result.sbom_path:
-                logger.info(f"Generated expected SBOM: {result.sbom_path}")
+            # Files are discovered by convention at output_dir
+            logger.debug(f"Scenario output at: {output_dir}")
 
             # Convert ProcessScenarioResult to ProcessingResult
             if result.status == ProcessStatus.SUCCESS:

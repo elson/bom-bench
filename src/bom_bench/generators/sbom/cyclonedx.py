@@ -29,22 +29,34 @@ def normalize_package_name(name: str) -> str:
     return name.lower().replace("_", "-")
 
 
-def create_purl(package: ExpectedPackage) -> PackageURL:
+def _get_package_name(package: ExpectedPackage | dict) -> str:
+    """Get package name from ExpectedPackage or dict."""
+    return package["name"] if isinstance(package, dict) else package.name
+
+
+def _get_package_version(package: ExpectedPackage | dict) -> str:
+    """Get package version from ExpectedPackage or dict."""
+    return package["version"] if isinstance(package, dict) else package.version
+
+
+def create_purl(package: ExpectedPackage | dict) -> PackageURL:
     """Create Package URL (PURL) for a Python package.
 
     Args:
-        package: Expected package
+        package: Expected package (dict or ExpectedPackage)
 
     Returns:
         PackageURL object for the package
     """
-    normalized_name = normalize_package_name(package.name)
-    purl = PackageURL(type="pypi", name=normalized_name, version=package.version)
+    name = _get_package_name(package)
+    version = _get_package_version(package)
+    normalized_name = normalize_package_name(name)
+    purl = PackageURL(type="pypi", name=normalized_name, version=version)
     return purl
 
 
 def generate_cyclonedx_sbom(
-    scenario_name: str, expected_packages: list[ExpectedPackage]
+    scenario_name: str, expected_packages: list[ExpectedPackage] | list[dict]
 ) -> dict[str, Any]:
     """Generate CycloneDX 1.6 SBOM from expected packages.
 
@@ -54,7 +66,7 @@ def generate_cyclonedx_sbom(
 
     Args:
         scenario_name: Name of scenario (for metadata)
-        expected_packages: List of expected packages
+        expected_packages: List of expected packages (dicts or ExpectedPackage objects)
 
     Returns:
         Dictionary containing the SBOM data (ordered)
@@ -63,20 +75,21 @@ def generate_cyclonedx_sbom(
         Exception: If SBOM generation or validation fails
     """
     # Create metadata component (the root application)
-    metadata_component = Component(
+    # pyright/type: ignore comments suppress false positives from incomplete cyclonedx type stubs
+    metadata_component = Component(  # pyright: ignore  # type: ignore
         type=ComponentType.APPLICATION, name=scenario_name, version="0.1.0"
     )
 
     # Create BOM with metadata
     bom = Bom()
-    bom.metadata.component = metadata_component
-    bom.metadata.timestamp = datetime.now(UTC)
+    bom.metadata.component = metadata_component  # pyright: ignore  # type: ignore
+    bom.metadata.timestamp = datetime.now(UTC)  # pyright: ignore  # type: ignore
 
     # Add external reference to bom-bench
-    bom_bench_ref = ExternalReference(
+    bom_bench_ref = ExternalReference(  # pyright: ignore  # type: ignore
         type=ExternalReferenceType.BUILD_SYSTEM, url=XsUri("https://github.com/your-org/bom-bench")
     )
-    bom.metadata.component.external_references.add(bom_bench_ref)
+    bom.metadata.component.external_references.add(bom_bench_ref)  # pyright: ignore  # type: ignore
 
     # Track component references for dependency graph
     component_refs = []
@@ -84,27 +97,29 @@ def generate_cyclonedx_sbom(
     # Add components from expected packages
     for package in expected_packages:
         purl = create_purl(package)
+        name = _get_package_name(package)
+        version = _get_package_version(package)
 
-        component = Component(
+        component = Component(  # pyright: ignore  # type: ignore
             type=ComponentType.LIBRARY,
-            name=normalize_package_name(package.name),
-            version=package.version,
+            name=normalize_package_name(name),
+            version=version,
             purl=purl,
         )
 
-        bom.components.add(component)
-        component_refs.append(component.bom_ref)
+        bom.components.add(component)  # pyright: ignore  # type: ignore
+        component_refs.append(component.bom_ref)  # pyright: ignore  # type: ignore
 
     # Build dependency graph
     # Root component depends on all library components
-    root_dependency = Dependency(ref=metadata_component.bom_ref)
+    root_dependency = Dependency(ref=metadata_component.bom_ref)  # pyright: ignore  # type: ignore
     for component_ref in component_refs:
-        root_dependency.dependencies.add(Dependency(ref=component_ref))
-    bom.dependencies.add(root_dependency)
+        root_dependency.dependencies.add(Dependency(ref=component_ref))  # pyright: ignore  # type: ignore
+    bom.dependencies.add(root_dependency)  # pyright: ignore  # type: ignore
 
     # Add empty dependency entries for each library component
     for component_ref in component_refs:
-        bom.dependencies.add(Dependency(ref=component_ref))
+        bom.dependencies.add(Dependency(ref=component_ref))  # pyright: ignore  # type: ignore
 
     # Generate JSON output using CycloneDX 1.6 format
     outputter = JsonV1Dot6(bom)
@@ -182,7 +197,7 @@ def generate_sbom_result(
 def generate_sbom_file(
     scenario_name: str,
     output_path: Path,
-    packages: list[ExpectedPackage],
+    packages: list[ExpectedPackage] | list[dict],
 ) -> Path:
     """Generate pure CycloneDX SBOM file (no wrapper).
 
@@ -193,7 +208,7 @@ def generate_sbom_file(
     Args:
         scenario_name: Name of scenario (for metadata)
         output_path: Where to write expected.cdx.json
-        packages: List of resolved packages
+        packages: List of resolved packages (dicts or ExpectedPackage objects)
 
     Returns:
         Path to generated file

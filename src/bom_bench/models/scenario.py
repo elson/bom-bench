@@ -16,15 +16,12 @@ class Requirement:
 
     @classmethod
     def from_dict(cls, data: dict[str, Any]) -> "Requirement":
-        """Create Requirement from dictionary.
-
-        Args:
-            data: Dictionary with 'requirement' and optional 'extras' keys
-
-        Returns:
-            Requirement instance
-        """
+        """Create Requirement from dictionary."""
         return cls(requirement=data.get("requirement", ""), extras=data.get("extras", []))
+
+    def to_dict(self) -> dict[str, Any]:
+        """Convert to dictionary."""
+        return {"requirement": self.requirement, "extras": self.extras}
 
 
 @dataclass
@@ -39,17 +36,16 @@ class Root:
 
     @classmethod
     def from_dict(cls, data: dict[str, Any]) -> "Root":
-        """Create Root from dictionary.
-
-        Args:
-            data: Dictionary with 'requires' and optional 'requires_python' keys
-
-        Returns:
-            Root instance
-        """
+        """Create Root from dictionary."""
         requires = [Requirement.from_dict(r) for r in data.get("requires", [])]
-
         return cls(requires=requires, requires_python=data.get("requires_python"))
+
+    def to_dict(self) -> dict[str, Any]:
+        """Convert to dictionary."""
+        return {
+            "requires": [r.to_dict() for r in self.requires],
+            "requires_python": self.requires_python,
+        }
 
 
 @dataclass
@@ -64,18 +60,18 @@ class ResolverOptions:
 
     @classmethod
     def from_dict(cls, data: dict[str, Any]) -> "ResolverOptions":
-        """Create ResolverOptions from dictionary.
-
-        Args:
-            data: Dictionary with resolver option keys
-
-        Returns:
-            ResolverOptions instance
-        """
+        """Create ResolverOptions from dictionary."""
         return cls(
             universal=data.get("universal", False),
             required_environments=data.get("required_environments", []),
         )
+
+    def to_dict(self) -> dict[str, Any]:
+        """Convert to dictionary."""
+        return {
+            "universal": self.universal,
+            "required_environments": self.required_environments,
+        }
 
 
 @dataclass
@@ -90,15 +86,12 @@ class ExpectedPackage:
 
     @classmethod
     def from_dict(cls, data: dict[str, Any]) -> "ExpectedPackage":
-        """Create ExpectedPackage from dictionary.
-
-        Args:
-            data: Dictionary with 'name' and 'version' keys
-
-        Returns:
-            ExpectedPackage instance
-        """
+        """Create ExpectedPackage from dictionary."""
         return cls(name=data.get("name", ""), version=data.get("version", ""))
+
+    def to_dict(self) -> dict[str, Any]:
+        """Convert to dictionary."""
+        return {"name": self.name, "version": self.version}
 
 
 @dataclass
@@ -113,17 +106,16 @@ class Expected:
 
     @classmethod
     def from_dict(cls, data: dict[str, Any]) -> "Expected":
-        """Create Expected from dictionary.
-
-        Args:
-            data: Dictionary with 'packages' and optional 'satisfiable' keys
-
-        Returns:
-            Expected instance
-        """
+        """Create Expected from dictionary."""
         packages = [ExpectedPackage.from_dict(p) for p in data.get("packages", [])]
-
         return cls(packages=packages, satisfiable=data.get("satisfiable", True))
+
+    def to_dict(self) -> dict[str, Any]:
+        """Convert to dictionary."""
+        return {
+            "packages": [p.to_dict() for p in self.packages],
+            "satisfiable": self.satisfiable,
+        }
 
 
 @dataclass
@@ -179,6 +171,19 @@ class Scenario:
             expected=expected,
             source=source,
         )
+
+    def to_dict(self) -> dict[str, Any]:
+        """Convert to dictionary for plugin injection."""
+        result: dict[str, Any] = {
+            "name": self.name,
+            "root": self.root.to_dict(),
+            "resolver_options": self.resolver_options.to_dict(),
+            "description": self.description,
+            "source": self.source,
+        }
+        if self.expected is not None:
+            result["expected"] = self.expected.to_dict()
+        return result
 
 
 @dataclass

@@ -312,14 +312,18 @@ class TestSBOMGeneration:
 
     def test_sbom_generated_from_lock_file(self, cli):
         """Test that SBOM is generated from lock file after successful locking."""
-        from bom_bench.models.result import LockResult, LockStatus
+        import bom_bench
         from bom_bench.models.scenario import (
             Requirement,
             ResolverOptions,
             Root,
             Scenario,
         )
-        from bom_bench.package_managers.uv import _generate_sbom_for_lock_impl
+        from bom_bench.package_managers.uv import (
+            _generate_sbom_for_lock_impl,
+            _LockResult,
+            _LockStatus,
+        )
 
         # Create minimal scenario
         scenario = Scenario(
@@ -359,18 +363,16 @@ version = "2.0.0"
 
             # Generate SBOM from the lock file using internal implementation
             # Create mock successful lock result
-            lock_result = LockResult(
-                scenario_name=scenario.name,
-                package_manager="uv",
-                status=LockStatus.SUCCESS,
+            lock_result = _LockResult(
+                status=_LockStatus.SUCCESS,
                 exit_code=0,
                 stdout="Resolved 2 packages",
                 stderr="",
-                lock_file=lock_file,
-                duration_seconds=0.1,
             )
 
-            sbom_path = _generate_sbom_for_lock_impl(scenario, output_dir, lock_result)
+            sbom_path = _generate_sbom_for_lock_impl(
+                scenario.to_dict(), output_dir, lock_result, bom_bench
+            )
 
             assert sbom_path is not None
             assert sbom_path.exists()
@@ -402,14 +404,18 @@ version = "2.0.0"
 
     def test_sbom_result_on_lock_failure(self, cli):
         """Test that meta.json is generated with satisfiable=false when lock fails."""
-        from bom_bench.models.result import LockResult, LockStatus
+        import bom_bench
         from bom_bench.models.scenario import (
             Requirement,
             ResolverOptions,
             Root,
             Scenario,
         )
-        from bom_bench.package_managers.uv import _generate_sbom_for_lock_impl
+        from bom_bench.package_managers.uv import (
+            _generate_sbom_for_lock_impl,
+            _LockResult,
+            _LockStatus,
+        )
 
         scenario = Scenario(
             name="test-scenario",
@@ -426,18 +432,16 @@ version = "2.0.0"
             output_dir.mkdir()
 
             # Create mock failed lock result (no lock file)
-            lock_result = LockResult(
-                scenario_name=scenario.name,
-                package_manager="uv",
-                status=LockStatus.FAILED,
+            lock_result = _LockResult(
+                status=_LockStatus.FAILED,
                 exit_code=1,
                 stdout="",
                 stderr="No solution found",
-                lock_file=None,
-                duration_seconds=0.1,
             )
 
-            result_path = _generate_sbom_for_lock_impl(scenario, output_dir, lock_result)
+            result_path = _generate_sbom_for_lock_impl(
+                scenario.to_dict(), output_dir, lock_result, bom_bench
+            )
 
             # Should generate meta.json (not SBOM since lock failed)
             assert result_path is not None
@@ -463,14 +467,18 @@ version = "2.0.0"
 
     def test_sbom_file_structure(self, cli):
         """Test the structure of generated SBOM file."""
-        from bom_bench.models.result import LockResult, LockStatus
+        import bom_bench
         from bom_bench.models.scenario import (
             Requirement,
             ResolverOptions,
             Root,
             Scenario,
         )
-        from bom_bench.package_managers.uv import _generate_sbom_for_lock_impl
+        from bom_bench.package_managers.uv import (
+            _generate_sbom_for_lock_impl,
+            _LockResult,
+            _LockStatus,
+        )
 
         scenario = Scenario(
             name="test-sbom",
@@ -505,18 +513,16 @@ version = "2.31.0"
 
             # Generate SBOM using internal implementation
             # Create mock successful lock result
-            lock_result = LockResult(
-                scenario_name=scenario.name,
-                package_manager="uv",
-                status=LockStatus.SUCCESS,
+            lock_result = _LockResult(
+                status=_LockStatus.SUCCESS,
                 exit_code=0,
                 stdout="Resolved 1 package",
                 stderr="",
-                lock_file=lock_file,
-                duration_seconds=0.1,
             )
 
-            sbom_path = _generate_sbom_for_lock_impl(scenario, output_dir, lock_result)
+            sbom_path = _generate_sbom_for_lock_impl(
+                scenario.to_dict(), output_dir, lock_result, bom_bench
+            )
 
             assert sbom_path.exists()
 

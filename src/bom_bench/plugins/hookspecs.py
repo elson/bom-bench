@@ -19,12 +19,10 @@ Example plugin implementation:
 """
 
 from pathlib import Path
-from typing import TYPE_CHECKING
+from types import ModuleType
+from typing import Any
 
 import pluggy
-
-if TYPE_CHECKING:
-    from bom_bench.models.scenario import Scenario
 
 hookspec = pluggy.HookspecMarker("bom_bench")
 
@@ -153,28 +151,32 @@ class PackageManagerSpec:
 
     @hookspec
     def process_scenario(
-        self, pm_name: str, scenario: "Scenario", output_dir: Path, timeout: int = 120
+        self,
+        pm_name: str,
+        scenario: dict[str, Any],
+        output_dir: Path,
+        bom_bench: ModuleType,
+        timeout: int = 120,
     ) -> dict | None:
-        """Process a scenario: generate manifest, lock, and SBOM (new atomic operation).
+        """Process a scenario: generate manifest, lock, and SBOM.
 
-        This is the new simplified hook that combines generate_manifest, run_lock,
-        and generate_sbom_for_lock into a single atomic operation. Plugins have
-        full control over the workflow.
+        Plugins receive the bom_bench module for dependency injection,
+        allowing access to helper functions without direct imports.
 
         Args:
             pm_name: Package manager name (e.g., "uv")
-            scenario: Scenario to process
+            scenario: Scenario as dict (converted from Scenario dataclass)
             output_dir: Scenario output directory (where files should be written)
+            bom_bench: The bom_bench module with helper functions:
+                - bom_bench.generate_sbom_file(scenario_name, output_path, packages)
+                - bom_bench.generate_meta_file(output_path, satisfiable, exit_code, stdout, stderr)
+                - bom_bench.get_logger(name)
             timeout: Maximum execution time in seconds
 
         Returns:
             Dict with result info:
                 - pm_name: Package manager name
                 - status: "success", "failed", "timeout", "unsatisfiable"
-                - manifest_path: Path to generated manifest file
-                - lock_file_path: Path to lock file
-                - sbom_path: Path to generated SBOM (expected.cdx.json)
-                - meta_path: Path to meta.json file
                 - duration_seconds: Processing duration
                 - exit_code: Exit code from lock command
                 - error_message: Error message (on failure)
@@ -182,20 +184,20 @@ class PackageManagerSpec:
 
         Example implementation:
             @hookimpl
-            def process_scenario(pm_name, scenario, output_dir, timeout):
+            def process_scenario(pm_name, scenario, output_dir, bom_bench, timeout=120):
                 if pm_name != "uv":
                     return None
-                # 1. Generate manifest (pyproject.toml)
-                # 2. Run lock command (uv lock)
-                # 3. Parse lock file, generate expected.cdx.json
-                # 4. Generate meta.json
+                # Access scenario as dict
+                name = scenario["name"]
+                packages = scenario["expected"]["packages"]
+
+                # Use helper functions from bom_bench module
+                bom_bench.generate_sbom_file(name, output_dir / "expected.cdx.json", packages)
+                bom_bench.generate_meta_file(output_dir / "meta.json", True, 0, "", "")
+
                 return {
                     "pm_name": "uv",
                     "status": "success",
-                    "manifest_path": str(manifest_path),
-                    "lock_file_path": str(lock_file_path),
-                    "sbom_path": str(sbom_path),
-                    "meta_path": str(meta_path),
                     "duration_seconds": 1.5,
                     "exit_code": 0
                 }
