@@ -7,6 +7,10 @@ NOTES.md
 # Python virtual env
 .venv/
 
+# Linting and type checkng
+.ruff_cache/
+.mypy_cache/
+
 # Python cache and build artifacts
 __pycache__/
 *.py[cod]
