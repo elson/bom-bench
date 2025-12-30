@@ -22,12 +22,43 @@ bom-bench is a benchmarking tool for SCA (Software Composition Analysis) tools. 
 
 ## Commands
 
-### Development
+### Development (Using Makefile)
+
+**Quick Reference:**
+```bash
+make help          # Show all available targets
+make install       # Install dependencies and pre-commit hooks
+make test          # Run all tests (fast)
+make test-cov      # Run tests with coverage report
+make coverage-html # Generate HTML coverage report
+make lint          # Check code style (no changes)
+make format        # Auto-format code with ruff
+make typecheck     # Run mypy type checker
+make check         # Run all checks (lint + typecheck + test-cov)
+make clean         # Remove cache and temporary files
+make run           # Run bom-bench (setup + benchmark)
+```
+
+**Development Workflow:**
+```bash
+# Initial setup
+make install
+
+# Before committing - format and check everything
+make format
+make check
+
+# View detailed coverage
+make coverage-html
+# Opens htmlcov/index.html with line-by-line coverage
+```
+
+### Development (Direct Commands)
 ```bash
 # Install dependencies
-uv pip install -e ".[dev]"
+uv sync
 
-# Run all tests (210+ unit tests)
+# Run all tests (264 tests)
 uv run pytest tests/ -v
 
 # Run specific test file
@@ -36,12 +67,22 @@ uv run pytest tests/unit/test_package_managers.py -xvs
 # Run single test
 uv run pytest tests/unit/test_models.py::TestProcessStatus -xvs
 
-# Type checking
-mypy src/bom_bench/
+# Coverage (current: 87%)
+uv run pytest tests/ --cov=src/bom_bench --cov-report=term-missing
+uv run pytest tests/ --cov=src/bom_bench --cov-report=html
 
-# Linting/formatting
-ruff check src/bom_bench/
-ruff format src/bom_bench/
+# Type checking (currently ~24 errors in existing code)
+uv run mypy src/
+
+# Linting
+uv run ruff check src/ tests/
+uv run ruff check --fix src/ tests/        # Auto-fix issues
+uv run ruff format src/ tests/             # Format code
+
+# Pre-commit hooks (runs on git commit)
+uv run pre-commit run --all-files          # Run manually
+SKIP=mypy git commit                       # Skip mypy if needed
+uv run pre-commit autoupdate              # Update hook versions
 ```
 
 ### Application Usage
@@ -55,16 +96,45 @@ uv run bom-bench benchmark --pm uv --tools cdxgen,syft
 # List available tools
 uv run bom-bench list-tools --check
 ```
-## Coding style
-- Avoid comments, code is self describing
+## Code Quality & Style
+
+### Linting and Formatting
+- **Ruff** is the primary linter and formatter (replaces black, isort, flake8, pyupgrade)
+- Line length: 100 characters
+- Enabled rules: pycodestyle (E), Pyflakes (F), isort (I), pep8-naming (N), pyupgrade (UP), bugbear (B), comprehensions (C4), simplify (SIM)
+- Auto-formatting runs on every commit via pre-commit hooks
+- Run `make format` before committing to fix issues automatically
+
+### Type Checking
+- **Mypy** for static type checking (Python 3.12 target)
+- Currently has ~24 type errors in existing code (can be fixed incrementally)
+- Type checking runs on `src/` only (tests excluded)
+- Use `SKIP=mypy git commit` to bypass if needed
+- Ignore missing imports for external packages (pluggy, packse, cyclonedx, tomlkit)
+
+### Pre-commit Hooks
+Automatically run on `git commit`:
+1. **Ruff linter** - checks and auto-fixes code style
+2. **Ruff formatter** - formats code consistently
+3. **Mypy** - type checking (warnings only, won't block commits)
+4. **Pre-commit hooks** - trailing whitespace, EOF, YAML/TOML/JSON validation, large files, merge conflicts
+
+Skip specific hooks: `SKIP=mypy git commit`
+
+### Code Style
+- Avoid comments - code is self-describing
 - You don't need to add descriptions of **what** the code is doing (e.g. "loop over the inputs")
 - Use comments sparingly to note **why** something is done if the code itself does not make this clear
+- Use Python 3.12+ features (use `dict`/`list` instead of `typing.Dict`/`List`)
+- Type hints recommended but not strictly enforced
 
 ## Testing
 - **IMPORTANT:** Use TDD (Test-Driven Development). Write test first, watch it fail, write minimal code to pass
-- Run full test suite before committing (`uv run pytest tests/ -v`)
+- Run full test suite before committing (`make test` or `uv run pytest tests/ -v`)
 - Integration tests require packse server running
 - Mock external dependencies in unit tests
+- Current coverage: **87%** (264 tests) - run `make coverage` to see report
+- **Coverage target: 100%** - All new code must have full test coverage
 
 ## Key Architecture
 
@@ -251,7 +321,33 @@ benchmarks/
 - Don't skip TDD - write test first, watch it fail, then implement
 - Don't process non-universal scenarios (`resolver_options.universal: false`)
 
-## If You Change Behavior
+## Development Checklist
+
+### Before Committing
+1. Format code: `make format`
+2. Run checks: `make check` (lint + typecheck + test with coverage)
+3. Verify tests pass: All 264 tests should pass
+4. Check coverage: Must be 100% for all new/changed code (87% baseline for existing)
+
+### If You Change Behavior
 - Update README.md for user-facing changes
 - Update CLAUDE.md for architectural changes
 - Update scratchpad.md with decision rationale
+- Add tests for new functionality (TDD!)
+- Run `make coverage` to ensure coverage doesn't drop
+
+### Coverage Report Interpretation
+```bash
+# Terminal report with missing lines
+make test-cov
+
+# Browse detailed HTML report
+make coverage-html
+# Open htmlcov/index.html
+```
+
+**Coverage target: 100% for all code**
+- Current baseline: 87% (264 tests)
+- All new code must have 100% coverage
+- Existing code should be brought to 100% incrementally
+- No PRs should decrease coverage
