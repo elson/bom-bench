@@ -12,7 +12,7 @@ from bom_bench.config import (
     UNIVERSAL_SCENARIOS_ONLY,
 )
 from bom_bench.data.loader import ScenarioLoader
-from bom_bench.logging_config import get_logger, setup_logging
+from bom_bench.logging import get_logger, setup_logging
 from bom_bench.models.package_manager import ProcessStatus
 from bom_bench.models.result import ProcessingResult, ProcessingStatus, Summary
 from bom_bench.models.scenario import Scenario, ScenarioFilter

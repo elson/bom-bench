@@ -28,7 +28,7 @@ import importlib
 
 import pluggy
 
-from bom_bench.logging_config import get_logger
+from bom_bench.logging import get_logger
 from bom_bench.plugins.hookspecs import PackageManagerSpec, SCAToolSpec
 
 logger = get_logger(__name__)

@@ -13,7 +13,7 @@ from typing import Any
 from packageurl import PackageURL
 
 from bom_bench.config import PROJECT_NAME, PROJECT_VERSION
-from bom_bench.logging_config import get_logger
+from bom_bench.logging import get_logger
 
 logger = get_logger(__name__)
 

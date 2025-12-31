@@ -14,7 +14,7 @@ Available plugins:
 
 from pathlib import Path
 
-from bom_bench.logging_config import get_logger
+from bom_bench.logging import get_logger
 from bom_bench.models.package_manager import PMInfo, ProcessScenarioResult
 
 logger = get_logger(__name__)

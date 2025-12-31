@@ -2,7 +2,7 @@
 
 from bom_bench.config import DEFAULT_DATA_SOURCE
 from bom_bench.data import get_data_source, get_sources_for_pm
-from bom_bench.logging_config import get_logger
+from bom_bench.logging import get_logger
 from bom_bench.models.scenario import Scenario, ScenarioFilter
 
 logger = get_logger(__name__)

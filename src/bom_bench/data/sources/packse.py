@@ -5,7 +5,7 @@ from pathlib import Path
 import packse.fetch
 import packse.inspect
 
-from bom_bench.logging_config import get_logger
+from bom_bench.logging import get_logger
 from bom_bench.models.scenario import Scenario
 
 logger = get_logger(__name__)

@@ -18,7 +18,7 @@ from bom_bench.benchmarking.storage import (
     save_benchmark_result,
     save_benchmark_summary,
 )
-from bom_bench.logging_config import get_logger
+from bom_bench.logging import get_logger
 from bom_bench.models.sca_tool import (
     BenchmarkResult,
     BenchmarkStatus,
