@@ -96,7 +96,7 @@ def _generate_pyproject_toml(
 
         uv_table = tomlkit.table()
         uv_table["required-environments"] = required_environments
-        doc["tool"][PM_NAME] = uv_table
+        doc["tool"][PM_NAME] = uv_table  # type: ignore[index]
 
     result: str = tomlkit.dumps(doc)
     return result
