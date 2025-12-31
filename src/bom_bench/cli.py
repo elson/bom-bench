@@ -504,27 +504,6 @@ def list_tools(check):
         click.echo("")
 
 
-@cli.command(name="clean")
-@click.option("--pm", multiple=True, help="Clean specific package managers only")
-@click.option("--dry-run", is_flag=True, help="Show what would be deleted")
-def clean(pm, dry_run):
-    """Clean output directory (future implementation)."""
-    raise click.ClickException("clean command not yet implemented")
-
-
-@cli.command(name="validate")
-@click.argument("sbom_path", type=click.Path(exists=True, path_type=Path))  # type: ignore[type-var]
-def validate(sbom_path):
-    """Validate SBOM file against schema (future implementation)."""
-    raise click.ClickException("validate command not yet implemented")
-
-
-@cli.command(name="info")
-def info():
-    """Show configuration and version information (future implementation)."""
-    raise click.ClickException("info command not yet implemented")
-
-
 def main():
     """Entry point for bom-bench command."""
     cli()

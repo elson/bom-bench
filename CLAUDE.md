@@ -17,7 +17,7 @@ bom-bench is a benchmarking tool for SCA (Software Composition Analysis) tools. 
 - Do not add backward compatibility code (shims, aliases, switches)
 
 ## Project & Context Management
-- Create a `.claude/scratchpad.md` doc to document files, edits, decision logs and explorations
+- Create a `.claude/scratchpad.md` doc to document files, edits, decision logs, exploration notes, etc. Update this file regularly as you work.
 - Store official plans in `.claude/plans/` subfolder
 
 ## Commands
@@ -127,6 +127,11 @@ Skip specific hooks: `SKIP=mypy git commit`
 - Use comments sparingly to note **why** something is done if the code itself does not make this clear
 - Use Python 3.12+ features (use `dict`/`list` instead of `typing.Dict`/`List`)
 - Type hints recommended but not strictly enforced
+
+### YAGNI principle (you ain't gonna need it!)
+- Avoid adding speculative features or code to support future secnarios unless explicitly instructed to do so by the user
+- Avoid adding stubs or similar placeholders, unless instructed to do so
+- Ask for permission if you really think it's a good idea in a specific situation
 
 ## Testing
 - **IMPORTANT:** Use TDD (Test-Driven Development). Write test first, watch it fail, write minimal code to pass

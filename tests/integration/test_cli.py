@@ -112,24 +112,6 @@ class TestUniversalLoggingOptions:
         assert result.exit_code != 0
         assert "mutually exclusive" in result.output.lower()
 
-    def test_clean_command_stub(self, runner):
-        """Test clean command is available but not implemented."""
-        result = runner.invoke(cli, ["clean", "--help"])
-        assert result.exit_code == 0
-        assert "Clean output directory" in result.output
-
-    def test_validate_command_stub(self, runner):
-        """Test validate command is available but not implemented."""
-        result = runner.invoke(cli, ["validate", "--help"])
-        assert result.exit_code == 0
-        assert "Validate SBOM file" in result.output
-
-    def test_info_command_stub(self, runner):
-        """Test info command is available but not implemented."""
-        result = runner.invoke(cli, ["info", "--help"])
-        assert result.exit_code == 0
-        assert "Show configuration" in result.output
-
 
 class TestPackageManagerParsing:
     """Test package manager parsing logic."""
