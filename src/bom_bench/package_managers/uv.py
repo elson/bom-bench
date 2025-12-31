@@ -206,7 +206,7 @@ def _generate_sbom_for_lock_impl(
             lock_file = output_dir / "assets" / "uv.lock"
             if lock_file.exists():
                 packages = _parse_uv_lock(lock_file)
-                return bom_bench.generate_sbom_file(
+                return bom_bench.generate_sbom_file(  # type: ignore[no-any-return]
                     scenario_name=scenario["name"],
                     output_path=sbom_path,
                     packages=packages,

@@ -153,47 +153,6 @@ def generate_cyclonedx_sbom(
     return ordered_sbom
 
 
-def generate_sbom_result(
-    scenario_name: str,
-    output_path: Path,
-    packages: list[ExpectedPackage] | None = None,
-    satisfiable: bool = True,
-) -> Path:
-    """Generate SBOM result file with satisfiable status.
-
-    Creates a JSON file containing:
-    - satisfiable: Whether the scenario was satisfiable (lock succeeded)
-    - sbom: CycloneDX SBOM (only if satisfiable and packages provided)
-
-    Args:
-        scenario_name: Name of scenario (for metadata)
-        output_path: Where to write expected.cdx.json
-        packages: List of resolved packages (None if lock failed)
-        satisfiable: Whether resolution was satisfiable
-
-    Returns:
-        Path to generated file
-
-    Raises:
-        Exception: If file generation fails
-    """
-    # Ensure output directory exists
-    output_path.parent.mkdir(parents=True, exist_ok=True)
-
-    result: dict[str, Any] = {"satisfiable": satisfiable}
-
-    # Only include SBOM if satisfiable and packages is not None (empty list is ok)
-    if satisfiable and packages is not None:
-        sbom = generate_cyclonedx_sbom(scenario_name, packages)
-        result["sbom"] = sbom
-
-    # Write formatted JSON
-    json_output = json.dumps(result, indent=2)
-    output_path.write_text(json_output)
-
-    return output_path
-
-
 def generate_sbom_file(
     scenario_name: str,
     output_path: Path,
