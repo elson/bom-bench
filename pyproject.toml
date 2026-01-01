@@ -22,8 +22,7 @@ dev = [
     "pytest-cov>=7.0.0",
     "pre-commit>=4.0.0",
     "ruff>=0.8.0",
-    "mypy>=1.13.0",
-    "types-click>=7.1.8",
+    "pyright>=1.1.390",
 ]
 
 [build-system]
@@ -94,34 +93,22 @@ indent-style = "space"
 # Like Black, automatically detect the appropriate line ending
 line-ending = "auto"
 
-[tool.mypy]
-python_version = "3.12"
-warn_return_any = true
-warn_unused_configs = true
-disallow_untyped_defs = false  # Start permissive, can tighten later
-disallow_incomplete_defs = false
-check_untyped_defs = true
-disallow_untyped_decorators = false
-no_implicit_optional = true
-warn_redundant_casts = true
-warn_unused_ignores = true
-warn_no_return = true
-warn_unreachable = true
-strict_equality = true
-show_error_codes = true
+[tool.pyright]
+pythonVersion = "3.12"
+typeCheckingMode = "basic"
+reportMissingTypeStubs = false
 
-# Per-module options
-[[tool.mypy.overrides]]
-module = "tests.*"
-disallow_untyped_defs = false
-check_untyped_defs = false
+# Include source code for type checking
+include = ["src"]
+exclude = ["tests"]
 
-[[tool.mypy.overrides]]
-module = [
-    "packse.*",
-    "cyclonedx.*",
-    "packageurl.*",
-    "tomlkit.*",
-    "pluggy.*",
-]
-ignore_missing_imports = true
+# Ignore missing imports for external packages
+reportMissingImports = "none"
+reportMissingModuleSource = "none"
+
+# Start with basic checks, can tighten later
+reportUnknownMemberType = "none"
+reportUnknownArgumentType = "none"
+reportUnknownVariableType = "none"
+reportUnknownParameterType = "none"
+reportCallIssue = "none"

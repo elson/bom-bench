@@ -16,23 +16,14 @@ repos:
       - id: ruff-format
         types_or: [python, pyi]
 
-  # Mypy - Static type checker
-  # Note: Currently has ~24 type errors in existing code. These can be fixed incrementally.
-  # To temporarily skip mypy: SKIP=mypy git commit
-  - repo: https://github.com/pre-commit/mirrors-mypy
-    rev: v1.19.1
+  # Pyright - Static type checker (used by Pylance in VS Code)
+  # To temporarily skip pyright: SKIP=pyright git commit
+  - repo: https://github.com/RobertCraigie/pyright-python
+    rev: v1.1.390
     hooks:
-      - id: mypy
-        additional_dependencies:
-          - types-click
-          - types-setuptools
-          - tomlkit
-          - packageurl-python
-          - cyclonedx-python-lib
-        args: [--config-file=pyproject.toml]
-        # Only check source code, not tests (tests have looser type checking)
+      - id: pyright
+        # Only check source code, not tests (tests excluded in pyproject.toml)
         files: ^src/
-        exclude: ^tests/
 
   # Built-in pre-commit hooks
   - repo: https://github.com/pre-commit/pre-commit-hooks

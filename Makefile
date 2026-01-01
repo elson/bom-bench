@@ -9,7 +9,7 @@ help:
 	@echo "  make coverage-html - Generate HTML coverage report"
 	@echo "  make lint          - Run ruff linter (check only)"
 	@echo "  make format        - Format code with ruff"
-	@echo "  make typecheck     - Run mypy type checker"
+	@echo "  make typecheck     - Run pyright type checker"
 	@echo "  make check         - Run all checks (lint + typecheck + test-cov)"
 	@echo "  make install       - Install dependencies"
 	@echo "  make clean         - Clean up temporary files"
@@ -42,7 +42,7 @@ format:
 
 # Type checking
 typecheck:
-	uv run mypy src/
+	uv run pyright src/
 
 # Run all checks
 check: lint typecheck test-cov
@@ -57,7 +57,7 @@ clean:
 	find . -type d -name __pycache__ -exec rm -rf {} + 2>/dev/null || true
 	find . -type d -name "*.egg-info" -exec rm -rf {} + 2>/dev/null || true
 	find . -type d -name .pytest_cache -exec rm -rf {} + 2>/dev/null || true
-	find . -type d -name .mypy_cache -exec rm -rf {} + 2>/dev/null || true
+	find . -type d -name .pyright -exec rm -rf {} + 2>/dev/null || true
 	find . -type d -name .ruff_cache -exec rm -rf {} + 2>/dev/null || true
 	find . -type f -name .coverage -delete 2>/dev/null || true
 	rm -rf htmlcov/ .coverage.* 2>/dev/null || true

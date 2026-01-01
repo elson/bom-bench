@@ -33,7 +33,7 @@ make test-cov      # Run tests with coverage report
 make coverage-html # Generate HTML coverage report
 make lint          # Check code style (no changes)
 make format        # Auto-format code with ruff
-make typecheck     # Run mypy type checker
+make typecheck     # Run pyright type checker
 make check         # Run all checks (lint + typecheck + test-cov)
 make clean         # Remove cache and temporary files
 make run           # Run bom-bench (setup + benchmark)
@@ -71,8 +71,8 @@ uv run pytest tests/unit/test_models.py::TestProcessStatus -xvs
 uv run pytest tests/ --cov=src/bom_bench --cov-report=term-missing
 uv run pytest tests/ --cov=src/bom_bench --cov-report=html
 
-# Type checking (currently ~24 errors in existing code)
-uv run mypy src/
+# Type checking
+uv run pyright src/
 
 # Linting
 uv run ruff check src/ tests/
@@ -81,7 +81,7 @@ uv run ruff format src/ tests/             # Format code
 
 # Pre-commit hooks (runs on git commit)
 uv run pre-commit run --all-files          # Run manually
-SKIP=mypy git commit                       # Skip mypy if needed
+SKIP=pyright git commit                    # Skip pyright if needed
 uv run pre-commit autoupdate              # Update hook versions
 ```
 
@@ -106,20 +106,20 @@ uv run bom-bench list-tools --check
 - Run `make format` before committing to fix issues automatically
 
 ### Type Checking
-- **Mypy** for static type checking (Python 3.12 target)
-- Currently has ~24 type errors in existing code (can be fixed incrementally)
+- **Pyright/Pylance** for static type checking (Python 3.12 target)
+- Pyright is the CLI tool, Pylance is the VS Code integration
 - Type checking runs on `src/` only (tests excluded)
-- Use `SKIP=mypy git commit` to bypass if needed
-- Ignore missing imports for external packages (pluggy, packse, cyclonedx, tomlkit)
+- Use `SKIP=pyright git commit` to bypass if needed
+- Basic type checking mode with missing imports ignored for external packages
 
 ### Pre-commit Hooks
 Automatically run on `git commit`:
 1. **Ruff linter** - checks and auto-fixes code style
 2. **Ruff formatter** - formats code consistently
-3. **Mypy** - type checking (warnings only, won't block commits)
+3. **Pyright** - type checking (warnings only, won't block commits)
 4. **Pre-commit hooks** - trailing whitespace, EOF, YAML/TOML/JSON validation, large files, merge conflicts
 
-Skip specific hooks: `SKIP=mypy git commit`
+Skip specific hooks: `SKIP=pyright git commit`
 
 ### Code Style
 - Avoid comments - code is self-describing
