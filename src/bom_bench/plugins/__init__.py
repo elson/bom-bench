@@ -29,7 +29,7 @@ import importlib
 import pluggy
 
 from bom_bench.logging import get_logger
-from bom_bench.plugins.hookspecs import PackageManagerSpec, SCAToolSpec
+from bom_bench.plugins.hookspecs import FixtureSetSpec, PackageManagerSpec, SCAToolSpec
 
 logger = get_logger(__name__)
 
@@ -40,11 +40,13 @@ DEFAULT_PLUGINS = (
     "bom_bench.package_managers.uv",
     "bom_bench.sca_tools.cdxgen",
     "bom_bench.sca_tools.syft",
+    "bom_bench.fixtures.packse",
 )
 
 
 # Create plugin manager with bom_bench namespace
 pm = pluggy.PluginManager("bom_bench")
+pm.add_hookspecs(FixtureSetSpec)
 pm.add_hookspecs(SCAToolSpec)
 pm.add_hookspecs(PackageManagerSpec)
 
