@@ -1,40 +1,11 @@
 import shutil
 import tempfile
-from dataclasses import dataclass, field
 from pathlib import Path
 
 from bom_bench.models.fixture import Fixture, FixtureSetEnvironment
 from bom_bench.models.sandbox import SandboxConfig, SandboxResult
-from bom_bench.sandbox.mise import MiseRunner, ToolSpec, generate_mise_toml
-
-
-@dataclass
-class SCAToolConfig:
-    """Configuration for an SCA tool.
-
-    Declarative - describes what the tool needs and how to invoke it.
-    Actual execution happens in the Sandbox.
-    """
-
-    name: str
-    tools: list[ToolSpec]
-    command: str
-    env_vars: dict[str, str] = field(default_factory=dict)
-    supported_ecosystems: list[str] = field(default_factory=list)
-    description: str | None = None
-
-    @classmethod
-    def from_dict(cls, data: dict) -> "SCAToolConfig":
-        """Create an SCAToolConfig from a dictionary."""
-        tools = [ToolSpec(name=t["name"], version=t["version"]) for t in data.get("tools", [])]
-        return cls(
-            name=data["name"],
-            tools=tools,
-            command=data["command"],
-            env_vars=data.get("env_vars", {}),
-            supported_ecosystems=data.get("supported_ecosystems", []),
-            description=data.get("description"),
-        )
+from bom_bench.models.sca_tool import SCAToolConfig
+from bom_bench.sandbox.mise import MiseRunner, generate_mise_toml
 
 
 class Sandbox:

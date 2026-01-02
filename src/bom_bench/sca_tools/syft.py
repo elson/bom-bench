@@ -75,6 +75,10 @@ def register_sca_tools() -> dict:
         ],
         "homepage": "https://github.com/anchore/syft",
         "installed": shutil.which("syft") is not None,
+        # Declarative config for sandbox execution
+        "tools": [{"name": "syft", "version": "latest"}],
+        "command": "syft {project_dir} -o cyclonedx-json={output_path}",
+        "env_vars": {},
     }
 
 

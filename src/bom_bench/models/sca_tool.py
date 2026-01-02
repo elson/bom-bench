@@ -1,13 +1,19 @@
 """SCA tool and benchmark result models."""
 
+from __future__ import annotations
+
 import statistics
 from dataclasses import dataclass, field
 from enum import Enum
 from pathlib import Path
+from typing import TYPE_CHECKING
 
 import click
 
 from bom_bench.logging import get_logger
+
+if TYPE_CHECKING:
+    from bom_bench.sandbox.mise import ToolSpec
 
 logger = get_logger(__name__)
 
@@ -58,7 +64,7 @@ class SCAToolInfo:
     """Whether the tool is installed and available"""
 
     @classmethod
-    def from_dict(cls, d: dict) -> "SCAToolInfo":
+    def from_dict(cls, d: dict) -> SCAToolInfo:
         """Create SCAToolInfo from plugin dict.
 
         Args:
@@ -75,6 +81,60 @@ class SCAToolInfo:
             homepage=d.get("homepage"),
             installed=d.get("installed", False),
         )
+
+
+@dataclass
+class SCAToolConfig:
+    """Declarative configuration for an SCA tool.
+
+    Describes what the tool needs (mise tools) and how to invoke it (command).
+    Actual execution happens in the Sandbox.
+    """
+
+    name: str
+    """Tool identifier (e.g., 'cdxgen', 'syft')"""
+
+    tools: list[ToolSpec]
+    """Mise tool specifications needed by this SCA tool"""
+
+    command: str
+    """Command template with {output_path} and {project_dir} placeholders"""
+
+    env_vars: dict[str, str] = field(default_factory=dict)
+    """Environment variables to set when running the tool"""
+
+    supported_ecosystems: list[str] = field(default_factory=list)
+    """Ecosystems this tool supports (e.g., ['python', 'javascript'])"""
+
+    description: str | None = None
+    """Human-readable description"""
+
+    @classmethod
+    def from_dict(cls, data: dict) -> SCAToolConfig:
+        """Create an SCAToolConfig from a dictionary."""
+        from bom_bench.sandbox.mise import ToolSpec
+
+        tools = [ToolSpec(name=t["name"], version=t["version"]) for t in data.get("tools", [])]
+        return cls(
+            name=data["name"],
+            tools=tools,
+            command=data["command"],
+            env_vars=data.get("env_vars", {}),
+            supported_ecosystems=data.get("supported_ecosystems", []),
+            description=data.get("description"),
+        )
+
+    def format_command(self, output_path: str, project_dir: str) -> str:
+        """Format the command template with actual paths.
+
+        Args:
+            output_path: Path where SBOM will be written
+            project_dir: Path to the project directory
+
+        Returns:
+            Formatted command string ready for execution
+        """
+        return self.command.format(output_path=output_path, project_dir=project_dir)
 
 
 @dataclass
@@ -112,7 +172,7 @@ class ScanResult:
     @classmethod
     def success(
         cls, tool_name: str, sbom_path: Path, duration_seconds: float, exit_code: int = 0
-    ) -> "ScanResult":
+    ) -> ScanResult:
         """Create a successful result."""
         return cls(
             tool_name=tool_name,
@@ -130,7 +190,7 @@ class ScanResult:
         status: ScanStatus = ScanStatus.TOOL_FAILED,
         duration_seconds: float = 0.0,
         exit_code: int | None = None,
-    ) -> "ScanResult":
+    ) -> ScanResult:
         """Create a failed result."""
         return cls(
             tool_name=tool_name,
@@ -141,7 +201,7 @@ class ScanResult:
         )
 
     @classmethod
-    def from_dict(cls, d: dict) -> "ScanResult":
+    def from_dict(cls, d: dict) -> ScanResult:
         """Create ScanResult from plugin dict.
 
         Args:
@@ -217,7 +277,7 @@ class PurlMetrics:
     """Set of actual PURLs"""
 
     @classmethod
-    def calculate(cls, expected_purls: set[str], actual_purls: set[str]) -> "PurlMetrics":
+    def calculate(cls, expected_purls: set[str], actual_purls: set[str]) -> PurlMetrics:
         """Calculate metrics from two sets of purls.
 
         Args:
