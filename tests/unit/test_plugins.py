@@ -1,20 +1,15 @@
 """Tests for plugin system."""
 
-from pathlib import Path
-from unittest.mock import MagicMock, patch
-
-from bom_bench.models.sca_tool import ScanStatus, SCAToolInfo
+from bom_bench.models.sca_tool import SCAToolInfo
 from bom_bench.plugins import (
     get_plugins,
     initialize_plugins,
     reset_plugins,
 )
 from bom_bench.sca_tools import (
-    check_tool_available,
     get_registered_tools,
     get_tool_info,
     list_available_tools,
-    scan_project,
 )
 
 
@@ -91,94 +86,6 @@ class TestToolRegistry:
         assert info is None
 
 
-class TestToolAvailability:
-    """Tests for tool availability checking."""
-
-    def setup_method(self):
-        """Reset and initialize plugins."""
-        reset_plugins()
-        initialize_plugins()
-
-    def test_check_tool_available_not_registered(self):
-        """Test checking availability for unregistered tool."""
-        available = check_tool_available("nonexistent")
-        assert available is False
-
-    @patch("shutil.which")
-    def test_check_cdxgen_available(self, mock_which):
-        """Test checking cdxgen availability when installed."""
-        mock_which.return_value = "/usr/local/bin/cdxgen"
-        reset_plugins()
-        initialize_plugins()
-
-        available = check_tool_available("cdxgen")
-        assert available is True
-
-    @patch("shutil.which")
-    def test_check_cdxgen_not_available(self, mock_which):
-        """Test checking cdxgen availability when not installed."""
-        mock_which.return_value = None
-        reset_plugins()
-        initialize_plugins()
-
-        available = check_tool_available("cdxgen")
-        assert available is False
-
-
-class TestSBOMGeneration:
-    """Tests for SBOM generation via plugins."""
-
-    def setup_method(self):
-        """Reset and initialize plugins."""
-        reset_plugins()
-        initialize_plugins()
-
-    def test_generate_sbom_unregistered_tool(self):
-        """Test SBOM generation with unregistered tool."""
-        result = scan_project(
-            tool_name="nonexistent",
-            project_dir=Path("/project"),
-            output_path=Path("/output.json"),
-            ecosystem="python",
-        )
-
-        assert result is None
-
-    @patch("subprocess.run")
-    def test_generate_sbom_cdxgen_success(self, mock_run, tmp_path):
-        """Test successful cdxgen SBOM generation."""
-        # Create a mock output file
-        output_path = tmp_path / "sbom.json"
-        output_path.write_text('{"bomFormat": "CycloneDX"}')
-
-        mock_run.return_value = MagicMock(returncode=0, stdout="", stderr="")
-
-        result = scan_project(
-            tool_name="cdxgen", project_dir=tmp_path, output_path=output_path, ecosystem="python"
-        )
-
-        assert result is not None
-        assert result.status == ScanStatus.SUCCESS
-        assert result.sbom_path == output_path
-
-    @patch("subprocess.run")
-    def test_generate_sbom_cdxgen_failure(self, mock_run, tmp_path):
-        """Test cdxgen SBOM generation failure."""
-        output_path = tmp_path / "sbom.json"
-
-        mock_run.return_value = MagicMock(
-            returncode=1, stdout="", stderr="Error: something went wrong"
-        )
-
-        result = scan_project(
-            tool_name="cdxgen", project_dir=tmp_path, output_path=output_path, ecosystem="python"
-        )
-
-        assert result is not None
-        assert result.status == ScanStatus.TOOL_FAILED
-        assert "Error" in result.error_message
-
-
 class TestPluginInfo:
     """Tests for plugin information."""
 
@@ -220,16 +127,3 @@ class TestCdxgenPlugin:
         assert info.description is not None
         assert "python" in info.supported_ecosystems
         assert info.homepage == "https://github.com/CycloneDX/cdxgen"
-
-    @patch("shutil.which")
-    def test_cdxgen_availability_check(self, mock_which):
-        """Test cdxgen availability check."""
-        # When cdxgen is installed
-        mock_which.return_value = "/usr/local/bin/cdxgen"
-        reset_plugins()
-        assert check_tool_available("cdxgen") is True
-
-        # When cdxgen is not installed
-        mock_which.return_value = None
-        reset_plugins()
-        assert check_tool_available("cdxgen") is False

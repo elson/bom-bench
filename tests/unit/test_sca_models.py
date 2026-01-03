@@ -9,8 +9,6 @@ from bom_bench.models.sca_tool import (
     BenchmarkStatus,
     BenchmarkSummary,
     PurlMetrics,
-    ScanResult,
-    ScanStatus,
     SCAToolInfo,
 )
 
@@ -22,48 +20,45 @@ class TestSCAToolInfo:
         """Test creating SCAToolInfo."""
         info = SCAToolInfo(
             name="cdxgen",
-            version="10.0.0",
             description="CycloneDX Generator",
             supported_ecosystems=["python", "javascript"],
             homepage="https://github.com/CycloneDX/cdxgen",
+            tools=[{"name": "node", "version": "22"}],
         )
 
         assert info.name == "cdxgen"
-        assert info.version == "10.0.0"
         assert info.description == "CycloneDX Generator"
         assert "python" in info.supported_ecosystems
         assert info.homepage == "https://github.com/CycloneDX/cdxgen"
+        assert info.tools == [{"name": "node", "version": "22"}]
 
     def test_tool_info_defaults(self):
         """Test SCAToolInfo default values."""
         info = SCAToolInfo(name="test-tool")
 
         assert info.name == "test-tool"
-        assert info.version is None
         assert info.description is None
         assert info.supported_ecosystems == []
         assert info.homepage is None
-        assert info.installed is False
+        assert info.tools == []
 
     def test_from_dict_full(self):
         """Test creating SCAToolInfo from dict with all fields."""
         data = {
             "name": "cdxgen",
-            "version": "10.0.0",
             "description": "CycloneDX Generator",
             "supported_ecosystems": ["python", "javascript"],
             "homepage": "https://github.com/CycloneDX/cdxgen",
-            "installed": True,
+            "tools": [{"name": "node", "version": "22"}],
         }
 
         info = SCAToolInfo.from_dict(data)
 
         assert info.name == "cdxgen"
-        assert info.version == "10.0.0"
         assert info.description == "CycloneDX Generator"
         assert info.supported_ecosystems == ["python", "javascript"]
         assert info.homepage == "https://github.com/CycloneDX/cdxgen"
-        assert info.installed is True
+        assert info.tools == [{"name": "node", "version": "22"}]
 
     def test_from_dict_minimal(self):
         """Test creating SCAToolInfo from dict with only required fields."""
@@ -72,157 +67,10 @@ class TestSCAToolInfo:
         info = SCAToolInfo.from_dict(data)
 
         assert info.name == "test-tool"
-        assert info.version is None
         assert info.description is None
         assert info.supported_ecosystems == []
         assert info.homepage is None
-        assert info.installed is False
-
-    def test_from_dict_installed_false(self):
-        """Test from_dict with installed explicitly set to False."""
-        data = {"name": "test-tool", "installed": False}
-
-        info = SCAToolInfo.from_dict(data)
-
-        assert info.installed is False
-
-
-class TestScanResult:
-    """Tests for ScanResult model."""
-
-    def test_create_success_result(self):
-        """Test creating successful ScanResult."""
-        result = ScanResult.success(
-            tool_name="cdxgen",
-            sbom_path=Path("/output/sbom.json"),
-            duration_seconds=1.5,
-            exit_code=0,
-        )
-
-        assert result.tool_name == "cdxgen"
-        assert result.status == ScanStatus.SUCCESS
-        assert result.sbom_path == Path("/output/sbom.json")
-        assert result.duration_seconds == 1.5
-        assert result.exit_code == 0
-        assert result.error_message is None
-
-    def test_create_failed_result(self):
-        """Test creating failed ScanResult."""
-        result = ScanResult.failed(
-            tool_name="cdxgen",
-            error_message="Tool not found",
-            status=ScanStatus.TOOL_NOT_FOUND,
-            duration_seconds=0.1,
-        )
-
-        assert result.tool_name == "cdxgen"
-        assert result.status == ScanStatus.TOOL_NOT_FOUND
-        assert result.error_message == "Tool not found"
-        assert result.sbom_path is None
-
-    def test_timeout_result(self):
-        """Test creating timeout ScanResult."""
-        result = ScanResult.failed(
-            tool_name="cdxgen",
-            error_message="Timeout after 120s",
-            status=ScanStatus.TIMEOUT,
-            duration_seconds=120.0,
-        )
-
-        assert result.status == ScanStatus.TIMEOUT
-        assert result.duration_seconds == 120.0
-
-    def test_from_dict_success(self):
-        """Test creating ScanResult from success dict."""
-        data = {
-            "tool_name": "cdxgen",
-            "status": "success",
-            "sbom_path": "/output/sbom.json",
-            "duration_seconds": 1.5,
-            "exit_code": 0,
-        }
-
-        result = ScanResult.from_dict(data)
-
-        assert result.tool_name == "cdxgen"
-        assert result.status == ScanStatus.SUCCESS
-        assert result.sbom_path == Path("/output/sbom.json")
-        assert result.duration_seconds == 1.5
-        assert result.exit_code == 0
-        assert result.error_message is None
-
-    def test_from_dict_failed(self):
-        """Test creating ScanResult from failure dict."""
-        data = {
-            "tool_name": "cdxgen",
-            "status": "tool_failed",
-            "error_message": "Non-zero exit code",
-            "duration_seconds": 0.5,
-            "exit_code": 1,
-        }
-
-        result = ScanResult.from_dict(data)
-
-        assert result.tool_name == "cdxgen"
-        assert result.status == ScanStatus.TOOL_FAILED
-        assert result.error_message == "Non-zero exit code"
-        assert result.sbom_path is None
-        assert result.exit_code == 1
-
-    def test_from_dict_timeout(self):
-        """Test creating ScanResult from timeout dict."""
-        data = {
-            "tool_name": "syft",
-            "status": "timeout",
-            "error_message": "Timeout after 120s",
-            "duration_seconds": 120.0,
-        }
-
-        result = ScanResult.from_dict(data)
-
-        assert result.status == ScanStatus.TIMEOUT
-        assert result.error_message == "Timeout after 120s"
-
-    def test_from_dict_tool_not_found(self):
-        """Test creating ScanResult from tool_not_found dict."""
-        data = {
-            "tool_name": "cdxgen",
-            "status": "tool_not_found",
-            "error_message": "cdxgen not found in PATH",
-        }
-
-        result = ScanResult.from_dict(data)
-
-        assert result.status == ScanStatus.TOOL_NOT_FOUND
-        assert result.duration_seconds == 0.0
-
-    def test_from_dict_parse_error(self):
-        """Test creating ScanResult from parse_error dict."""
-        data = {
-            "tool_name": "cdxgen",
-            "status": "parse_error",
-            "error_message": "Invalid JSON output",
-            "duration_seconds": 1.0,
-        }
-
-        result = ScanResult.from_dict(data)
-
-        assert result.status == ScanStatus.PARSE_ERROR
-
-    def test_from_dict_with_stdout_stderr(self):
-        """Test creating ScanResult with stdout/stderr."""
-        data = {
-            "tool_name": "cdxgen",
-            "status": "tool_failed",
-            "error_message": "Failed",
-            "stdout": "Some output",
-            "stderr": "Error details",
-        }
-
-        result = ScanResult.from_dict(data)
-
-        assert result.stdout == "Some output"
-        assert result.stderr == "Error details"
+        assert info.tools == []
 
 
 class TestPurlMetrics:

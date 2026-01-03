@@ -18,25 +18,6 @@ if TYPE_CHECKING:
 logger = get_logger(__name__)
 
 
-class ScanStatus(Enum):
-    """Status of project scan by an SCA tool."""
-
-    SUCCESS = "success"
-    """Tool ran successfully, SBOM generated"""
-
-    TOOL_FAILED = "tool_failed"
-    """Tool execution failed (non-zero exit)"""
-
-    TIMEOUT = "timeout"
-    """Tool timed out"""
-
-    PARSE_ERROR = "parse_error"
-    """Output could not be parsed as valid SBOM"""
-
-    TOOL_NOT_FOUND = "tool_not_found"
-    """Tool not installed"""
-
-
 @dataclass
 class SCAToolInfo:
     """Metadata about an SCA tool provided by a plugin.
@@ -48,9 +29,6 @@ class SCAToolInfo:
     name: str
     """Tool identifier (e.g., 'cdxgen', 'syft')"""
 
-    version: str | None = None
-    """Tool version string"""
-
     description: str | None = None
     """Human-readable description"""
 
@@ -60,8 +38,8 @@ class SCAToolInfo:
     homepage: str | None = None
     """Tool homepage URL"""
 
-    installed: bool = False
-    """Whether the tool is installed and available"""
+    tools: list[dict] = field(default_factory=list)
+    """Mise tool specifications needed by this SCA tool"""
 
     @classmethod
     def from_dict(cls, d: dict) -> SCAToolInfo:
@@ -75,11 +53,10 @@ class SCAToolInfo:
         """
         return cls(
             name=d["name"],
-            version=d.get("version"),
             description=d.get("description"),
             supported_ecosystems=d.get("supported_ecosystems", []),
             homepage=d.get("homepage"),
-            installed=d.get("installed", False),
+            tools=d.get("tools", []),
         )
 
 
@@ -135,98 +112,6 @@ class SCAToolConfig:
             Formatted command string ready for execution
         """
         return self.command.format(output_path=output_path, project_dir=project_dir)
-
-
-@dataclass
-class ScanResult:
-    """Result of project scan from a plugin.
-
-    Plugins return this from bom_bench_scan_project() to report
-    what happened when they invoked their tool.
-    """
-
-    tool_name: str
-    """Name of the tool that generated this result"""
-
-    status: ScanStatus
-    """Scan status"""
-
-    sbom_path: Path | None = None
-    """Path to generated SBOM file (if successful)"""
-
-    duration_seconds: float = 0.0
-    """Time taken to generate SBOM"""
-
-    exit_code: int | None = None
-    """Tool exit code (if subprocess)"""
-
-    error_message: str | None = None
-    """Error message if generation failed"""
-
-    stdout: str | None = None
-    """Tool stdout (for debugging)"""
-
-    stderr: str | None = None
-    """Tool stderr (for debugging)"""
-
-    @classmethod
-    def success(
-        cls, tool_name: str, sbom_path: Path, duration_seconds: float, exit_code: int = 0
-    ) -> ScanResult:
-        """Create a successful result."""
-        return cls(
-            tool_name=tool_name,
-            status=ScanStatus.SUCCESS,
-            sbom_path=sbom_path,
-            duration_seconds=duration_seconds,
-            exit_code=exit_code,
-        )
-
-    @classmethod
-    def failed(
-        cls,
-        tool_name: str,
-        error_message: str,
-        status: ScanStatus = ScanStatus.TOOL_FAILED,
-        duration_seconds: float = 0.0,
-        exit_code: int | None = None,
-    ) -> ScanResult:
-        """Create a failed result."""
-        return cls(
-            tool_name=tool_name,
-            status=status,
-            error_message=error_message,
-            duration_seconds=duration_seconds,
-            exit_code=exit_code,
-        )
-
-    @classmethod
-    def from_dict(cls, d: dict) -> ScanResult:
-        """Create ScanResult from plugin dict.
-
-        Args:
-            d: Dict with result fields (status as string)
-
-        Returns:
-            ScanResult instance
-        """
-        status_map = {
-            "success": ScanStatus.SUCCESS,
-            "tool_failed": ScanStatus.TOOL_FAILED,
-            "timeout": ScanStatus.TIMEOUT,
-            "parse_error": ScanStatus.PARSE_ERROR,
-            "tool_not_found": ScanStatus.TOOL_NOT_FOUND,
-        }
-        return cls(
-            tool_name=d["tool_name"],
-            status=status_map[d["status"]],
-            sbom_path=Path(d["sbom_path"]) if d.get("sbom_path") else None,
-            duration_seconds=d.get("duration_seconds", 0.0),
-            exit_code=d.get("exit_code"),
-            error_message=d.get("error_message"),
-            stdout=d.get("stdout"),
-            stderr=d.get("stderr"),
-        )
 
 
 class BenchmarkStatus(Enum):
@@ -333,9 +218,6 @@ class BenchmarkResult:
 
     expected_satisfiable: bool = True
     """Whether the expected SBOM was satisfiable"""
-
-    sbom_result: ScanResult | None = None
-    """Result from SBOM generation"""
 
     expected_sbom_path: Path | None = None
     """Path to expected SBOM file"""

@@ -4,8 +4,8 @@ Provides functions for working with SCA tools:
     from bom_bench.sca_tools import (
         get_registered_tools,
         list_available_tools,
-        check_tool_available,
-        generate_sbom,
+        get_tool_info,
+        get_tool_config,
     )
 
 Available plugins:
@@ -13,10 +13,8 @@ Available plugins:
 - syft: Anchore Syft
 """
 
-from pathlib import Path
-
 from bom_bench.logging import get_logger
-from bom_bench.models.sca_tool import ScanResult, SCAToolConfig, SCAToolInfo
+from bom_bench.models.sca_tool import SCAToolConfig, SCAToolInfo
 
 logger = get_logger(__name__)
 
@@ -116,68 +114,9 @@ def get_tool_config(tool_name: str) -> SCAToolConfig | None:
     return SCAToolConfig.from_dict(tool_data)
 
 
-def check_tool_available(tool_name: str) -> bool:
-    """Check if a specific tool is installed and available.
-
-    Uses the 'installed' field from tool registration.
-
-    Args:
-        tool_name: Name of the tool to check.
-
-    Returns:
-        True if tool is available, False otherwise.
-    """
-    tools = get_registered_tools()
-    if tool_name not in tools:
-        return False
-    return tools[tool_name].installed
-
-
-def scan_project(
-    tool_name: str, project_dir: Path, output_path: Path, ecosystem: str, timeout: int = 120
-) -> ScanResult | None:
-    """Scan project using a registered tool to generate SBOM.
-
-    Args:
-        tool_name: Name of the SCA tool to use.
-        project_dir: Directory containing project files.
-        output_path: Where to write the SBOM.
-        ecosystem: Package ecosystem (python, javascript, etc.)
-        timeout: Execution timeout in seconds.
-
-    Returns:
-        ScanResult with execution details, or None if tool not found.
-    """
-    from bom_bench.plugins import initialize_plugins, pm
-
-    initialize_plugins()
-
-    if tool_name not in _registered_tools:
-        logger.warning(f"Tool '{tool_name}' not registered")
-        return None
-
-    results = pm.hook.scan_project(
-        tool_name=tool_name,
-        project_dir=project_dir,
-        output_path=output_path,
-        ecosystem=ecosystem,
-        timeout=timeout,
-    )
-
-    # Plugins return dicts, convert to ScanResult
-    for result in results:
-        if result is not None:
-            return ScanResult.from_dict(result)
-
-    logger.warning(f"No plugin handled project scan for tool '{tool_name}'")
-    return None
-
-
 __all__ = [
     "get_registered_tools",
     "list_available_tools",
     "get_tool_info",
     "get_tool_config",
-    "check_tool_available",
-    "scan_project",
 ]

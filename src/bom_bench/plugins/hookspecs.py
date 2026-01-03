@@ -14,11 +14,11 @@ Example plugin implementation:
             "name": "my-tool",
             "description": "My custom SCA tool",
             "supported_ecosystems": ["python"],
-            "installed": shutil.which("my-tool") is not None
+            "tools": [{"name": "node", "version": "22"}],
+            "command": "my-tool scan {project_dir} -o {output_path}",
         }
 """
 
-from pathlib import Path
 from types import ModuleType
 
 import pluggy
@@ -113,67 +113,21 @@ class SCAToolSpec:
         Returns:
             Dict with tool info:
                 - name: Tool identifier (required)
-                - version: Tool version string
                 - description: Human-readable description
                 - supported_ecosystems: List of ecosystems (e.g., ["python", "javascript"])
                 - homepage: Tool homepage URL
-                - installed: Whether the tool is installed (required)
+                - tools: List of mise tool dependencies (e.g., [{"name": "node", "version": "22"}])
+                - command: Command template with {output_path} and {project_dir} placeholders
 
         Example implementation:
             @hookimpl
             def register_sca_tools():
                 return {
                     "name": "cdxgen",
-                    "version": _get_cdxgen_version(),
                     "description": "CycloneDX generator",
                     "supported_ecosystems": ["python", "javascript", "java"],
-                    "installed": shutil.which("cdxgen") is not None
+                    "tools": [{"name": "node", "version": "22"}],
+                    "command": "cdxgen -o {output_path} {project_dir}",
                 }
         """
         ...
-
-    @hookspec
-    def scan_project(
-        self,
-        tool_name: str,
-        project_dir: Path,
-        output_path: Path,
-        ecosystem: str,
-        timeout: int = 120,
-    ) -> dict | None:
-        """Scan a project using the specified tool to generate SBOM.
-
-        This is the core hook - plugins invoke their tool and return results.
-        bom-bench handles all comparison, metrics, and reporting.
-
-        Args:
-            tool_name: Name of the tool to use (e.g., "cdxgen")
-            project_dir: Directory containing manifest/lock files to scan
-            output_path: Where to write the generated SBOM
-            ecosystem: Package ecosystem (e.g., "python", "javascript")
-            timeout: Maximum execution time in seconds
-
-        Returns:
-            Dict with result info:
-                - tool_name: Tool name
-                - status: "success", "tool_failed", "timeout", "parse_error", "tool_not_found"
-                - sbom_path: Path to generated SBOM (on success)
-                - duration_seconds: Execution time
-                - exit_code: Tool exit code
-                - error_message: Error message (on failure)
-            None if this plugin doesn't handle this tool.
-
-        Example implementation:
-            @hookimpl
-            def scan_project(tool_name, project_dir, output_path, timeout):
-                if tool_name != "cdxgen":
-                    return None
-                # Run cdxgen subprocess
-                return {
-                    "tool_name": "cdxgen",
-                    "status": "success",
-                    "sbom_path": str(output_path),
-                    "duration_seconds": 1.5,
-                    "exit_code": 0
-                }
-        """

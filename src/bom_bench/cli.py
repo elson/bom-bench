@@ -67,7 +67,12 @@ def cli(ctx, verbose, quiet, log_level):
     show_default=True,
     help="Directory for benchmark outputs",
 )
-def benchmark(tools, fixture_sets, fixture_names, output_dir):
+@click.option(
+    "--refresh-fixtures",
+    is_flag=True,
+    help="Invalidate fixture cache and regenerate all fixtures",
+)
+def benchmark(tools, fixture_sets, fixture_names, output_dir, refresh_fixtures):
     """Run SCA tool benchmarking using fixture sets.
 
     Fixtures define their environment requirements (tools, versions)
@@ -76,15 +81,32 @@ def benchmark(tools, fixture_sets, fixture_names, output_dir):
     Example:
         bom-bench benchmark --tools cdxgen,syft --fixture-sets packse
     """
+    from bom_bench.config import DATA_DIR
     from bom_bench.plugins import initialize_plugins
     from bom_bench.runner import BenchmarkRunner
     from bom_bench.sca_tools import (
-        check_tool_available,
         get_registered_tools,
         list_available_tools,
     )
 
     initialize_plugins()
+
+    # Invalidate fixture cache if requested
+    if refresh_fixtures:
+        fixture_cache_dir = DATA_DIR / "fixture_sets"
+        if fixture_cache_dir.exists():
+            manifests_deleted = 0
+            for cache_manifest in fixture_cache_dir.glob("**/.cache_manifest.json"):
+                logger.info(f"Deleting cache manifest: {cache_manifest}")
+                cache_manifest.unlink()
+                manifests_deleted += 1
+
+            if manifests_deleted > 0:
+                logger.info(f"Invalidated {manifests_deleted} fixture cache(s)")
+            else:
+                logger.info("No fixture caches found to invalidate")
+        else:
+            logger.info("No fixture cache directory found")
 
     # Determine which tools to run
     if tools:
@@ -102,16 +124,6 @@ def benchmark(tools, fixture_sets, fixture_names, output_dir):
         raise click.ClickException(
             "No SCA tools available. Install plugins or check tool installations."
         )
-
-    # Check tool availability and warn
-    unavailable = []
-    for tool in tool_list:
-        if not check_tool_available(tool):
-            unavailable.append(tool)
-
-    if unavailable:
-        logger.warning(f"Tools not installed: {', '.join(unavailable)}")
-        logger.warning("Install them or they will be skipped")
 
     # Parse fixture sets and names
     fixture_set_list = None
@@ -188,18 +200,10 @@ def list_fixtures(ecosystem):
 
 
 @cli.command(name="list-tools")
-@click.option(
-    "--check",
-    is_flag=True,
-    help="Check if tools are installed",
-)
-def list_tools(check):
+def list_tools():
     """List available SCA tools from plugins."""
     from bom_bench.plugins import initialize_plugins
-    from bom_bench.sca_tools import (
-        check_tool_available,
-        get_registered_tools,
-    )
+    from bom_bench.sca_tools import get_registered_tools
 
     initialize_plugins()
 
@@ -214,22 +218,14 @@ def list_tools(check):
     click.echo("")
 
     for name, info in sorted(tools.items()):
-        status = ""
-        if check:
-            available = check_tool_available(name)
-            status = (
-                click.style(" [installed]", fg="green")
-                if available
-                else click.style(" [not found]", fg="red")
-            )
-
-        click.echo(f"  {click.style(name, bold=True)}{status}")
+        click.echo(f"  {click.style(name, bold=True)}")
 
         if info.description:
             click.echo(f"    {info.description}")
 
-        if info.version:
-            click.echo(f"    Version: {info.version}")
+        if info.tools:
+            tool_strs = [f"{t['name']}@{t['version']}" for t in info.tools]
+            click.echo(f"    Tools: {', '.join(tool_strs)}")
 
         if info.supported_ecosystems:
             click.echo(f"    Ecosystems: {', '.join(info.supported_ecosystems)}")

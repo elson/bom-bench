@@ -54,8 +54,8 @@ brew install syft                  # Syft (macOS)
 # Step 1: Generate test projects with expected SBOMs
 bom-bench setup --pm uv
 
-# Step 2: List available SCA tools and check installation
-bom-bench list-tools --check
+# Step 2: List available SCA tools
+bom-bench list-tools
 
 # Step 3: Run benchmarking against generated projects
 bom-bench benchmark --pm uv --tools cdxgen,syft
@@ -201,42 +201,26 @@ output/
 
 1. **Create plugin file**: `src/bom_bench/sca_tools/{tool_name}.py`
 
-2. **Implement the hooks**:
+2. **Implement the declarative hook**:
 
 ```python
-import pluggy
-from pathlib import Path
-from typing import List, Optional
-
-hookimpl = pluggy.HookimplMarker("bom_bench")
+from bom_bench import hookimpl
 
 @hookimpl
-def register_sca_tools():
-    """Register your SCA tool."""
-    from bom_bench.models.sca import SCAToolInfo
-    return [
-        SCAToolInfo(
-            name="my-tool",
-            description="My SBOM generator",
-            supported_ecosystems=["python", "javascript"],
-            homepage="https://github.com/example/my-tool"
-        )
-    ]
-
-@hookimpl
-def check_tool_available(tool_name: str) -> Optional[bool]:
-    """Check if your tool is installed."""
-    if tool_name != "my-tool":
-        return None
-    import shutil
-    return shutil.which("my-tool") is not None
-
-@hookimpl
-def generate_sbom(tool_name, project_dir, output_path, ecosystem, timeout=120):
-    """Generate SBOM using your tool."""
-    if tool_name != "my-tool":
-        return None
-    # Run tool and return SBOMResult
+def register_sca_tools() -> dict:
+    """Register your SCA tool with declarative configuration."""
+    return {
+        "name": "my-tool",
+        "description": "My SBOM generator",
+        "supported_ecosystems": ["python", "javascript"],
+        "homepage": "https://github.com/example/my-tool",
+        # Mise dependencies (tools needed to run this SCA tool)
+        "tools": [
+            {"name": "node", "version": "22"},  # Example: if tool needs Node.js
+        ],
+        # Command template - placeholders replaced by sandbox
+        "command": "my-tool scan {project_dir} -o {output_path}",
+    }
 ```
 
 3. **Add to DEFAULT_PLUGINS** in `plugins/__init__.py`

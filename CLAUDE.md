@@ -104,8 +104,8 @@ uv run bom-bench benchmark --fixtures fork-basic,fork-marker-selection
 # List available fixture sets
 uv run bom-bench list-fixtures
 
-# List available SCA tools (with installation status)
-uv run bom-bench list-tools --check
+# List available SCA tools
+uv run bom-bench list-tools
 ```
 ## Code Quality & Style
 
@@ -163,9 +163,9 @@ Skip specific hooks: `SKIP=pyright git commit`
    - Example: `packse.py` provides Python dependency resolution test scenarios
 
 2. **SCA Tool Plugins** (`sca_tools/`)
-   - 2 hooks:
-     - `register_sca_tools()` → Returns dict with tool info and declarative config
-     - `scan_project(tool_name, project_dir, output_path, ...)` → Runs tool, returns dict with result
+   - Single hook: `register_sca_tools()` → Returns dict with tool info and declarative config
+   - Declarative config includes: mise tools list, command template, env vars
+   - Execution happens via sandbox, not plugin code
    - Examples: `cdxgen.py`, `syft.py`
 
 **Plugin Registration:** All plugins listed in `plugins/__init__.py::DEFAULT_PLUGINS` tuple.
@@ -191,9 +191,8 @@ Comparison (PURL matching)
 - `FixtureSet` - Collection of fixtures with shared environment config
 - `Fixture` - Single test case with files (manifest, lock, expected SBOM)
 - `FixtureSetEnvironment` - Mise tools and env vars for fixture set
-- `SCAToolInfo` - SCA tool metadata (name, version, ecosystems)
+- `SCAToolInfo` - SCA tool metadata (name, ecosystems, mise tools)
 - `SCAToolConfig` - Declarative tool config (mise tools, command template)
-- `ScanResult` - SCA tool scan result with status
 - `PurlMetrics` - Benchmark metrics (TP/FP/FN, precision/recall/F1)
 - `Sandbox` - Context manager for isolated execution
 
@@ -218,7 +217,7 @@ src/bom_bench/
 ├── models/
 │   ├── fixture.py      # FixtureSet, Fixture, FixtureFiles
 │   ├── sandbox.py      # SandboxConfig, SandboxResult
-│   ├── sca_tool.py     # SCAToolInfo, SCAToolConfig, ScanResult, PurlMetrics
+│   ├── sca_tool.py     # SCAToolInfo, SCAToolConfig, PurlMetrics, BenchmarkResult
 │   └── scenario.py     # Scenario models (for packse integration)
 ├── sandbox/
 │   ├── mise.py         # ToolSpec, generate_mise_toml(), MiseRunner
@@ -261,6 +260,27 @@ data/fixture_sets/
     │   └── meta.json          # {satisfiable: true/false}
     └── ...
 ```
+
+**Cache Invalidation:**
+
+Fixtures are cached to avoid regenerating lock files and SBOMs on every benchmark run. The cache uses a hash-based mechanism:
+- Hash computed from all `*.toml` files in the source data directory
+- Stored in `.cache_manifest.json` alongside cached fixtures
+- Cache automatically regenerated if hash changes (source data modified)
+
+**Manual Cache Invalidation Methods:**
+
+1. **Delete cache manifest** (recommended): `rm data/fixture_sets/packse/.cache_manifest.json`
+   - Forces regeneration while keeping existing files
+   - Useful when you suspect cache is stale but source hasn't changed
+
+2. **Delete entire cache directory**: `rm -rf data/fixture_sets/packse/`
+   - Complete refresh of all fixtures
+   - Use when switching data sources or debugging cache issues
+
+3. **Use CLI flag**: `bom-bench benchmark --refresh-fixtures`
+   - Automatically deletes all cache manifests before running
+   - Convenient for one-off cache rebuilds
 
 ## Project-Specific Conventions
 
@@ -315,7 +335,7 @@ data/fixture_sets/
 ### Adding an SCA Tool Plugin
 
 1. Create `sca_tools/{tool_name}.py`
-2. Implement 2 hooks:
+2. Implement single hook:
    ```python
    from bom_bench import hookimpl
 
@@ -323,25 +343,10 @@ data/fixture_sets/
    def register_sca_tools() -> dict:
        return {
            "name": "my-tool",
-           "version": "1.0.0",
            "description": "My SCA tool",
            "supported_ecosystems": ["python"],
-           "installed": shutil.which("my-tool") is not None,
            "tools": [{"name": "node", "version": "22"}],  # mise deps
            "command": "my-tool scan -o {output_path} {project_dir}",
-       }
-
-   @hookimpl
-   def scan_project(tool_name, project_dir, output_path, timeout=120) -> dict | None:
-       if tool_name != "my-tool":
-           return None
-       # Run tool subprocess
-       return {
-           "tool_name": "my-tool",
-           "status": "success",
-           "sbom_path": str(output_path),
-           "duration_seconds": 1.5,
-           "exit_code": 0,
        }
    ```
 3. Add to `DEFAULT_PLUGINS`
@@ -356,10 +361,10 @@ data/fixture_sets/
 - Sandbox cleaned up automatically (context manager pattern)
 
 ### SCA Tool Plugin Flow
+- Plugins are purely declarative - no execution code required
 - Tools declare their mise dependencies (e.g., node for cdxgen)
 - Command template uses `{output_path}` and `{project_dir}` placeholders
-- Must handle timeouts, missing tools, parse errors
-- Return dict, framework converts to `ScanResult`
+- Sandbox handles execution, timeouts, and error handling
 
 ### Comparison Logic
 - Extract PURLs from both expected and actual SBOMs
