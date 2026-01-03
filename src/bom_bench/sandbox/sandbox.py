@@ -100,11 +100,23 @@ class Sandbox:
 
         result = runner.run_task("sca", timeout=self.config.timeout)
 
+        # Copy SBOM to output directory if successful and output_dir is configured
+        final_sbom_path: Path | None = None
+        if result.success and self.output_path.exists():
+            if self.config.output_dir:
+                # Copy to persistent output directory before cleanup
+                final_sbom_path = self.config.output_dir / "actual.cdx.json"
+                final_sbom_path.parent.mkdir(parents=True, exist_ok=True)
+                shutil.copy2(self.output_path, final_sbom_path)
+            else:
+                # No output_dir configured, use sandbox path (may be deleted)
+                final_sbom_path = self.output_path
+
         return SandboxResult(
             fixture_name=self.fixture.name,
             tool_name=self.sca_tool.name,
             success=result.success and self.output_path.exists(),
-            actual_sbom_path=self.output_path if self.output_path.exists() else None,
+            actual_sbom_path=final_sbom_path,
             duration_seconds=result.duration_seconds,
             exit_code=result.exit_code,
             stdout=result.stdout,

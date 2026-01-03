@@ -10,6 +10,7 @@ class SandboxConfig:
     keep_on_success: bool = False
     keep_on_failure: bool = True
     timeout: int = 120
+    output_dir: Path | None = None
 
 
 @dataclass

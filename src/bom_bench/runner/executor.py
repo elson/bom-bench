@@ -1,5 +1,7 @@
 """Single fixture execution against an SCA tool."""
 
+from pathlib import Path
+
 from bom_bench.benchmarking.comparison import (
     extract_purls_from_cyclonedx,
     load_actual_sbom,
@@ -35,6 +37,8 @@ class FixtureExecutor:
         fixture: Fixture,
         fixture_set_env: FixtureSetEnvironment,
         tool_config: SCAToolConfig,
+        fixture_set_name: str,
+        output_dir: Path,
     ) -> BenchmarkResult:
         """Execute a fixture against an SCA tool.
 
@@ -44,6 +48,8 @@ class FixtureExecutor:
             fixture: The fixture to execute
             fixture_set_env: Environment from the fixture set
             tool_config: SCA tool configuration
+            fixture_set_name: Name of the fixture set
+            output_dir: Base directory for benchmark outputs
 
         Returns:
             BenchmarkResult with comparison metrics
@@ -68,8 +74,20 @@ class FixtureExecutor:
                 error_message="No expected SBOM path",
             )
 
+        # Create output directory for this fixture
+        fixture_output_dir = output_dir / tool_config.name / fixture_set_name / fixture.name
+
+        # Update sandbox config with output directory
+        sandbox_config = SandboxConfig(
+            timeout=self.config.timeout,
+            keep_on_success=self.config.keep_on_success,
+            keep_on_failure=self.config.keep_on_failure,
+            temp_dir=self.config.temp_dir,
+            output_dir=fixture_output_dir,
+        )
+
         # Run in sandbox
-        with Sandbox(fixture, fixture_set_env, tool_config, self.config) as sandbox:
+        with Sandbox(fixture, fixture_set_env, tool_config, sandbox_config) as sandbox:
             sandbox_result = sandbox.run()
 
         if not sandbox_result.success:

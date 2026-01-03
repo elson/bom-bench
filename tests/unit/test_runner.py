@@ -69,7 +69,9 @@ class TestFixtureExecutor:
             supported_ecosystems=["python"],
         )
 
-    def test_execute_fixture_success(self, sample_fixture, sample_fixture_set, sample_tool_config):
+    def test_execute_fixture_success(
+        self, sample_fixture, sample_fixture_set, sample_tool_config, tmp_path: Path
+    ):
         from bom_bench.runner.executor import FixtureExecutor
 
         # Create mock sandbox result with actual SBOM
@@ -116,6 +118,8 @@ class TestFixtureExecutor:
                 fixture=sample_fixture,
                 fixture_set_env=sample_fixture_set.environment,
                 tool_config=sample_tool_config,
+                fixture_set_name="test-set",
+                output_dir=tmp_path,
             )
 
             assert result.status.value == "success"
@@ -149,6 +153,8 @@ class TestFixtureExecutor:
             fixture=unsatisfiable_fixture,
             fixture_set_env=sample_fixture_set.environment,
             tool_config=sample_tool_config,
+            fixture_set_name="test-set",
+            output_dir=tmp_path,
         )
 
         assert result.status.value == "unsatisfiable"

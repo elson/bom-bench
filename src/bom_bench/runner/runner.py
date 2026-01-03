@@ -106,6 +106,8 @@ class BenchmarkRunner:
                         fixture=fixture,
                         fixture_set_env=fixture_set.environment,
                         tool_config=tool_config,
+                        fixture_set_name=fixture_set.name,
+                        output_dir=self.output_dir,
                     )
                     summary.add_result(result)
                     self._log_result(result)
