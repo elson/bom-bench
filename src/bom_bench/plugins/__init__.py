@@ -13,14 +13,6 @@ For SCA tools, import from bom_bench.sca_tools:
         check_tool_available,
         generate_sbom,
     )
-
-For package managers, import from bom_bench.package_managers:
-    from bom_bench.package_managers import (
-        list_available_package_managers,
-        check_package_manager_available,
-        package_manager_generate_manifest,
-        package_manager_run_lock,
-    )
 """
 
 import contextlib
@@ -29,7 +21,7 @@ import importlib
 import pluggy
 
 from bom_bench.logging import get_logger
-from bom_bench.plugins.hookspecs import FixtureSetSpec, PackageManagerSpec, SCAToolSpec
+from bom_bench.plugins.hookspecs import FixtureSetSpec, SCAToolSpec
 
 logger = get_logger(__name__)
 
@@ -37,7 +29,6 @@ logger = get_logger(__name__)
 # Default plugins bundled with bom-bench
 # These are loaded automatically on initialization
 DEFAULT_PLUGINS = (
-    "bom_bench.package_managers.uv",
     "bom_bench.sca_tools.cdxgen",
     "bom_bench.sca_tools.syft",
     "bom_bench.fixtures.packse",
@@ -48,7 +39,6 @@ DEFAULT_PLUGINS = (
 pm = pluggy.PluginManager("bom_bench")
 pm.add_hookspecs(FixtureSetSpec)
 pm.add_hookspecs(SCAToolSpec)
-pm.add_hookspecs(PackageManagerSpec)
 
 # Track initialization state
 _initialized: bool = False
@@ -79,7 +69,7 @@ def initialize_plugins() -> None:
     """Initialize the plugin system.
 
     Loads bundled plugins first, then discovers external plugins
-    via entry points. Collects tool and PM registrations from all plugins.
+    via entry points. Collects tool registrations from all plugins.
 
     This function is idempotent - calling it multiple times has no effect
     after the first call.
@@ -96,28 +86,22 @@ def initialize_plugins() -> None:
     _load_external_plugins()
 
     # Register via domain modules
-    from bom_bench.package_managers import _register_package_managers
     from bom_bench.sca_tools import _register_tools
 
     _register_tools(pm)
-    _register_package_managers(pm)
 
     _initialized = True
 
     # Get counts for logging
-    from bom_bench.package_managers import _registered_pms
     from bom_bench.sca_tools import _registered_tools
 
-    logger.debug(
-        f"Plugin system initialized with {len(_registered_tools)} tool(s) "
-        f"and {len(_registered_pms)} package manager(s)"
-    )
+    logger.debug(f"Plugin system initialized with {len(_registered_tools)} tool(s)")
 
 
 def reset_plugins() -> None:
     """Reset the plugin system (mainly for testing).
 
-    Clears all registered tools and PMs, unregisters all plugins, and marks
+    Clears all registered tools, unregisters all plugins, and marks
     the system as uninitialized. The next call to initialize_plugins()
     will re-initialize the system.
     """
@@ -129,11 +113,9 @@ def reset_plugins() -> None:
             pm.unregister(plugin)
 
     # Reset domain module registries
-    from bom_bench.package_managers import _reset_package_managers
     from bom_bench.sca_tools import _reset_tools
 
     _reset_tools()
-    _reset_package_managers()
 
     _initialized = False
 

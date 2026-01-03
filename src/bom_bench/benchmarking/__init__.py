@@ -1,13 +1,23 @@
-"""Benchmarking layer for SCA tools.
+"""SBOM comparison utilities.
 
 This module provides functionality for:
-- Running SCA tools against generated outputs
-- Comparing SCA tool output with expected SBOMs
-- Generating comparison reports across tools and package managers
+- Loading expected and actual SBOMs
+- Extracting and normalizing PURLs from CycloneDX format
+- Comparing PURL sets for benchmark metrics
 """
 
-from bom_bench.benchmarking.runner import BenchmarkRunner
+from bom_bench.benchmarking.comparison import (
+    compare_sboms,
+    extract_purls_from_cyclonedx,
+    load_actual_sbom,
+    load_expected_sbom,
+    normalize_purl,
+)
 
 __all__ = [
-    "BenchmarkRunner",
+    "compare_sboms",
+    "extract_purls_from_cyclonedx",
+    "load_actual_sbom",
+    "load_expected_sbom",
+    "normalize_purl",
 ]

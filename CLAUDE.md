@@ -6,9 +6,14 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 Provide concise, actionable guidance to AI coding agents working on this repository.
 
 ## Big Picture
-bom-bench is a benchmarking tool for SCA (Software Composition Analysis) tools. It uses a **plugin-based architecture** with Pluggy to support multiple package managers and SCA tools. The workflow is:
-1. Generate manifests and lock files from test scenarios (setup phase)
-2. Run SCA tools against generated projects (benchmark phase)
+bom-bench is a benchmarking tool for SCA (Software Composition Analysis) tools. It uses a **fixture-based architecture** with:
+- **Fixture Sets**: Pre-generated test projects with expected SBOMs (provided by plugins like packse)
+- **SCA Tool Plugins**: Declarative configs for running SCA tools (cdxgen, syft)
+- **Mise Sandboxes**: Isolated execution environments with tool versioning
+
+The workflow is:
+1. Load fixtures from plugins (manifest, lock file, expected SBOM)
+2. Run SCA tools in isolated sandboxes via mise
 3. Compare actual vs expected SBOMs using PURL matching
 
 ## Project Status
@@ -58,16 +63,16 @@ make coverage-html
 # Install dependencies
 uv sync
 
-# Run all tests (264 tests)
+# Run all tests (231 tests)
 uv run pytest tests/ -v
 
 # Run specific test file
-uv run pytest tests/unit/test_package_managers.py -xvs
+uv run pytest tests/unit/test_fixture_models.py -xvs
 
 # Run single test
-uv run pytest tests/unit/test_models.py::TestProcessStatus -xvs
+uv run pytest tests/unit/test_sandbox.py::TestSandbox -xvs
 
-# Coverage (current: 87%)
+# Coverage
 uv run pytest tests/ --cov=src/bom_bench --cov-report=term-missing
 uv run pytest tests/ --cov=src/bom_bench --cov-report=html
 
@@ -87,13 +92,19 @@ uv run pre-commit autoupdate              # Update hook versions
 
 ### Application Usage
 ```bash
-# Generate test projects (requires packse server at http://127.0.0.1:3141)
-uv run bom-bench setup --pm uv
+# Run benchmarks against all fixture sets with all available tools
+uv run bom-bench benchmark
 
-# Run benchmarks
-uv run bom-bench benchmark --pm uv --tools cdxgen,syft
+# Run benchmarks with specific tools and fixture sets
+uv run bom-bench benchmark --tools cdxgen,syft --fixture-sets packse
 
-# List available tools
+# Run specific fixtures only
+uv run bom-bench benchmark --fixtures fork-basic,fork-marker-selection
+
+# List available fixture sets
+uv run bom-bench list-fixtures
+
+# List available SCA tools (with installation status)
 uv run bom-bench list-tools --check
 ```
 ## Code Quality & Style
@@ -136,9 +147,8 @@ Skip specific hooks: `SKIP=pyright git commit`
 ## Testing
 - **IMPORTANT:** Use TDD (Test-Driven Development). Write test first, watch it fail, write minimal code to pass
 - Run full test suite before committing (`make test` or `uv run pytest tests/ -v`)
-- Integration tests require packse server running
-- Mock external dependencies in unit tests
-- Current coverage: **87%** (264 tests) - run `make coverage` to see report
+- Mock external dependencies in unit tests (subprocess, file I/O)
+- Current tests: **231 tests** - run `make test` to verify
 - **Coverage target: 100%** - All new code must have full test coverage
 
 ## Key Architecture
@@ -147,19 +157,15 @@ Skip specific hooks: `SKIP=pyright git commit`
 
 **Two Plugin Types:**
 
-1. **Package Manager Plugins** (`package_managers/`)
-   - **2 hooks only** (simplified from 7 hooks):
-     - `register_package_managers()` → Returns dict with `{name, ecosystem, description, supported_sources, installed, version}`
-     - `process_scenario(pm_name, scenario, output_dir, timeout)` → Atomic operation that generates manifest, runs lock, creates SBOM
-   - Returns dict, framework converts to dataclass
-   - Example: `uv.py` for UV package manager
+1. **Fixture Set Plugins** (`fixtures/`)
+   - Single hook: `register_fixture_sets(bom_bench)` → Returns list of fixture set dicts
+   - Each fixture set contains: name, ecosystem, environment config (mise tools), and fixtures
+   - Example: `packse.py` provides Python dependency resolution test scenarios
 
 2. **SCA Tool Plugins** (`sca_tools/`)
-   - 3 hooks:
-     - `register_sca_tools()` → Returns dict with tool info
-     - `check_tool_available(tool_name)` → Boolean availability check
+   - 2 hooks:
+     - `register_sca_tools()` → Returns dict with tool info and declarative config
      - `scan_project(tool_name, project_dir, output_path, ...)` → Runs tool, returns dict with result
-   - Returns dict, framework converts to dataclass
    - Examples: `cdxgen.py`, `syft.py`
 
 **Plugin Registration:** All plugins listed in `plugins/__init__.py::DEFAULT_PLUGINS` tuple.
@@ -167,81 +173,93 @@ Skip specific hooks: `SKIP=pyright git commit`
 ### Data Flow
 
 ```
-Scenario (JSON)
-  → PM Plugin (process_scenario)
-    → Manifest (pyproject.toml)
-    → Lock file (uv.lock)
-    → Expected SBOM (expected.cdx.json) + meta.json
-  → SCA Plugin (scan_project)
+FixtureSet Plugin
+  → Fixtures (manifest, lock, expected SBOM)
+    │
+    v
+Sandbox (mise-based isolation)
+  → SCA Tool via `mise run sca`
     → Actual SBOM (actual.cdx.json)
-  → Comparison (PURL matching)
-    → Metrics (precision, recall, F1)
+      │
+      v
+Comparison (PURL matching)
+  → Metrics (precision, recall, F1)
 ```
 
 ### Key Models
 
-- `Scenario` - Test scenario with dependencies
-- `ProcessScenarioResult` - PM processing result with status (SUCCESS/FAILED/TIMEOUT/UNSATISFIABLE)
-- `PMInfo` - PM metadata with `supported_sources` field
-- `SCAToolInfo` - SCA tool metadata
-- `ScanResult` - SCA tool scan result
+- `FixtureSet` - Collection of fixtures with shared environment config
+- `Fixture` - Single test case with files (manifest, lock, expected SBOM)
+- `FixtureSetEnvironment` - Mise tools and env vars for fixture set
+- `SCAToolInfo` - SCA tool metadata (name, version, ecosystems)
+- `SCAToolConfig` - Declarative tool config (mise tools, command template)
+- `ScanResult` - SCA tool scan result with status
 - `PurlMetrics` - Benchmark metrics (TP/FP/FN, precision/recall/F1)
+- `Sandbox` - Context manager for isolated execution
 
 ## Directory Structure
 
 ```
 src/bom_bench/
-├── cli.py              # CLI entry point using Click
+├── cli.py              # CLI: benchmark, list-fixtures, list-tools
 ├── config.py           # Constants (paths, defaults)
+├── logging.py          # Logging configuration
 ├── plugins/
 │   ├── __init__.py     # DEFAULT_PLUGINS, initialize_plugins()
-│   └── hookspecs.py    # Hook specifications (PackageManagerSpec, SCAToolSpec)
-├── package_managers/
-│   ├── __init__.py     # PM wrapper functions, PMInfo registry
-│   └── uv.py          # UV plugin (process_scenario, register_package_managers)
+│   └── hookspecs.py    # Hook specifications (FixtureSetSpec, SCAToolSpec)
+├── fixtures/
+│   ├── __init__.py     # Fixture loading utilities
+│   ├── loader.py       # FixtureSetLoader with caching
+│   └── packse.py       # Packse fixture set plugin
 ├── sca_tools/
 │   ├── __init__.py     # SCA wrapper functions, tool registry
-│   ├── cdxgen.py      # CycloneDX generator plugin
-│   └── syft.py        # Syft plugin
+│   ├── cdxgen.py       # CycloneDX generator plugin
+│   └── syft.py         # Syft plugin
 ├── models/
-│   ├── scenario.py          # Scenario, Root, Requirement
-│   ├── package_manager.py   # PMInfo, ProcessStatus, ProcessScenarioResult
-│   ├── sca_tool.py          # SCAToolInfo, ScanResult, PurlMetrics
-│   └── result.py            # LockResult, ProcessingResult
-├── benchmarking/
+│   ├── fixture.py      # FixtureSet, Fixture, FixtureFiles
+│   ├── sandbox.py      # SandboxConfig, SandboxResult
+│   ├── sca_tool.py     # SCAToolInfo, SCAToolConfig, ScanResult, PurlMetrics
+│   └── scenario.py     # Scenario models (for packse integration)
+├── sandbox/
+│   ├── mise.py         # ToolSpec, generate_mise_toml(), MiseRunner
+│   └── sandbox.py      # Sandbox context manager
+├── runner/
 │   ├── runner.py       # BenchmarkRunner orchestration
-│   ├── comparison.py   # PURL extraction, normalization, comparison
-│   └── storage.py      # JSON/CSV persistence
-├── generators/sbom/
-│   └── cyclonedx.py   # SBOM generation utilities
-└── data/
-    └── loader.py      # Scenario loading abstraction
+│   └── executor.py     # Single fixture+tool execution
+├── benchmarking/
+│   └── comparison.py   # PURL extraction, normalization, comparison
+└── generators/sbom/
+    └── cyclonedx.py    # SBOM generation utilities
 ```
 
 ## Output Structure
 
-### Setup Output (`output/scenarios/{pm}/{scenario}/`)
-```
-scenarios/
-  uv/
-    test-scenario/
-      ├── expected.cdx.json    # Ground truth SBOM (only if satisfiable)
-      ├── meta.json            # {satisfiable, package_manager_result}
-      └── assets/
-          ├── pyproject.toml   # Generated manifest
-          └── uv.lock          # Lock file
-```
-
-### Benchmark Output (`output/benchmarks/{tool}/{pm}/`)
+### Benchmark Output (`output/benchmarks/{tool}/{fixture_set}/`)
 ```
 benchmarks/
   cdxgen/
-    uv/
-      ├── test-scenario/
+    packse/
+      ├── fork-basic/
       │   ├── actual.cdx.json  # SBOM from SCA tool
       │   └── result.json      # Comparison metrics
-      ├── summary.json         # Aggregated stats
+      ├── summary.json         # Aggregated stats per tool+fixture_set
       └── results.csv          # All results
+  syft/
+    packse/
+      └── ...
+```
+
+### Fixture Cache (`data/fixture_sets/{set_name}/`)
+```
+data/fixture_sets/
+  packse/
+    ├── .cache_manifest.json   # Hash for cache invalidation
+    ├── fork-basic/
+    │   ├── pyproject.toml     # Manifest
+    │   ├── uv.lock            # Lock file
+    │   ├── expected.cdx.json  # Ground truth SBOM
+    │   └── meta.json          # {satisfiable: true/false}
+    └── ...
 ```
 
 ## Project-Specific Conventions
@@ -257,58 +275,89 @@ benchmarks/
 
 ## Plugin Development Patterns
 
-### Adding a Package Manager Plugin
+### Adding a Fixture Set Plugin
 
-1. Create `package_managers/{pm_name}.py`
-2. Implement 2 hooks:
+1. Create `fixtures/{source_name}.py`
+2. Implement the hook with dependency injection:
    ```python
-   @hookimpl
-   def register_package_managers() -> dict:
-       return {
-           "name": "my-pm",
-           "ecosystem": "python",
-           "description": "My PM",
-           "supported_sources": ["my-source"],
-           "installed": shutil.which("my-pm") is not None,
-           "version": "1.0.0"
-       }
+   from bom_bench import hookimpl
 
    @hookimpl
-   def process_scenario(pm_name, scenario, output_dir, timeout=120) -> Optional[dict]:
-       if pm_name != "my-pm":
-           return None
-       # 1. Generate manifest
-       # 2. Run lock command
-       # 3. Parse lock, generate SBOM
-       # 4. Generate meta.json
-       return {
-           "pm_name": "my-pm",
-           "status": "success",  # or "failed", "timeout", "unsatisfiable"
-           "manifest_path": str(path),
-           "lock_file_path": str(path),
-           "sbom_path": str(path),
-           "meta_path": str(path),
-           "duration_seconds": 1.5,
-           "exit_code": 0
-       }
+   def register_fixture_sets(bom_bench) -> list[dict]:
+       return [{
+           "name": "my-fixtures",
+           "description": "My test fixtures",
+           "ecosystem": "python",
+           "environment": {
+               "tools": [
+                   {"name": "uv", "version": "0.5.11"},
+                   {"name": "python", "version": "3.12"},
+               ],
+               "env_vars": {"UV_INDEX_URL": "http://localhost:3141"},
+               "registry_url": "http://localhost:3141",
+           },
+           "fixtures": [
+               {
+                   "name": "test-case-1",
+                   "files": {
+                       "manifest": "/path/to/pyproject.toml",
+                       "lock_file": "/path/to/uv.lock",
+                       "expected_sbom": "/path/to/expected.cdx.json",
+                       "meta": "/path/to/meta.json",
+                   },
+                   "satisfiable": True,
+               }
+           ],
+       }]
    ```
 3. Add to `DEFAULT_PLUGINS` in `plugins/__init__.py`
 
 ### Adding an SCA Tool Plugin
 
 1. Create `sca_tools/{tool_name}.py`
-2. Implement 3 hooks (see existing plugins for examples)
+2. Implement 2 hooks:
+   ```python
+   from bom_bench import hookimpl
+
+   @hookimpl
+   def register_sca_tools() -> dict:
+       return {
+           "name": "my-tool",
+           "version": "1.0.0",
+           "description": "My SCA tool",
+           "supported_ecosystems": ["python"],
+           "installed": shutil.which("my-tool") is not None,
+           "tools": [{"name": "node", "version": "22"}],  # mise deps
+           "command": "my-tool scan -o {output_path} {project_dir}",
+       }
+
+   @hookimpl
+   def scan_project(tool_name, project_dir, output_path, timeout=120) -> dict | None:
+       if tool_name != "my-tool":
+           return None
+       # Run tool subprocess
+       return {
+           "tool_name": "my-tool",
+           "status": "success",
+           "sbom_path": str(output_path),
+           "duration_seconds": 1.5,
+           "exit_code": 0,
+       }
+   ```
 3. Add to `DEFAULT_PLUGINS`
 
 ## Important Implementation Details
 
-### Package Manager Plugin Flow
-- 2 hooks total - atomic `process_scenario` combines all operations
-- Output directory calculated by framework: `base_dir / "scenarios" / pm_name / scenario_name`
-- Scenario compatibility checked via `pm_info.supported_sources` (not a hook)
+### Sandbox Execution Flow
+- Each benchmark creates an isolated temp directory
+- `mise.toml` generated with fixture env + SCA tool env combined
+- Files copied from fixture cache to sandbox
+- SCA tool runs via `mise run sca` for tool version isolation
+- Sandbox cleaned up automatically (context manager pattern)
 
 ### SCA Tool Plugin Flow
-- Tools run via subprocess against project directory (`assets/` folder)
+- Tools declare their mise dependencies (e.g., node for cdxgen)
+- Command template uses `{output_path}` and `{project_dir}` placeholders
 - Must handle timeouts, missing tools, parse errors
 - Return dict, framework converts to `ScanResult`
 
@@ -320,26 +369,26 @@ benchmarks/
 
 ## Common Pitfalls to Avoid
 
-- Don't call removed PM hooks (load_scenarios, validate_scenario, get_output_dir, generate_manifest, run_lock, generate_sbom_for_lock)
-- Don't use `data_source` field in PMInfo (use `supported_sources` list instead)
-- Don't manually parse TOML files (use packse API for scenarios, tomlkit for generation)
+- Package Manager plugins no longer exist - use Fixture Set plugins instead
+- Don't run SCA tools directly - use the Sandbox context manager for isolation
+- Don't manually generate mise.toml - use `generate_mise_toml()` helper
 - Don't skip TDD - write test first, watch it fail, then implement
-- Don't process non-universal scenarios (`resolver_options.universal: false`)
+- Fixture sets handle their own environment - don't hardcode tool versions
 
 ## Development Checklist
 
 ### Before Committing
 1. Format code: `make format`
 2. Run checks: `make check` (lint + typecheck + test with coverage)
-3. Verify tests pass: All 264 tests should pass
-4. Check coverage: Must be 100% for all new/changed code (87% baseline for existing)
+3. Verify tests pass: All 231 tests should pass
+4. Check coverage: Must be 100% for all new/changed code
 
 ### If You Change Behavior
 - Update README.md for user-facing changes
 - Update CLAUDE.md for architectural changes
 - Update scratchpad.md with decision rationale
 - Add tests for new functionality (TDD!)
-- Run `make coverage` to ensure coverage doesn't drop
+- Run `make test-cov` to ensure coverage doesn't drop
 
 ### Coverage Report Interpretation
 ```bash
@@ -352,7 +401,6 @@ make coverage-html
 ```
 
 **Coverage target: 100% for all code**
-- Current baseline: 87% (264 tests)
 - All new code must have 100% coverage
 - Existing code should be brought to 100% incrementally
 - No PRs should decrease coverage
