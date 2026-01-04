@@ -24,7 +24,7 @@ def register_sca_tools() -> dict:
         "supported_ecosystems": ["python", "javascript", "java", "go", "rust", "dotnet"],
         "homepage": "https://github.com/CycloneDX/cdxgen",
         # Declarative config for sandbox execution
-        "tools": [{"name": "node", "version": "22"}],
+        "tools": [{"name": "npm:@cyclonedx/cdxgen", "version": "11.11"}],
         "command": "cdxgen -o {output_path} {project_dir}",
         "env_vars": {},
     }
