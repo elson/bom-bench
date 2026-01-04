@@ -28,11 +28,12 @@ The workflow is:
 ## Development Checklist
 
 ### Before Committing
-1. Format code: `make format`
-2. Run checks: `make check` (lint + typecheck + test with coverage)
-3. Verify tests pass: All tests should pass
-4. Check coverage: Must be 100% for all new/changed code
-5. Manually verify changes working as expected: Call relevent `bom-bench` CLI commands and interpret results
+1. Use code-simplifier subagent to review and improve code changes
+2. Format code: `make format`
+3. Run checks: `make check` (lint + typecheck + test with coverage)
+4. Verify tests pass: All tests should pass
+5. Check coverage: Must be 100% for all new/changed code
+6. Manually verify changes working as expected: Call relevent `bom-bench` CLI commands and interpret results
 
 ### If You Change Behavior
 - Update README.md for user-facing changes
