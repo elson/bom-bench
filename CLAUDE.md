@@ -22,7 +22,7 @@ The workflow is:
 - Do not add backward compatibility code (shims, aliases, switches)
 
 ## Project & Context Management
-- Create a `.claude/scratchpad.md` doc to document files, edits, decision logs, exploration notes, etc. Update this file regularly as you work.
+- Use `SCRATCHPAD.md` doc to document files, edits, decision logs, exploration notes, etc. Update this file regularly as you work
 - Store official plans in `.claude/plans/` subfolder
 
 ## Development Checklist
