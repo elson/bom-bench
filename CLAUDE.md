@@ -25,6 +25,37 @@ The workflow is:
 - Create a `.claude/scratchpad.md` doc to document files, edits, decision logs, exploration notes, etc. Update this file regularly as you work.
 - Store official plans in `.claude/plans/` subfolder
 
+## Development Checklist
+
+### Before Committing
+1. Format code: `make format`
+2. Run checks: `make check` (lint + typecheck + test with coverage)
+3. Verify tests pass: All tests should pass
+4. Check coverage: Must be 100% for all new/changed code
+5. Manually verify changes working as expected: Call relevent `bom-bench` CLI commands and interpret results
+
+### If You Change Behavior
+- Update README.md for user-facing changes
+- Update CLAUDE.md for architectural changes
+- Update scratchpad.md with decision rationale
+- Add tests for new functionality (TDD!)
+- Run `make test-cov` to ensure coverage doesn't drop
+
+### Coverage Report Interpretation
+```bash
+# Terminal report with missing lines
+make test-cov
+
+# Browse detailed HTML report
+make coverage-html
+# Open htmlcov/index.html
+```
+
+**Coverage target: 100% for all code**
+- All new code must have 100% coverage
+- Existing code should be brought to 100% incrementally
+- No PRs should decrease coverage
+
 ## Commands
 
 ### Development (Using Makefile)
@@ -379,33 +410,3 @@ Fixtures are cached to avoid regenerating lock files and SBOMs on every benchmar
 - Don't manually generate mise.toml - use `generate_mise_toml()` helper
 - Don't skip TDD - write test first, watch it fail, then implement
 - Fixture sets handle their own environment - don't hardcode tool versions
-
-## Development Checklist
-
-### Before Committing
-1. Format code: `make format`
-2. Run checks: `make check` (lint + typecheck + test with coverage)
-3. Verify tests pass: All 231 tests should pass
-4. Check coverage: Must be 100% for all new/changed code
-
-### If You Change Behavior
-- Update README.md for user-facing changes
-- Update CLAUDE.md for architectural changes
-- Update scratchpad.md with decision rationale
-- Add tests for new functionality (TDD!)
-- Run `make test-cov` to ensure coverage doesn't drop
-
-### Coverage Report Interpretation
-```bash
-# Terminal report with missing lines
-make test-cov
-
-# Browse detailed HTML report
-make coverage-html
-# Open htmlcov/index.html
-```
-
-**Coverage target: 100% for all code**
-- All new code must have 100% coverage
-- Existing code should be brought to 100% incrementally
-- No PRs should decrease coverage
