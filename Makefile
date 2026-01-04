@@ -64,5 +64,4 @@ clean:
 
 # Run bom-bench
 run:
-	uv run bom-bench setup
 	uv run bom-bench benchmark
