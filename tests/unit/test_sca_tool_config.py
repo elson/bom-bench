@@ -65,7 +65,7 @@ class TestCdxgenPluginConfig:
 
         assert result["name"] == "cdxgen"
         assert "tools" in result
-        assert any(t["name"] == "node" for t in result["tools"])
+        assert any(t["name"] == "npm:@cyclonedx/cdxgen" for t in result["tools"])
         assert "command" in result
         assert "{output_path}" in result["command"]
         assert "{project_dir}" in result["command"]
@@ -94,7 +94,7 @@ class TestGetToolConfig:
         assert config is not None
         assert config.name == "cdxgen"
         assert len(config.tools) >= 1
-        assert config.tools[0].name == "node"
+        assert config.tools[0].name == "npm:@cyclonedx/cdxgen"
         assert "{output_path}" in config.command
         assert "{project_dir}" in config.command
 

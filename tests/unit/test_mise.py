@@ -1,4 +1,5 @@
 from pathlib import Path
+from unittest.mock import MagicMock, patch
 
 from bom_bench.sandbox.mise import MiseRunner, ToolSpec, generate_mise_toml
 
@@ -128,3 +129,39 @@ class TestMiseRunner:
         assert mise_toml.exists()
         content = mise_toml.read_text()
         assert 'python = "3.12"' in content
+
+    def test_run_task_sets_mise_ceiling_paths(self, tmp_path: Path):
+        """Verify MISE_CEILING_PATHS is set to sandbox directory for isolation."""
+        runner = MiseRunner(cwd=tmp_path)
+
+        with patch("bom_bench.sandbox.mise.subprocess.run") as mock_run:
+            mock_result = MagicMock()
+            mock_result.returncode = 0
+            mock_result.stdout = ""
+            mock_result.stderr = ""
+            mock_run.return_value = mock_result
+
+            runner.run_task("test")
+
+            mock_run.assert_called_once()
+            call_kwargs = mock_run.call_args.kwargs
+            assert "env" in call_kwargs
+            assert "MISE_CEILING_PATHS" in call_kwargs["env"]
+            assert call_kwargs["env"]["MISE_CEILING_PATHS"] == str(tmp_path)
+
+    def test_trust_sets_mise_ceiling_paths(self, tmp_path: Path):
+        """Verify MISE_CEILING_PATHS is set during trust operation."""
+        runner = MiseRunner(cwd=tmp_path)
+
+        with patch("bom_bench.sandbox.mise.subprocess.run") as mock_run:
+            mock_result = MagicMock()
+            mock_result.returncode = 0
+            mock_run.return_value = mock_result
+
+            runner.trust()
+
+            mock_run.assert_called_once()
+            call_kwargs = mock_run.call_args.kwargs
+            assert "env" in call_kwargs
+            assert "MISE_CEILING_PATHS" in call_kwargs["env"]
+            assert call_kwargs["env"]["MISE_CEILING_PATHS"] == str(tmp_path)

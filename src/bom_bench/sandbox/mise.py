@@ -1,3 +1,4 @@
+import os
 import shutil
 import subprocess
 import time
@@ -77,6 +78,16 @@ class MiseRunner:
     def __init__(self, cwd: Path):
         self.cwd = cwd
 
+    def _get_sandboxed_env(self) -> dict[str, str]:
+        """Get environment variables with MISE_CEILING_PATHS set for isolation.
+
+        Sets MISE_CEILING_PATHS to the sandbox directory to prevent mise from
+        loading configuration files from parent directories.
+        """
+        env = os.environ.copy()
+        env["MISE_CEILING_PATHS"] = str(self.cwd)
+        return env
+
     def run_task(self, task_name: str, timeout: int = 120) -> MiseRunResult:
         """Run a mise task.
 
@@ -106,6 +117,7 @@ class MiseRunner:
                 capture_output=True,
                 text=True,
                 timeout=timeout,
+                env=self._get_sandboxed_env(),
             )
 
             duration = time.time() - start_time
@@ -158,6 +170,7 @@ class MiseRunner:
                 capture_output=True,
                 text=True,
                 timeout=10,
+                env=self._get_sandboxed_env(),
             )
             return result.returncode == 0
         except Exception:
