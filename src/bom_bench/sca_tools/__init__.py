@@ -3,7 +3,6 @@
 Provides functions for working with SCA tools:
     from bom_bench.sca_tools import (
         get_registered_tools,
-        list_available_tools,
         get_tool_info,
         get_tool_config,
     )
@@ -66,15 +65,6 @@ def get_registered_tools() -> dict[str, SCAToolInfo]:
     return _registered_tools.copy()
 
 
-def list_available_tools() -> list[str]:
-    """Get list of available tool names.
-
-    Returns:
-        List of registered tool names.
-    """
-    return list(get_registered_tools().keys())
-
-
 def get_tool_info(tool_name: str) -> SCAToolInfo | None:
     """Get info for a specific tool.
 
@@ -116,7 +106,6 @@ def get_tool_config(tool_name: str) -> SCAToolConfig | None:
 
 __all__ = [
     "get_registered_tools",
-    "list_available_tools",
     "get_tool_info",
     "get_tool_config",
 ]

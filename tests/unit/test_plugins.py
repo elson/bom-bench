@@ -9,7 +9,6 @@ from bom_bench.plugins import (
 from bom_bench.sca_tools import (
     get_registered_tools,
     get_tool_info,
-    list_available_tools,
 )
 
 
@@ -63,13 +62,6 @@ class TestToolRegistry:
         assert isinstance(tools, dict)
         assert "cdxgen" in tools
         assert isinstance(tools["cdxgen"], SCAToolInfo)
-
-    def test_list_available_tools(self):
-        """Test listing available tools."""
-        tools = list_available_tools()
-
-        assert isinstance(tools, list)
-        assert "cdxgen" in tools
 
     def test_get_tool_info_exists(self):
         """Test getting info for existing tool."""

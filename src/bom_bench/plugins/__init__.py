@@ -9,7 +9,6 @@ Core plugin functions:
 For SCA tools, import from bom_bench.sca_tools:
     from bom_bench.sca_tools import (
         get_registered_tools,
-        list_available_tools,
         get_tool_info,
         get_tool_config,
     )
