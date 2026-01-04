@@ -47,6 +47,78 @@ def _setup_logging_from_options(verbose: bool, quiet: bool, log_level: str | Non
     setup_logging(verbose=verbose, quiet=quiet, log_level=log_level)
 
 
+def _parse_comma_list(value: str | None) -> list[str] | None:
+    """Parse comma-separated string into list of stripped values."""
+    return [item.strip() for item in value.split(",")] if value else None
+
+
+def _invalidate_fixture_caches(data_dir: Path) -> None:
+    """Delete all fixture cache manifests to force regeneration."""
+    fixture_cache_dir = data_dir / "fixture_sets"
+    if not fixture_cache_dir.exists():
+        logger.info("No fixture cache directory found")
+        return
+
+    manifests = list(fixture_cache_dir.glob("**/.cache_manifest.json"))
+    for cache_manifest in manifests:
+        logger.info(f"Deleting cache manifest: {cache_manifest}")
+        cache_manifest.unlink()
+
+    if manifests:
+        logger.info(f"Invalidated {len(manifests)} fixture cache(s)")
+    else:
+        logger.info("No fixture caches found to invalidate")
+
+
+def _validate_tool_selection(
+    requested_tools: list[str] | None, registered_tools: dict
+) -> list[str]:
+    """Validate requested tools exist and return final tool list."""
+    if not requested_tools:
+        return list(registered_tools.keys())
+
+    for tool in requested_tools:
+        if tool not in registered_tools:
+            available = ", ".join(registered_tools.keys())
+            error(f"Unknown SCA tool: {tool}. Available: {available}")
+            raise typer.Exit(1)
+
+    return requested_tools
+
+
+def _filter_fixtures(fixture_sets: list, fixture_name_list: list[str] | None) -> list:
+    """Filter fixtures by name if filter list provided."""
+    if not fixture_name_list:
+        return fixture_sets
+    return [f for f in fixture_sets if f.name in fixture_name_list]
+
+
+def _create_progress_display() -> tuple:
+    """Create progress bar and status display components."""
+    progress = Progress(
+        TextColumn("[progress.description]{task.description}"),
+        BarColumn(),
+        TaskProgressColumn(),
+        MofNCompleteColumn(),
+        TimeRemainingColumn(),
+        console=console,
+    )
+    progress_task = progress.add_task("Running benchmarks", total=0)
+
+    status_progress = Progress(
+        SpinnerColumn(),
+        TextColumn("{task.description}"),
+        console=console,
+    )
+    status_task = status_progress.add_task("", total=None)
+
+    layout = ProgressTable.grid()
+    layout.add_row(progress)
+    layout.add_row(status_progress)
+
+    return layout, progress, progress_task, status_progress, status_task
+
+
 @app.command()
 def benchmark(
     tools: Annotated[
@@ -89,50 +161,24 @@ def benchmark(
     """
     from bom_bench.config import DATA_DIR
     from bom_bench.fixtures.loader import FixtureSetLoader
+    from bom_bench.models.sca_tool import BenchmarkSummary
     from bom_bench.plugins import initialize_plugins
     from bom_bench.runner import BenchmarkRunner
-    from bom_bench.sca_tools import get_registered_tools, get_tool_config, list_available_tools
+    from bom_bench.sca_tools import get_registered_tools, get_tool_config
 
     _setup_logging_from_options(verbose, quiet, log_level)
     initialize_plugins()
 
     if refresh_fixtures:
-        fixture_cache_dir = DATA_DIR / "fixture_sets"
-        if fixture_cache_dir.exists():
-            manifests_deleted = 0
-            for cache_manifest in fixture_cache_dir.glob("**/.cache_manifest.json"):
-                logger.info(f"Deleting cache manifest: {cache_manifest}")
-                cache_manifest.unlink()
-                manifests_deleted += 1
+        _invalidate_fixture_caches(DATA_DIR)
 
-            if manifests_deleted > 0:
-                logger.info(f"Invalidated {manifests_deleted} fixture cache(s)")
-            else:
-                logger.info("No fixture caches found to invalidate")
-        else:
-            logger.info("No fixture cache directory found")
-
-    if tools:
-        tool_list = [t.strip() for t in tools.split(",")]
-        registered = get_registered_tools()
-        for tool in tool_list:
-            if tool not in registered:
-                error(f"Unknown SCA tool: {tool}. Available: {', '.join(registered.keys())}")
-                raise typer.Exit(1)
-    else:
-        tool_list = list_available_tools()
-
+    tool_list = _validate_tool_selection(_parse_comma_list(tools), get_registered_tools())
     if not tool_list:
         error("No SCA tools available. Install plugins or check tool installations.")
         raise typer.Exit(1)
 
-    fixture_set_list = None
-    if fixture_sets:
-        fixture_set_list = [fs.strip() for fs in fixture_sets.split(",")]
-
-    fixture_name_list = None
-    if fixture_names:
-        fixture_name_list = [f.strip() for f in fixture_names.split(",")]
+    fixture_set_list = _parse_comma_list(fixture_sets)
+    fixture_name_list = _parse_comma_list(fixture_names)
 
     logger.info(f"SCA Tools: {', '.join(tool_list)}")
     if fixture_set_list:
@@ -150,35 +196,13 @@ def benchmark(
         error("No fixture sets found")
         raise typer.Exit(1)
 
-    total_fixtures = 0
-    for fs in all_fixture_sets:
-        fixtures = fs.fixtures
-        if fixture_name_list:
-            fixtures = [f for f in fixtures if f.name in fixture_name_list]
-        total_fixtures += len(fixtures)
-
+    total_fixtures = sum(
+        len(_filter_fixtures(fs.fixtures, fixture_name_list)) for fs in all_fixture_sets
+    )
     total_tasks = total_fixtures * len(tool_list)
 
-    progress = Progress(
-        TextColumn("[progress.description]{task.description}"),
-        BarColumn(),
-        TaskProgressColumn(),
-        MofNCompleteColumn(),
-        TimeRemainingColumn(),
-        console=console,
-    )
-    progress_task = progress.add_task("Running benchmarks", total=total_tasks)
-
-    status_progress = Progress(
-        SpinnerColumn(),
-        TextColumn("{task.description}"),
-        console=console,
-    )
-    status_task = status_progress.add_task("", total=None)
-
-    layout = ProgressTable.grid()
-    layout.add_row(progress)
-    layout.add_row(status_progress)
+    layout, progress, progress_task, status_progress, status_task = _create_progress_display()
+    progress.update(progress_task, total=total_tasks)
 
     runner = BenchmarkRunner(output_dir=output_dir)
     summaries = []
@@ -191,14 +215,9 @@ def benchmark(
                 continue
 
             for fixture_set in all_fixture_sets:
-                fixtures_to_run = fixture_set.fixtures
-                if fixture_name_list:
-                    fixtures_to_run = [f for f in fixtures_to_run if f.name in fixture_name_list]
-
+                fixtures_to_run = _filter_fixtures(fixture_set.fixtures, fixture_name_list)
                 if not fixtures_to_run:
                     continue
-
-                from bom_bench.models.sca_tool import BenchmarkSummary
 
                 summary = BenchmarkSummary(
                     package_manager=fixture_set.name,
@@ -273,10 +292,7 @@ def list_fixtures(
     for fs in fixture_sets:
         satisfiable = sum(1 for f in fs.fixtures if f.satisfiable)
         unsatisfiable = len(fs.fixtures) - satisfiable
-
-        tool_names = ""
-        if fs.environment.tools:
-            tool_names = ", ".join(f"{t.name}@{t.version}" for t in fs.environment.tools)
+        tool_names = ", ".join(f"{t.name}@{t.version}" for t in fs.environment.tools)
 
         table.add_row(
             fs.name,
@@ -323,11 +339,8 @@ def list_tools(
     table.add_column("Dependencies")
 
     for name, info in sorted(tools.items()):
-        tool_deps = ""
-        if info.tools:
-            tool_deps = ", ".join(f"{t['name']}@{t['version']}" for t in info.tools)
-
-        ecosystems = ", ".join(info.supported_ecosystems) if info.supported_ecosystems else ""
+        tool_deps = ", ".join(f"{t['name']}@{t['version']}" for t in info.tools)
+        ecosystems = ", ".join(info.supported_ecosystems)
 
         table.add_row(
             name,
