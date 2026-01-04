@@ -4,17 +4,17 @@ description: Create a git commit with context-aware message
 allowed-tools: Bash(git add:*), Bash(git status:*), Bash(git commit:*)
 ---
 
-Create a new git commit. First, gather context by running these bash commands in parallel:
+## Context
 
-1. `git status` - see staged/unstaged changes
-2. `git diff HEAD` - see all changes including staged
-3. `git branch --show-current` - get current branch name
-4. `git log --oneline -10` - see recent commit message style
+- Current git status: !`git status`
+- Current git diff (staged and unstaged changes): !`git diff HEAD`
+- Current branch: !`git branch --show-current`
+- Recent commits: !`git log --oneline -10`
 
-After gathering context:
+## Your task
 
-1. Analyze the changes and draft a commit message that:
-   - Follows the "conventional commit" structure
+1. Analyze the changes above and draft a commit message that:
+   - Adheres to the "conventional commit" standard
    - Focuses on the "why" rather than the "what"
    - Follows the style of recent commits in the repository
 
@@ -27,7 +27,7 @@ After gathering context:
 
    🤖 Generated with [Claude Code](https://claude.com/claude-code)
 
-   Co-Authored-By: Claude Opus 4.5 <noreply@anthropic.com>
+   Co-Authored-By: %insert model name% <noreply@anthropic.com>
    EOF
    )"
    ```
