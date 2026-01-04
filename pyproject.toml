@@ -7,7 +7,8 @@ requires-python = ">=3.12"
 dependencies    = [
     "packse>=0.3.54",
     "cyclonedx-python-lib>=7.0.0",
-    "click>=8.0.0",
+    "typer>=0.15.0",
+    "rich>=13.0.0",
     "pluggy>=1.3.0",
     "packageurl-python>=0.11.0",
     "tomlkit>=0.13.0",

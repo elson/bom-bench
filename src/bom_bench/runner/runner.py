@@ -5,8 +5,7 @@ Orchestrates running SCA tools against fixtures using sandboxes.
 
 from pathlib import Path
 
-import click
-
+from bom_bench.console import console
 from bom_bench.fixtures.loader import FixtureSetLoader
 from bom_bench.logging import get_logger
 from bom_bench.models.sandbox import SandboxConfig
@@ -79,8 +78,8 @@ class BenchmarkRunner:
                 logger.warning(f"Tool '{tool_name}' not found or has no config")
                 continue
 
-            logger.info("")
-            logger.info(click.style(f"=== Tool: {tool_name} ===", bold=True))
+            console.print()
+            console.print(f"[bold]=== Tool: {tool_name} ===[/bold]")
 
             # Run for each fixture set
             for fixture_set in all_fixture_sets:

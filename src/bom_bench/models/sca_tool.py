@@ -8,8 +8,10 @@ from enum import Enum
 from pathlib import Path
 from typing import TYPE_CHECKING
 
-import click
+from rich.panel import Panel
+from rich.text import Text
 
+from bom_bench.console import console
 from bom_bench.logging import get_logger
 
 if TYPE_CHECKING:
@@ -335,40 +337,42 @@ class BenchmarkSummary:
         self.median_f1_score = statistics.median(f1_scores)
 
     def print_summary(self) -> None:
-        """Print a formatted summary with colored output."""
-        logger.info("")
-        logger.info(
-            click.style(
-                f"Benchmark Summary ({self.tool_name} / {self.package_manager}):", bold=True
-            )
-        )
-        logger.info(f"  Total Scenarios: {self.total_scenarios}")
-        logger.info("")
+        """Print a formatted summary using Rich panel."""
+        content = Text()
 
-        logger.info(click.style("Status Breakdown:", bold=True))
-        logger.info(f"  Successful: {click.style(str(self.successful), fg='green')}")
+        content.append("Status\n", style="bold")
+        content.append(f"  ✓ Successful:     {self.successful}\n", style="green")
         if self.sbom_failed > 0:
-            logger.warning(f"  SBOM Failed: {click.style(str(self.sbom_failed), fg='red')}")
+            content.append(f"  ✗ SBOM Failed:    {self.sbom_failed}\n", style="red")
         if self.unsatisfiable > 0:
-            logger.info(f"  Unsatisfiable: {self.unsatisfiable}")
+            content.append(f"  ○ Unsatisfiable:  {self.unsatisfiable}\n")
         if self.parse_errors > 0:
-            logger.warning(f"  Parse Errors: {click.style(str(self.parse_errors), fg='red')}")
+            content.append(f"  ✗ Parse Errors:   {self.parse_errors}\n", style="red")
         if self.missing_expected > 0:
-            logger.warning(
-                f"  Missing Expected: {click.style(str(self.missing_expected), fg='red')}"
-            )
+            content.append(f"  ✗ Missing Expected: {self.missing_expected}\n", style="red")
 
         if self.successful > 0:
-            logger.info("")
-            logger.info(click.style("Metrics (across successful runs):", bold=True))
-            logger.info(f"  Mean Precision: {self.mean_precision:.3f}")
-            logger.info(f"  Mean Recall: {self.mean_recall:.3f}")
-            logger.info(f"  Mean F1 Score: {self.mean_f1_score:.3f}")
-            logger.info("")
-            logger.info(f"  Median Precision: {self.median_precision:.3f}")
-            logger.info(f"  Median Recall: {self.median_recall:.3f}")
-            logger.info(f"  Median F1 Score: {self.median_f1_score:.3f}")
-            logger.info("")
-            logger.info(f"  Total TP: {self.total_true_positives}")
-            logger.info(f"  Total FP: {self.total_false_positives}")
-            logger.info(f"  Total FN: {self.total_false_negatives}")
+            content.append("\nMetrics (successful runs)\n", style="bold")
+            content.append(
+                f"  Precision  Mean: {self.mean_precision:.3f}    "
+                f"Median: {self.median_precision:.3f}\n"
+            )
+            content.append(
+                f"  Recall     Mean: {self.mean_recall:.3f}    Median: {self.median_recall:.3f}\n"
+            )
+            content.append(
+                f"  F1 Score   Mean: {self.mean_f1_score:.3f}    "
+                f"Median: {self.median_f1_score:.3f}\n"
+            )
+            content.append(
+                f"\n  TP: {self.total_true_positives:,}  "
+                f"FP: {self.total_false_positives:,}  "
+                f"FN: {self.total_false_negatives:,}"
+            )
+
+        panel = Panel(
+            content,
+            title=f"Benchmark Summary: {self.tool_name} / {self.package_manager}",
+            expand=False,
+        )
+        console.print(panel)
