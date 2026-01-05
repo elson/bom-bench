@@ -34,4 +34,7 @@ if ! grep -q 'mise activate bash' ~/.bashrc 2>/dev/null; then
   echo "✓ Added mise activation to ~/.bashrc"
 fi
 
+# Source .bashrc to activate mise in the current session
+source ~/.bashrc
+
 echo "✓ mise installation complete!"
