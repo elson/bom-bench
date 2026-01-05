@@ -2,7 +2,6 @@
 
 import subprocess
 from pathlib import Path
-from unittest.mock import Mock, patch
 
 import pytest
 
@@ -32,7 +31,16 @@ class TestSessionStartHook:
         """Script should exit early if mise is already installed."""
         script_path = Path(__file__).parent.parent.parent / "scripts" / "install_deps.sh"
 
-        # Run with mise in PATH (use current environment which has mise installed)
+        # Check if mise exists in the current environment
+        mise_check = subprocess.run(
+            ["which", "mise"],
+            capture_output=True,
+        )
+
+        if mise_check.returncode != 0:
+            pytest.skip("mise not installed in test environment - cannot test early exit")
+
+        # Run with mise in PATH
         result = subprocess.run(
             [str(script_path)],
             env={"CLAUDE_CODE_REMOTE": "true", "PATH": "/usr/local/bin:/usr/bin:/bin"},
@@ -40,26 +48,15 @@ class TestSessionStartHook:
             text=True,
         )
 
-        # Check if mise exists in the environment
-        mise_check = subprocess.run(
-            ["which", "mise"],
-            capture_output=True,
-        )
-
-        if mise_check.returncode == 0:
-            # mise is installed, script should exit early
-            assert result.returncode == 0
-            assert "already installed" in result.stdout or result.stdout == ""
-        else:
-            # mise not installed, script will try to install (may fail in test env)
-            # This is acceptable - we're testing the early exit logic
-            pass
+        # mise is installed, script should exit early with success
+        assert result.returncode == 0
+        assert "already installed" in result.stdout
 
     @pytest.mark.skipif(
         subprocess.run(["which", "npm"], capture_output=True).returncode != 0,
-        reason="npm not available in test environment"
+        reason="npm not available in test environment",
     )
-    def test_script_attempts_npm_installation(self, tmp_path, monkeypatch):
+    def test_script_attempts_npm_installation(self, tmp_path):
         """Script should attempt npm installation when mise is not found."""
         script_path = Path(__file__).parent.parent.parent / "scripts" / "install_deps.sh"
 
