@@ -57,7 +57,23 @@ else
     fi
   fi
 
-  # Try method 3: cargo-binstall
+  # Try method 3: npm
+  if ! command -v mise &> /dev/null; then
+    echo "Attempting to install mise via npm..."
+
+    # Check if npm is available
+    if command -v npm &> /dev/null; then
+      if npm install -g @jdxcode/mise 2>/dev/null; then
+        echo "✓ Successfully installed mise via npm"
+      else
+        echo "✗ npm installation failed"
+      fi
+    else
+      echo "✗ npm not found, skipping npm method"
+    fi
+  fi
+
+  # Try method 4: cargo-binstall
   if ! command -v mise &> /dev/null; then
     echo "Attempting to install mise via cargo-binstall..."
 
@@ -102,9 +118,10 @@ else
   echo ""
   echo "This environment has network restrictions that prevent downloading mise."
   echo "Possible solutions:"
-  echo "  1. Pre-install mise in the Docker image/container"
-  echo "  2. Whitelist mise.jdx.dev and github.com in the proxy"
-  echo "  3. Manually copy the mise binary to /usr/local/bin/mise"
+  echo "  1. Install via npm: npm install -g @jdxcode/mise"
+  echo "  2. Pre-install mise in the Docker image/container"
+  echo "  3. Whitelist mise.jdx.dev and github.com in the proxy"
+  echo "  4. Manually copy the mise binary to /usr/local/bin/mise"
   echo ""
   exit 1
 fi
