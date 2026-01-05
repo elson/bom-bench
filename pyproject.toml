@@ -4,6 +4,7 @@ version         = "0.2.0"
 description     = "Generate package manager manifests and lock files from test scenarios for benchmarking SCA tools"
 readme          = "README.md"
 requires-python = ">=3.12"
+license         = { text = "MIT" }
 dependencies    = [
     "packse>=0.3.54",
     "cyclonedx-python-lib>=7.0.0",
