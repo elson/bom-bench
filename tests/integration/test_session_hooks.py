@@ -35,15 +35,20 @@ class TestSessionStartHook:
         mise_check = subprocess.run(
             ["which", "mise"],
             capture_output=True,
+            text=True,
         )
 
         if mise_check.returncode != 0:
             pytest.skip("mise not installed in test environment - cannot test early exit")
 
+        # Get mise's actual directory to include in PATH
+        mise_path = mise_check.stdout.strip()
+        mise_dir = str(Path(mise_path).parent)
+
         # Run with mise in PATH
         result = subprocess.run(
             [str(script_path)],
-            env={"CLAUDE_CODE_REMOTE": "true", "PATH": "/usr/local/bin:/usr/bin:/bin"},
+            env={"CLAUDE_CODE_REMOTE": "true", "PATH": f"{mise_dir}:/usr/local/bin:/usr/bin:/bin"},
             capture_output=True,
             text=True,
         )
