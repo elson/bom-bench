@@ -56,6 +56,30 @@ else
       echo "✗ Failed to download mise GPG key (network restrictions)"
     fi
   fi
+
+  # Try method 3: cargo-binstall
+  if ! command -v mise &> /dev/null; then
+    echo "Attempting to install mise via cargo-binstall..."
+
+    # Check if cargo is available
+    if command -v cargo &> /dev/null; then
+      echo "Found cargo, installing cargo-binstall..."
+      if cargo install cargo-binstall 2>/dev/null; then
+        echo "✓ cargo-binstall installed"
+
+        # Now use cargo-binstall to install mise
+        if cargo binstall -y mise 2>/dev/null; then
+          echo "✓ Successfully installed mise via cargo-binstall"
+        else
+          echo "✗ cargo-binstall mise installation failed"
+        fi
+      else
+        echo "✗ Failed to install cargo-binstall"
+      fi
+    else
+      echo "✗ cargo not found, skipping cargo-binstall method"
+    fi
+  fi
 fi
 
 # Final verification
