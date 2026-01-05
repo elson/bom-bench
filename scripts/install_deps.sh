@@ -5,6 +5,8 @@ if [ "$CLAUDE_CODE_REMOTE" != "true" ]; then
   exit 0
 fi
 
+MISE_VERSION="2025.12.1"
+
 # Check if mise is already installed
 if command -v mise &> /dev/null; then
   echo "✓ mise is already installed at $(command -v mise)"
@@ -21,8 +23,8 @@ if ! command -v npm &> /dev/null; then
 fi
 
 # Install mise using npm
-if npm install -g @jdxcode/mise; then
-  echo "✓ Successfully installed mise via npm"
+if npm install -g @jdxcode/mise@$MISE_VERSION; then
+  echo "✓ Successfully installed mise $MISE_VERSION via npm"
 else
   echo "✗ npm installation failed"
   exit 1
@@ -32,9 +34,9 @@ fi
 if ! grep -q 'mise activate bash' ~/.bashrc 2>/dev/null; then
   echo 'eval "$(mise activate bash)"' >> ~/.bashrc
   echo "✓ Added mise activation to ~/.bashrc"
+  echo "⚠️  Please restart your terminal session for mise to be activated"
+else
+  echo "✓ mise activation already configured in ~/.bashrc"
 fi
-
-# Source .bashrc to activate mise in the current session
-source ~/.bashrc
 
 echo "✓ mise installation complete!"
