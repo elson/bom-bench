@@ -1,13 +1,6 @@
 {
   "python.languageServer": "Pylance",
-  "python.analysis.typeCheckingMode": "basic",
   "python.analysis.diagnosticMode": "workspace",
-  "python.analysis.exclude": [
-    "**/tests/**"
-  ],
-  "python.analysis.ignore": [
-    "**/tests/**"
-  ],
   "python.analysis.reportMissingImports": "none",
   "python.analysis.reportMissingModuleSource": "none",
   "python.analysis.reportUnknownMemberType": "none",
@@ -29,5 +22,6 @@
     "**/.pytest_cache": true,
     "**/.pyright": true,
     "**/.ruff_cache": true
-  }
+  },
+  "makefile.configureOnOpen": false
 }
