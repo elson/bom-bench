@@ -16,7 +16,7 @@ Example plugin implementation:
             "supported_ecosystems": ["python"],
             "tools": [{"name": "node", "version": "22"}],
             "command": "my-tool",
-            "args": ["scan", "${project_dir}", "-o", "${output_path}"],
+            "args": ["scan", "${PROJECT_DIR}", "-o", "${OUTPUT_PATH}"],
             "env": {"API_KEY": "${MY_API_KEY:-}"},
         }
 """
@@ -120,7 +120,7 @@ class SCAToolSpec:
                 - homepage: Tool homepage URL
                 - tools: List of mise tool dependencies (e.g., [{"name": "node", "version": "22"}])
                 - command: Command to execute (e.g., "cdxgen", "syft")
-                - args: List of arguments with ${var} placeholders (e.g., ["-o", "${output_path}"])
+                - args: List of arguments with ${var} placeholders (e.g., ["-o", "${OUTPUT_PATH}"])
                 - env: Dict of environment variables (supports ${VAR} and ${VAR:-default} syntax)
 
         Example implementation:
@@ -132,7 +132,7 @@ class SCAToolSpec:
                     "supported_ecosystems": ["python", "javascript", "java"],
                     "tools": [{"name": "npm:@cyclonedx/cdxgen", "version": "11.11"}],
                     "command": "cdxgen",
-                    "args": ["-o", "${output_path}", "${project_dir}"],
+                    "args": ["-o", "${OUTPUT_PATH}", "${PROJECT_DIR}"],
                     "env": {},
                 }
         """

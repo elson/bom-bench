@@ -20,13 +20,13 @@ class TestSCAToolConfig:
             name="cdxgen",
             tools=[ToolSpec(name="node", version="22")],
             command="cdxgen",
-            args=["-o", "${output_path}", "${project_dir}"],
+            args=["-o", "${OUTPUT_PATH}", "${PROJECT_DIR}"],
             env={},
             supported_ecosystems=["python", "javascript"],
         )
         assert config.name == "cdxgen"
         assert config.command == "cdxgen"
-        assert config.args == ["-o", "${output_path}", "${project_dir}"]
+        assert config.args == ["-o", "${OUTPUT_PATH}", "${PROJECT_DIR}"]
         assert len(config.tools) == 1
 
     def test_config_from_dict(self):
@@ -34,7 +34,7 @@ class TestSCAToolConfig:
             "name": "syft",
             "tools": [{"name": "syft", "version": "1.0.0"}],
             "command": "syft",
-            "args": ["${project_dir}", "-o", "cyclonedx-json=${output_path}"],
+            "args": ["${PROJECT_DIR}", "-o", "cyclonedx-json=${OUTPUT_PATH}"],
             "env": {"SYFT_CHECK_FOR_APP_UPDATE": "false"},
             "supported_ecosystems": ["python"],
         }
@@ -95,7 +95,7 @@ class TestSandbox:
             name="cdxgen",
             tools=[ToolSpec(name="node", version="22")],
             command="echo",
-            args=["mock sbom", ">", "${output_path}"],
+            args=["mock sbom", ">", "${OUTPUT_PATH}"],
             env={},
             supported_ecosystems=["python"],
         )

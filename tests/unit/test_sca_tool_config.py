@@ -11,7 +11,7 @@ class TestSCAToolConfig:
             "name": "snyk",
             "tools": [{"name": "npm:snyk", "version": "latest"}],
             "command": "snyk",
-            "args": ["test", "${project_dir}", "--print-deps", ">", "${output_path}"],
+            "args": ["test", "${PROJECT_DIR}", "--print-deps", ">", "${OUTPUT_PATH}"],
             "env": {"SNYK_TOKEN": "${SNYK_TOKEN}"},
             "supported_ecosystems": ["python", "javascript"],
             "description": "Snyk scanner",
@@ -24,7 +24,7 @@ class TestSCAToolConfig:
         assert config.tools[0].name == "npm:snyk"
         assert config.tools[0].version == "latest"
         assert config.command == "snyk"
-        assert config.args == ["test", "${project_dir}", "--print-deps", ">", "${output_path}"]
+        assert config.args == ["test", "${PROJECT_DIR}", "--print-deps", ">", "${OUTPUT_PATH}"]
         assert config.env == {"SNYK_TOKEN": "${SNYK_TOKEN}"}
         assert config.supported_ecosystems == ["python", "javascript"]
         assert config.description == "Snyk scanner"
@@ -53,7 +53,7 @@ class TestSCAToolConfig:
             name="cdxgen",
             tools=[ToolSpec(name="node", version="22")],
             command="cdxgen",
-            args=["-o", "${output_path}", "${project_dir}"],
+            args=["-o", "${OUTPUT_PATH}", "${PROJECT_DIR}"],
         )
 
         formatted = config.format_command(
@@ -85,7 +85,7 @@ class TestSCAToolConfig:
             name="snyk",
             tools=[],
             command="snyk",
-            args=["test", "${project_dir}", "--json", ">", "${output_path}"],
+            args=["test", "${PROJECT_DIR}", "--json", ">", "${OUTPUT_PATH}"],
         )
 
         formatted = config.format_command(
@@ -107,8 +107,8 @@ class TestCdxgenPluginConfig:
         assert any(t["name"] == "npm:@cyclonedx/cdxgen" for t in result["tools"])
         assert "command" in result
         assert "args" in result
-        assert "${output_path}" in result["args"]
-        assert "${project_dir}" in result["args"]
+        assert "${OUTPUT_PATH}" in result["args"]
+        assert "${PROJECT_DIR}" in result["args"]
 
 
 class TestSyftPluginConfig:
@@ -122,8 +122,8 @@ class TestSyftPluginConfig:
         assert any(t["name"] == "syft" for t in result["tools"])
         assert "command" in result
         assert "args" in result
-        assert any("${output_path}" in arg for arg in result["args"])
-        assert "${project_dir}" in result["args"]
+        assert any("${OUTPUT_PATH}" in arg for arg in result["args"])
+        assert "${PROJECT_DIR}" in result["args"]
 
 
 class TestGetToolConfig:
@@ -136,8 +136,8 @@ class TestGetToolConfig:
         assert config.name == "cdxgen"
         assert len(config.tools) >= 1
         assert config.tools[0].name == "npm:@cyclonedx/cdxgen"
-        assert "${output_path}" in config.args
-        assert "${project_dir}" in config.args
+        assert "${OUTPUT_PATH}" in config.args
+        assert "${PROJECT_DIR}" in config.args
 
     def test_get_tool_config_syft(self):
         from bom_bench.sca_tools import get_tool_config
@@ -147,8 +147,8 @@ class TestGetToolConfig:
         assert config is not None
         assert config.name == "syft"
         assert len(config.tools) >= 1
-        assert any("${output_path}" in arg for arg in config.args)
-        assert "${project_dir}" in config.args
+        assert any("${OUTPUT_PATH}" in arg for arg in config.args)
+        assert "${PROJECT_DIR}" in config.args
 
     def test_get_tool_config_not_found(self):
         from bom_bench.sca_tools import get_tool_config

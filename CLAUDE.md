@@ -379,7 +379,7 @@ Fixtures are cached to avoid regenerating lock files and SBOMs on every benchmar
            "supported_ecosystems": ["python"],
            "tools": [{"name": "node", "version": "22"}],  # mise deps
            "command": "my-tool",
-           "args": ["scan", "-o", "${output_path}", "${project_dir}"],
+           "args": ["scan", "-o", "${OUTPUT_PATH}", "${PROJECT_DIR}"],
            "env": {"API_KEY": "${MY_API_KEY:-}"},
        }
    ```
@@ -404,7 +404,7 @@ Plugins support environment variable interpolation in return values:
 ### SCA Tool Plugin Flow
 - Plugins are purely declarative - no execution code required
 - Tools declare their mise dependencies (e.g., node for cdxgen)
-- Command template uses `{output_path}` and `{project_dir}` placeholders
+- Command template uses `${OUTPUT_PATH}` and `${PROJECT_DIR}` placeholders
 - Sandbox handles execution, timeouts, and error handling
 
 ### Comparison Logic
