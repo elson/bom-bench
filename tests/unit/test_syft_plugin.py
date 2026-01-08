@@ -34,5 +34,6 @@ class TestSyftToolRegistration:
         assert "tools" in tool
         assert tool["tools"] == [{"name": "syft", "version": "latest"}]
         assert "command" in tool
-        assert "{project_dir}" in tool["command"]
-        assert "{output_path}" in tool["command"]
+        assert "args" in tool
+        assert "${project_dir}" in tool["args"]
+        assert any("${output_path}" in arg for arg in tool["args"])

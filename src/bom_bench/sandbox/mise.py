@@ -30,7 +30,7 @@ class MiseRunResult:
 
 def generate_mise_toml(
     tools: list[ToolSpec],
-    env_vars: dict[str, str] | None = None,
+    env: dict[str, str] | None = None,
     task_name: str | None = None,
     task_command: str | None = None,
 ) -> str:
@@ -38,14 +38,14 @@ def generate_mise_toml(
 
     Args:
         tools: List of tool specifications (name, version)
-        env_vars: Environment variables to set
+        env: Environment variables to set
         task_name: Optional task name to create
         task_command: Command string for the task (required if task_name is set)
 
     Returns:
         TOML string content for mise.toml
     """
-    if not tools and not env_vars and not task_name:
+    if not tools and not env and not task_name:
         return ""
 
     doc = tomlkit.document()
@@ -56,9 +56,9 @@ def generate_mise_toml(
             tools_table[tool.name] = tool.version
         doc["tools"] = tools_table
 
-    if env_vars:
+    if env:
         env_table = tomlkit.table()
-        for name, value in env_vars.items():
+        for name, value in env.items():
             env_table[name] = value
         doc["env"] = env_table
 
@@ -179,7 +179,7 @@ class MiseRunner:
     def write_mise_toml(
         self,
         tools: list[ToolSpec],
-        env_vars: dict[str, str] | None = None,
+        env: dict[str, str] | None = None,
         task_name: str | None = None,
         task_command: str | None = None,
     ) -> Path:
@@ -187,7 +187,7 @@ class MiseRunner:
 
         Args:
             tools: List of tool specifications
-            env_vars: Environment variables to set
+            env: Environment variables to set
             task_name: Optional task name
             task_command: Command for the task
 
@@ -196,7 +196,7 @@ class MiseRunner:
         """
         content = generate_mise_toml(
             tools=tools,
-            env_vars=env_vars,
+            env=env,
             task_name=task_name,
             task_command=task_command,
         )

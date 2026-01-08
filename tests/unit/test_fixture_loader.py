@@ -30,7 +30,7 @@ class TestFixtureSetLoader:
                     {"name": "uv", "version": "0.5.11"},
                     {"name": "python", "version": "3.12"},
                 ],
-                "env_vars": {"UV_INDEX_URL": "http://localhost:3141"},
+                "env": {"UV_INDEX_URL": "http://localhost:3141"},
                 "registry_url": "http://localhost:3141/simple-html",
             },
             "fixtures": [
@@ -113,7 +113,7 @@ class TestFixtureSetLoader:
             "ecosystem": "python",
             "environment": {
                 "tools": [],
-                "env_vars": {},
+                "env": {},
             },
             "fixtures": [
                 {
@@ -170,7 +170,7 @@ class TestFixtureSetLoader:
             "name": "npm-set",
             "description": "JavaScript fixtures",
             "ecosystem": "javascript",
-            "environment": {"tools": [], "env_vars": {}},
+            "environment": {"tools": [], "env": {}},
             "fixtures": [
                 {
                     "name": "js-fixture",

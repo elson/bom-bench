@@ -13,22 +13,22 @@ class TestFixtureSetEnvironment:
     def test_create_environment(self):
         env = FixtureSetEnvironment(
             tools=[ToolSpec(name="uv", version="0.5.11")],
-            env_vars={"UV_INDEX_URL": "http://localhost:3141"},
+            env={"UV_INDEX_URL": "http://localhost:3141"},
         )
         assert len(env.tools) == 1
         assert env.tools[0].name == "uv"
-        assert env.env_vars["UV_INDEX_URL"] == "http://localhost:3141"
+        assert env.env["UV_INDEX_URL"] == "http://localhost:3141"
 
     def test_environment_with_registry(self):
         env = FixtureSetEnvironment(
             tools=[],
-            env_vars={},
+            env={},
             registry_url="http://localhost:3141/simple-html",
         )
         assert env.registry_url == "http://localhost:3141/simple-html"
 
     def test_environment_defaults(self):
-        env = FixtureSetEnvironment(tools=[], env_vars={})
+        env = FixtureSetEnvironment(tools=[], env={})
         assert env.registry_url is None
 
 
@@ -128,7 +128,7 @@ class TestFixtureSet:
                 ToolSpec(name="uv", version="0.5.11"),
                 ToolSpec(name="python", version="3.12"),
             ],
-            env_vars={"UV_INDEX_URL": "http://localhost:3141/simple"},
+            env={"UV_INDEX_URL": "http://localhost:3141/simple"},
             registry_url="http://localhost:3141/simple-html",
         )
 
@@ -156,7 +156,7 @@ class TestFixtureSet:
         assert fixture_set.environment.registry_url == "http://localhost:3141/simple-html"
 
     def test_fixture_set_multiple_fixtures(self, tmp_path: Path):
-        env = FixtureSetEnvironment(tools=[], env_vars={})
+        env = FixtureSetEnvironment(tools=[], env={})
 
         fixtures = []
         for i in range(5):
@@ -194,7 +194,7 @@ class TestFixtureSet:
                     {"name": "uv", "version": "0.5.11"},
                     {"name": "python", "version": "3.12"},
                 ],
-                "env_vars": {"UV_INDEX_URL": "http://localhost:3141"},
+                "env": {"UV_INDEX_URL": "http://localhost:3141"},
                 "registry_url": "http://localhost:3141/simple-html",
             },
             "fixtures": [
