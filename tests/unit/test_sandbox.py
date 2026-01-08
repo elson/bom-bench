@@ -353,3 +353,69 @@ class TestSandboxHookInvocation:
                 assert received_args["output_file_contents"] == "existing output"
                 # Check bom_bench module has generate_cyclonedx_sbom
                 assert hasattr(received_args["bom_bench"], "generate_cyclonedx_sbom")
+
+    def test_handle_tool_response_hook_raises_exception(self, fixture, fixture_env, sca_tool):
+        """Test _handle_tool_response handles exceptions from hook gracefully."""
+        with Sandbox(fixture, fixture_env, sca_tool) as sandbox:
+            # Create a mock plugin that raises an exception
+            class MockPlugin:
+                def handle_sca_tool_response(self, bom_bench, stdout, stderr, output_file_contents):
+                    raise ValueError("Mock error in hook")
+
+            mock_plugin = MockPlugin()
+
+            # Pre-create output file
+            sandbox.output_path.write_text("original content")
+
+            with patch("bom_bench.sca_tools.get_tool_plugin", return_value=mock_plugin):
+                mise_result = MiseRunResult(
+                    success=True,
+                    exit_code=0,
+                    stdout="output",
+                    stderr="",
+                    duration_seconds=1.0,
+                )
+
+                # Should not raise exception - error is logged
+                sandbox._handle_tool_response(mise_result)
+
+                # Original content should be unchanged (hook failed)
+                assert sandbox.output_path.read_text() == "original content"
+
+    def test_hook_not_invoked_on_tool_failure(self, fixture, fixture_env, sca_tool):
+        """Test hook is not invoked when tool execution fails."""
+        # Track whether hook was called
+        hook_called = []
+
+        class MockPlugin:
+            def handle_sca_tool_response(self, bom_bench, stdout, stderr, output_file_contents):
+                hook_called.append(True)
+                return json.dumps({"test": "data"})
+
+        mock_plugin = MockPlugin()
+
+        with (
+            Sandbox(fixture, fixture_env, sca_tool) as sandbox,
+            patch.object(sandbox, "_execute_sca_tool") as mock_execute,
+            patch("bom_bench.sca_tools.get_tool_plugin", return_value=mock_plugin),
+        ):
+            # Mock a failed tool execution
+            mock_execute.return_value = SandboxResult(
+                fixture_name="test-fixture",
+                tool_name="test-tool",
+                success=False,
+                actual_sbom_path=None,
+                duration_seconds=1.0,
+                exit_code=1,
+                stdout="",
+                stderr="Error occurred",
+                error_message="Tool failed",
+            )
+
+            result = sandbox.run()
+
+            # Verify tool failed
+            assert result.success is False
+
+            # Verify hook was never called
+            assert len(hook_called) == 0
