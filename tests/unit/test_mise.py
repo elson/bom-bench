@@ -33,11 +33,11 @@ class TestGenerateMiseToml:
         assert 'uv = "0.5.11"' in result
         assert 'python = "3.12"' in result
 
-    def test_generate_with_env_vars(self):
+    def test_generate_with_env(self):
         tools = [ToolSpec(name="uv", version="0.5.11")]
-        env_vars = {"UV_INDEX_URL": "http://localhost:3141/simple"}
+        env = {"UV_INDEX_URL": "http://localhost:3141/simple"}
 
-        result = generate_mise_toml(tools=tools, env_vars=env_vars)
+        result = generate_mise_toml(tools=tools, env=env)
 
         assert "[env]" in result
         assert 'UV_INDEX_URL = "http://localhost:3141/simple"' in result
@@ -61,12 +61,12 @@ class TestGenerateMiseToml:
             ToolSpec(name="python", version="3.12"),
             ToolSpec(name="node", version="22"),
         ]
-        env_vars = {"UV_INDEX_URL": "http://localhost:3141/simple"}
+        env = {"UV_INDEX_URL": "http://localhost:3141/simple"}
         task_command = "cdxgen -o /tmp/out.json /tmp/project"
 
         result = generate_mise_toml(
             tools=tools,
-            env_vars=env_vars,
+            env=env,
             task_name="sca",
             task_command=task_command,
         )

@@ -25,6 +25,7 @@ def register_sca_tools() -> dict:
         "homepage": "https://github.com/CycloneDX/cdxgen",
         # Declarative config for sandbox execution
         "tools": [{"name": "npm:@cyclonedx/cdxgen", "version": "11.11"}],
-        "command": "cdxgen -o {output_path} {project_dir}",
-        "env_vars": {},
+        "command": "cdxgen",
+        "args": ["-o", "${OUTPUT_PATH}", "${PROJECT_DIR}"],
+        "env": {},
     }

@@ -345,7 +345,7 @@ Fixtures are cached to avoid regenerating lock files and SBOMs on every benchmar
                    {"name": "uv", "version": "0.5.11"},
                    {"name": "python", "version": "3.12"},
                ],
-               "env_vars": {"UV_INDEX_URL": "http://localhost:3141"},
+               "env": {"UV_INDEX_URL": "http://localhost:3141"},
                "registry_url": "http://localhost:3141",
            },
            "fixtures": [
@@ -378,10 +378,19 @@ Fixtures are cached to avoid regenerating lock files and SBOMs on every benchmar
            "description": "My SCA tool",
            "supported_ecosystems": ["python"],
            "tools": [{"name": "node", "version": "22"}],  # mise deps
-           "command": "my-tool scan -o {output_path} {project_dir}",
+           "command": "my-tool",
+           "args": ["scan", "-o", "${OUTPUT_PATH}", "${PROJECT_DIR}"],
+           "env": {"API_KEY": "${MY_API_KEY:-}"},
        }
    ```
 3. Add to `DEFAULT_PLUGINS`
+
+### Environment Variable Handling
+
+Plugins support environment variable interpolation in return values:
+- `${VAR}` - Expands to environment variable (fails if not set)
+- `${VAR:-default}` - Uses default value if VAR is not set
+- Variables can be defined in a `.env` file at the project root
 
 ## Important Implementation Details
 
@@ -395,7 +404,7 @@ Fixtures are cached to avoid regenerating lock files and SBOMs on every benchmar
 ### SCA Tool Plugin Flow
 - Plugins are purely declarative - no execution code required
 - Tools declare their mise dependencies (e.g., node for cdxgen)
-- Command template uses `{output_path}` and `{project_dir}` placeholders
+- Command template uses `${OUTPUT_PATH}` and `${PROJECT_DIR}` placeholders
 - Sandbox handles execution, timeouts, and error handling
 
 ### Comparison Logic

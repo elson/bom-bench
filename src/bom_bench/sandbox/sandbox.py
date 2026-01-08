@@ -132,17 +132,17 @@ class Sandbox:
 
         all_tools = list(self.fixture_env.tools) + list(self.sca_tool.tools)
 
-        all_env_vars = dict(self.fixture_env.env_vars)
-        all_env_vars.update(self.sca_tool.env_vars)
+        all_env = dict(self.fixture_env.env)
+        all_env.update(self.sca_tool.env)
 
-        task_command = self.sca_tool.command.format(
+        task_command = self.sca_tool.format_command(
             output_path=str(self.output_path),
             project_dir=str(self.project_dir),
         )
 
         content = generate_mise_toml(
             tools=all_tools,
-            env_vars=all_env_vars if all_env_vars else None,
+            env=all_env if all_env else None,
             task_name="sca",
             task_command=task_command,
         )

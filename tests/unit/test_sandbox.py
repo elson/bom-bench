@@ -19,20 +19,23 @@ class TestSCAToolConfig:
         config = SCAToolConfig(
             name="cdxgen",
             tools=[ToolSpec(name="node", version="22")],
-            command="npx @cyclonedx/cdxgen -o {output_path} {project_dir}",
-            env_vars={},
+            command="cdxgen",
+            args=["-o", "${OUTPUT_PATH}", "${PROJECT_DIR}"],
+            env={},
             supported_ecosystems=["python", "javascript"],
         )
         assert config.name == "cdxgen"
-        assert config.command == "npx @cyclonedx/cdxgen -o {output_path} {project_dir}"
+        assert config.command == "cdxgen"
+        assert config.args == ["-o", "${OUTPUT_PATH}", "${PROJECT_DIR}"]
         assert len(config.tools) == 1
 
     def test_config_from_dict(self):
         data = {
             "name": "syft",
             "tools": [{"name": "syft", "version": "1.0.0"}],
-            "command": "syft {project_dir} -o cyclonedx-json={output_path}",
-            "env_vars": {"SYFT_CHECK_FOR_APP_UPDATE": "false"},
+            "command": "syft",
+            "args": ["${PROJECT_DIR}", "-o", "cyclonedx-json=${OUTPUT_PATH}"],
+            "env": {"SYFT_CHECK_FOR_APP_UPDATE": "false"},
             "supported_ecosystems": ["python"],
         }
 
@@ -40,7 +43,7 @@ class TestSCAToolConfig:
 
         assert config.name == "syft"
         assert len(config.tools) == 1
-        assert config.env_vars["SYFT_CHECK_FOR_APP_UPDATE"] == "false"
+        assert config.env["SYFT_CHECK_FOR_APP_UPDATE"] == "false"
 
 
 class TestSandbox:
@@ -51,7 +54,7 @@ class TestSandbox:
                 ToolSpec(name="uv", version="0.5.11"),
                 ToolSpec(name="python", version="3.12"),
             ],
-            env_vars={"UV_INDEX_URL": "http://localhost:3141/simple"},
+            env={"UV_INDEX_URL": "http://localhost:3141/simple"},
             registry_url="http://localhost:3141/simple-html",
         )
 
@@ -91,8 +94,9 @@ class TestSandbox:
         return SCAToolConfig(
             name="cdxgen",
             tools=[ToolSpec(name="node", version="22")],
-            command="echo 'mock sbom' > {output_path}",
-            env_vars={},
+            command="echo",
+            args=["mock sbom", ">", "${OUTPUT_PATH}"],
+            env={},
             supported_ecosystems=["python"],
         )
 

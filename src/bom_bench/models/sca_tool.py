@@ -8,6 +8,7 @@ from enum import Enum
 from pathlib import Path
 from typing import TYPE_CHECKING
 
+from expandvars import expand
 from rich.panel import Panel
 from rich.text import Text
 
@@ -66,7 +67,7 @@ class SCAToolInfo:
 class SCAToolConfig:
     """Declarative configuration for an SCA tool.
 
-    Describes what the tool needs (mise tools) and how to invoke it (command).
+    Describes what the tool needs (mise tools) and how to invoke it (command + args).
     Actual execution happens in the Sandbox.
     """
 
@@ -77,9 +78,12 @@ class SCAToolConfig:
     """Mise tool specifications needed by this SCA tool"""
 
     command: str
-    """Command template with {output_path} and {project_dir} placeholders"""
+    """Command to execute (e.g., 'cdxgen', 'syft')"""
 
-    env_vars: dict[str, str] = field(default_factory=dict)
+    args: list[str] = field(default_factory=list)
+    """Command arguments with ${var} placeholders (e.g., ['-o', '${OUTPUT_PATH}'])"""
+
+    env: dict[str, str] = field(default_factory=dict)
     """Environment variables to set when running the tool"""
 
     supported_ecosystems: list[str] = field(default_factory=list)
@@ -98,13 +102,16 @@ class SCAToolConfig:
             name=data["name"],
             tools=tools,
             command=data["command"],
-            env_vars=data.get("env_vars", {}),
+            args=data.get("args", []),
+            env=data.get("env", {}),
             supported_ecosystems=data.get("supported_ecosystems", []),
             description=data.get("description"),
         )
 
     def format_command(self, output_path: str, project_dir: str) -> str:
-        """Format the command template with actual paths.
+        """Format the command and args with actual paths.
+
+        Replaces ${OUTPUT_PATH} and ${PROJECT_DIR} placeholders in args.
 
         Args:
             output_path: Path where SBOM will be written
@@ -113,7 +120,17 @@ class SCAToolConfig:
         Returns:
             Formatted command string ready for execution
         """
-        return self.command.format(output_path=output_path, project_dir=project_dir)
+        if not self.args:
+            return self.command
+
+        formatted_args = []
+        for arg in self.args:
+            formatted_arg = expand(
+                arg, environ={"OUTPUT_PATH": output_path, "PROJECT_DIR": project_dir}
+            )
+            formatted_args.append(formatted_arg)
+
+        return f"{self.command} {' '.join(formatted_args)}"
 
 
 class BenchmarkStatus(Enum):

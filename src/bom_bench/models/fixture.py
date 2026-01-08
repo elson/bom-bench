@@ -13,7 +13,7 @@ class FixtureSetEnvironment:
     """Mise configuration for a fixture set - shared by all fixtures in the set."""
 
     tools: list[ToolSpec]
-    env_vars: dict[str, str]
+    env: dict[str, str]
     registry_url: str | None = None
 
     @classmethod
@@ -24,7 +24,7 @@ class FixtureSetEnvironment:
         tools = [ToolSpec(name=t["name"], version=t["version"]) for t in data.get("tools", [])]
         return cls(
             tools=tools,
-            env_vars=data.get("env_vars", {}),
+            env=data.get("env", {}),
             registry_url=data.get("registry_url"),
         )
 

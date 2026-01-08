@@ -53,7 +53,7 @@ class TestFixtureExecutor:
             ecosystem="python",
             environment=FixtureSetEnvironment(
                 tools=[ToolSpec(name="uv", version="0.5.11")],
-                env_vars={},
+                env={},
                 registry_url="http://localhost:3141/simple",
             ),
             fixtures=[sample_fixture],
@@ -65,7 +65,8 @@ class TestFixtureExecutor:
         return SCAToolConfig(
             name="test-tool",
             tools=[ToolSpec(name="node", version="22")],
-            command="test-tool -o {output_path} {project_dir}",
+            command="test-tool",
+            args=["-o", "${OUTPUT_PATH}", "${PROJECT_DIR}"],
             supported_ecosystems=["python"],
         )
 

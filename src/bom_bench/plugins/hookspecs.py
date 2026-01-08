@@ -15,7 +15,9 @@ Example plugin implementation:
             "description": "My custom SCA tool",
             "supported_ecosystems": ["python"],
             "tools": [{"name": "node", "version": "22"}],
-            "command": "my-tool scan {project_dir} -o {output_path}",
+            "command": "my-tool",
+            "args": ["scan", "${PROJECT_DIR}", "-o", "${OUTPUT_PATH}"],
+            "env": {"API_KEY": "${MY_API_KEY:-}"},
         }
 """
 
@@ -54,7 +56,7 @@ class FixtureSetSpec:
                 - ecosystem: Package ecosystem, e.g., "python" (required)
                 - environment: Dict with mise configuration:
                     - tools: List of {name, version} dicts
-                    - env_vars: Dict of environment variables
+                    - env: Dict of environment variables
                     - registry_url: Optional package registry URL
                 - fixtures: List of fixture dicts:
                     - name: Fixture identifier
@@ -74,7 +76,7 @@ class FixtureSetSpec:
                             {"name": "uv", "version": "0.5.11"},
                             {"name": "python", "version": "3.12"},
                         ],
-                        "env_vars": {},
+                        "env": {},
                         "registry_url": "http://localhost:3141/simple-html",
                     },
                     "fixtures": [
@@ -117,7 +119,9 @@ class SCAToolSpec:
                 - supported_ecosystems: List of ecosystems (e.g., ["python", "javascript"])
                 - homepage: Tool homepage URL
                 - tools: List of mise tool dependencies (e.g., [{"name": "node", "version": "22"}])
-                - command: Command template with {output_path} and {project_dir} placeholders
+                - command: Command to execute (e.g., "cdxgen", "syft")
+                - args: List of arguments with ${var} placeholders (e.g., ["-o", "${OUTPUT_PATH}"])
+                - env: Dict of environment variables (supports ${VAR} and ${VAR:-default} syntax)
 
         Example implementation:
             @hookimpl
@@ -126,8 +130,10 @@ class SCAToolSpec:
                     "name": "cdxgen",
                     "description": "CycloneDX generator",
                     "supported_ecosystems": ["python", "javascript", "java"],
-                    "tools": [{"name": "node", "version": "22"}],
-                    "command": "cdxgen -o {output_path} {project_dir}",
+                    "tools": [{"name": "npm:@cyclonedx/cdxgen", "version": "11.11"}],
+                    "command": "cdxgen",
+                    "args": ["-o", "${OUTPUT_PATH}", "${PROJECT_DIR}"],
+                    "env": {},
                 }
         """
         ...
