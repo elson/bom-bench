@@ -13,12 +13,11 @@ Work on issue: $ARGUMENTS
 
 First, fetch and understand the issue:
 
-```
-Use the `gh issue` tool to:
+Use `gh issue view` to:
 - Get issue details (title, description, acceptance criteria)
 - Check linked issues, prs etc
 - Review any comments or attachments
-```
+- IMPORTANT: Check if an implementation plan has already been added in the comments
 
 Summarize:
 - What needs to be done
@@ -28,6 +27,7 @@ Summarize:
 ### 2. Explore the Codebase
 
 Before coding:
+- Reference the existing plan if available
 - Search for related code
 - Understand the current implementation
 - Identify files that need changes
@@ -69,7 +69,7 @@ If you discover an unrelated bug while working:
 ## Example Workflow
 
 ```
-Me: /issue 7
+Me: /issue-implement 7
 
 Claude:
 1. Fetching issue #7 from GitHub...
