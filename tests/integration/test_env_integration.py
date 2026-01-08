@@ -16,21 +16,20 @@ class TestEnvIntegration:
         sca_tools._reset_tools()
         reset_plugins()
 
-        # Create a mock plugin manager that returns a tool with env var
-        class MockHook:
+        # Create a mock plugin that returns a tool with env var
+        class MockPlugin:
             def register_sca_tools(self):
-                return [
-                    {
-                        "name": "test-tool",
-                        "tools": [],
-                        "command": "test",
-                        "args": ["--key", "${OUTPUT_PATH}"],
-                        "env": {"API_KEY": "$MY_API_KEY"},
-                    }
-                ]
+                return {
+                    "name": "test-tool",
+                    "tools": [],
+                    "command": "test",
+                    "args": ["--key", "${OUTPUT_PATH}"],
+                    "env": {"API_KEY": "$MY_API_KEY"},
+                }
 
         class MockPM:
-            hook = MockHook()
+            def get_plugins(self):
+                return [MockPlugin()]
 
         sca_tools._register_tools(MockPM())
 
