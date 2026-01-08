@@ -66,7 +66,7 @@ class TestFixtureExecutor:
             name="test-tool",
             tools=[ToolSpec(name="node", version="22")],
             command="test-tool",
-            args=["-o", "${output_path}", "${project_dir}"],
+            args=["-o", "${OUTPUT_PATH}", "${PROJECT_DIR}"],
             supported_ecosystems=["python"],
         )
 

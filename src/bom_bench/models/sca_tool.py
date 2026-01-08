@@ -80,7 +80,7 @@ class SCAToolConfig:
     """Command to execute (e.g., 'cdxgen', 'syft')"""
 
     args: list[str] = field(default_factory=list)
-    """Command arguments with ${var} placeholders (e.g., ['-o', '${output_path}'])"""
+    """Command arguments with ${var} placeholders (e.g., ['-o', '${OUTPUT_PATH}'])"""
 
     env: dict[str, str] = field(default_factory=dict)
     """Environment variables to set when running the tool"""
@@ -110,7 +110,7 @@ class SCAToolConfig:
     def format_command(self, output_path: str, project_dir: str) -> str:
         """Format the command and args with actual paths.
 
-        Interpolates ${output_path} and ${project_dir} in args.
+        Expands ${OUTPUT_PATH} and ${PROJECT_DIR} in args using expandvars.
 
         Args:
             output_path: Path where SBOM will be written
@@ -119,14 +119,25 @@ class SCAToolConfig:
         Returns:
             Formatted command string ready for execution
         """
+        import os
+
+        from expandvars import expandvars
+
         if not self.args:
             return self.command
 
-        formatted_args = []
-        for arg in self.args:
-            formatted = arg.replace("${output_path}", output_path)
-            formatted = formatted.replace("${project_dir}", project_dir)
-            formatted_args.append(formatted)
+        old_env = {k: os.environ.get(k) for k in ("OUTPUT_PATH", "PROJECT_DIR")}
+        os.environ["OUTPUT_PATH"] = output_path
+        os.environ["PROJECT_DIR"] = project_dir
+
+        try:
+            formatted_args = [expandvars(arg) for arg in self.args]
+        finally:
+            for k, v in old_env.items():
+                if v is None:
+                    os.environ.pop(k, None)
+                else:
+                    os.environ[k] = v
 
         return f"{self.command} {' '.join(formatted_args)}"
 

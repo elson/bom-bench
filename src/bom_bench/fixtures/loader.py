@@ -8,6 +8,7 @@ from __future__ import annotations
 import bom_bench
 from bom_bench.models.fixture import FixtureSet
 from bom_bench.plugins import pm as default_pm
+from bom_bench.utils import expandvars_dict
 
 
 class FixtureSetLoader:
@@ -47,6 +48,11 @@ class FixtureSetLoader:
                 continue
 
             for fixture_set_dict in plugin_result:
+                # Only expand env vars in environment.env, not in file paths
+                if "environment" in fixture_set_dict and "env" in fixture_set_dict["environment"]:
+                    fixture_set_dict["environment"]["env"] = expandvars_dict(
+                        fixture_set_dict["environment"]["env"]
+                    )
                 fixture_set = FixtureSet.from_dict(fixture_set_dict)
                 fixture_sets.append(fixture_set)
 

@@ -35,6 +35,6 @@ def register_sca_tools() -> dict:
         # Declarative config for sandbox execution
         "tools": [{"name": "syft", "version": "latest"}],
         "command": "syft",
-        "args": ["${project_dir}", "-o", "cyclonedx-json=${output_path}"],
+        "args": ["${PROJECT_DIR}", "-o", "cyclonedx-json=${OUTPUT_PATH}"],
         "env": {},
     }

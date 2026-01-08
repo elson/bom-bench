@@ -14,6 +14,7 @@ Available plugins:
 
 from bom_bench.logging import get_logger
 from bom_bench.models.sca_tool import SCAToolConfig, SCAToolInfo
+from bom_bench.utils import expandvars_dict
 
 logger = get_logger(__name__)
 
@@ -35,8 +36,11 @@ def _register_tools(pm) -> None:
     _registered_tool_data = {}
 
     # Each plugin returns a single dict, which we convert to SCAToolInfo
+    # Only expand env vars in the 'env' dict, not in 'args' (which contains runtime placeholders)
     for tool_data in pm.hook.register_sca_tools():
         if tool_data:
+            if "env" in tool_data:
+                tool_data["env"] = expandvars_dict(tool_data["env"])
             tool_info = SCAToolInfo.from_dict(tool_data)
             _registered_tools[tool_info.name] = tool_info
             _registered_tool_data[tool_info.name] = tool_data

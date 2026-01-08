@@ -4,6 +4,7 @@ from pathlib import Path
 from typing import Annotated
 
 import typer
+from dotenv import load_dotenv
 from rich.live import Live
 from rich.progress import (
     BarColumn,
@@ -20,6 +21,8 @@ from rich.table import Table as ProgressTable
 from bom_bench.config import BENCHMARKS_DIR
 from bom_bench.console import console, error
 from bom_bench.logging import get_logger, setup_logging
+
+load_dotenv()
 
 logger = get_logger(__name__)
 
