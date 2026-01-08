@@ -9,6 +9,7 @@ from bom_bench.plugins import (
 from bom_bench.sca_tools import (
     get_registered_tools,
     get_tool_info,
+    get_tool_plugin,
 )
 
 
@@ -76,6 +77,35 @@ class TestToolRegistry:
         info = get_tool_info("nonexistent")
 
         assert info is None
+
+    def test_get_tool_plugin_exists(self):
+        """Test getting plugin for existing tool."""
+        plugin = get_tool_plugin("cdxgen")
+
+        assert plugin is not None
+        # Plugin should have register_sca_tools hook
+        assert hasattr(plugin, "register_sca_tools")
+
+    def test_get_tool_plugin_not_exists(self):
+        """Test getting plugin for non-existent tool."""
+        plugin = get_tool_plugin("nonexistent")
+
+        assert plugin is None
+
+    def test_get_tool_plugin_after_reset(self):
+        """Test plugin mapping survives reset and re-initialization."""
+        # Get plugin before reset
+        plugin1 = get_tool_plugin("cdxgen")
+        assert plugin1 is not None
+
+        # Reset and re-initialize
+        reset_plugins()
+        initialize_plugins()
+
+        # Plugin should still be available
+        plugin2 = get_tool_plugin("cdxgen")
+        assert plugin2 is not None
+        assert plugin2 == plugin1
 
 
 class TestPluginInfo:

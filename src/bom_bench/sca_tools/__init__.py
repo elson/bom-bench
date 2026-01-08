@@ -12,6 +12,8 @@ Available plugins:
 - syft: Anchore Syft
 """
 
+from typing import Any
+
 from bom_bench.logging import get_logger
 from bom_bench.models.sca_tool import SCAToolConfig, SCAToolInfo
 from bom_bench.utils import expandvars_dict
@@ -21,6 +23,7 @@ logger = get_logger(__name__)
 # Track registered tools
 _registered_tools: dict[str, SCAToolInfo] = {}
 _registered_tool_data: dict[str, dict] = {}
+_registered_tool_plugins: dict[str, Any] = {}  # tool_name -> plugin module
 
 
 def _register_tools(pm) -> None:
@@ -31,20 +34,25 @@ def _register_tools(pm) -> None:
     Args:
         pm: The pluggy PluginManager instance
     """
-    global _registered_tools, _registered_tool_data
+    global _registered_tools, _registered_tool_data, _registered_tool_plugins
     _registered_tools = {}
     _registered_tool_data = {}
+    _registered_tool_plugins = {}
 
-    # Each plugin returns a single dict, which we convert to SCAToolInfo
-    # Only expand env vars in the 'env' dict, not in 'args' (which contains runtime placeholders)
-    for tool_data in pm.hook.register_sca_tools():
-        if tool_data:
-            if "env" in tool_data:
-                tool_data["env"] = expandvars_dict(tool_data["env"])
-            tool_info = SCAToolInfo.from_dict(tool_data)
-            _registered_tools[tool_info.name] = tool_info
-            _registered_tool_data[tool_info.name] = tool_data
-            logger.debug(f"Registered SCA tool: {tool_info.name}")
+    # Iterate over plugins to track which plugin registered each tool
+    for plugin in pm.get_plugins():
+        # Check if plugin has register_sca_tools method and call it directly
+        if hasattr(plugin, "register_sca_tools"):
+            tool_data = plugin.register_sca_tools()
+            if tool_data:
+                # Only expand env vars in the 'env' dict, not in 'args' (which contains runtime placeholders)
+                if "env" in tool_data:
+                    tool_data["env"] = expandvars_dict(tool_data["env"])
+                tool_info = SCAToolInfo.from_dict(tool_data)
+                _registered_tools[tool_info.name] = tool_info
+                _registered_tool_data[tool_info.name] = tool_data
+                _registered_tool_plugins[tool_info.name] = plugin  # Track plugin
+                logger.debug(f"Registered SCA tool: {tool_info.name}")
 
 
 def _reset_tools() -> None:
@@ -52,9 +60,10 @@ def _reset_tools() -> None:
 
     Called by reset_plugins() in bom_bench.plugins.
     """
-    global _registered_tools, _registered_tool_data
+    global _registered_tools, _registered_tool_data, _registered_tool_plugins
     _registered_tools = {}
     _registered_tool_data = {}
+    _registered_tool_plugins = {}
 
 
 def get_registered_tools() -> dict[str, SCAToolInfo]:
@@ -108,8 +117,24 @@ def get_tool_config(tool_name: str) -> SCAToolConfig | None:
     return SCAToolConfig.from_dict(tool_data)
 
 
+def get_tool_plugin(tool_name: str) -> Any | None:
+    """Get the plugin module that registered a specific tool.
+
+    Args:
+        tool_name: Name of the tool
+
+    Returns:
+        Plugin module or None if tool not found
+    """
+    from bom_bench.plugins import initialize_plugins
+
+    initialize_plugins()
+    return _registered_tool_plugins.get(tool_name)
+
+
 __all__ = [
     "get_registered_tools",
     "get_tool_info",
     "get_tool_config",
+    "get_tool_plugin",
 ]

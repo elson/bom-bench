@@ -5,7 +5,7 @@ from pathlib import Path
 from bom_bench.models.fixture import Fixture, FixtureSetEnvironment
 from bom_bench.models.sandbox import SandboxConfig, SandboxResult
 from bom_bench.models.sca_tool import SCAToolConfig
-from bom_bench.sandbox.mise import MiseRunner, generate_mise_toml
+from bom_bench.sandbox.mise import MiseRunner, MiseRunResult, generate_mise_toml
 
 
 class Sandbox:
@@ -100,6 +100,10 @@ class Sandbox:
 
         result = runner.run_task("sca", timeout=self.config.timeout)
 
+        # Check if plugin has response handler hook
+        if result.success:
+            self._handle_tool_response(result)
+
         # Copy SBOM to output directory if successful and output_dir is configured
         final_sbom_path: Path | None = None
         if result.success and self.output_path.exists():
@@ -124,6 +128,43 @@ class Sandbox:
             error_message=result.error_message,
             sandbox_dir=self._sandbox_dir if not self._should_cleanup else None,
         )
+
+    def _handle_tool_response(self, mise_result: MiseRunResult) -> None:
+        """Call plugin's response handler hook if implemented.
+
+        This allows plugins to parse non-CycloneDX output and convert
+        to CycloneDX 1.6 format.
+
+        Args:
+            mise_result: The result from running the SCA tool via mise
+        """
+        import bom_bench
+        from bom_bench.sca_tools import get_tool_plugin
+
+        tool_plugin = get_tool_plugin(self.sca_tool.name)
+        if tool_plugin is None:
+            return
+
+        # Check if plugin implements the response handler hook
+        if not hasattr(tool_plugin, "handle_sca_tool_response"):
+            return
+
+        # Read output file contents if it exists
+        output_file_contents = None
+        if self.output_path.exists():
+            output_file_contents = self.output_path.read_text()
+
+        # Call the hook directly on the plugin
+        parsed_sbom = tool_plugin.handle_sca_tool_response(
+            bom_bench=bom_bench,
+            stdout=mise_result.stdout,
+            stderr=mise_result.stderr,
+            output_file_contents=output_file_contents,
+        )
+
+        # If hook returned a parsed SBOM, write it to output path
+        if parsed_sbom is not None:
+            self.output_path.write_text(parsed_sbom)
 
     def _generate_mise_toml(self) -> None:
         """Generate mise.toml with combined environment."""

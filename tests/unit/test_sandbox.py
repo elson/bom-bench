@@ -1,3 +1,4 @@
+import json
 import shutil
 from pathlib import Path
 from unittest.mock import patch
@@ -10,7 +11,7 @@ from bom_bench.models.fixture import (
     FixtureSetEnvironment,
 )
 from bom_bench.models.sandbox import SandboxConfig, SandboxResult
-from bom_bench.sandbox.mise import ToolSpec
+from bom_bench.sandbox.mise import MiseRunResult, ToolSpec
 from bom_bench.sandbox.sandbox import Sandbox, SCAToolConfig
 
 
@@ -182,3 +183,173 @@ class TestSandbox:
     def test_sandbox_project_dir(self, fixture, fixture_env, sca_tool):
         with Sandbox(fixture, fixture_env, sca_tool) as sandbox:
             assert sandbox.project_dir == sandbox.sandbox_dir / "project"
+
+
+class TestSandboxHookInvocation:
+    """Tests for _handle_tool_response hook invocation."""
+
+    @pytest.fixture
+    def fixture_env(self):
+        return FixtureSetEnvironment(
+            tools=[ToolSpec(name="python", version="3.12")],
+            env={},
+            registry_url="",
+        )
+
+    @pytest.fixture
+    def fixture(self, tmp_path: Path):
+        project_dir = tmp_path / "project"
+        project_dir.mkdir()
+
+        manifest = project_dir / "pyproject.toml"
+        manifest.write_text('[project]\nname = "test"\n')
+
+        files = FixtureFiles(
+            manifest=manifest,
+            lock_file=None,
+            expected_sbom=None,
+            meta=None,
+        )
+
+        return Fixture(
+            name="test-fixture",
+            files=files,
+            satisfiable=True,
+            description="A test fixture",
+        )
+
+    @pytest.fixture
+    def sca_tool(self):
+        return SCAToolConfig(
+            name="test-tool",
+            tools=[],
+            command="echo",
+            args=["test"],
+            env={},
+            supported_ecosystems=["python"],
+        )
+
+    def test_handle_tool_response_no_plugin(self, fixture, fixture_env, sca_tool):
+        """Test _handle_tool_response when no plugin is found."""
+        with Sandbox(fixture, fixture_env, sca_tool) as sandbox:
+            mise_result = MiseRunResult(
+                success=True,
+                exit_code=0,
+                stdout="output",
+                stderr="",
+                duration_seconds=1.0,
+            )
+
+            # Should not raise error when plugin doesn't exist
+            sandbox._handle_tool_response(mise_result)
+
+    def test_handle_tool_response_plugin_no_hook(self, fixture, fixture_env, sca_tool):
+        """Test _handle_tool_response when plugin doesn't implement hook."""
+        # Use cdxgen which exists but doesn't implement handle_sca_tool_response
+        sca_tool.name = "cdxgen"
+
+        with Sandbox(fixture, fixture_env, sca_tool) as sandbox:
+            mise_result = MiseRunResult(
+                success=True,
+                exit_code=0,
+                stdout="output",
+                stderr="",
+                duration_seconds=1.0,
+            )
+
+            # Should not raise error when plugin doesn't implement hook
+            sandbox._handle_tool_response(mise_result)
+
+    def test_handle_tool_response_hook_called(self, fixture, fixture_env, sca_tool):
+        """Test _handle_tool_response calls hook and writes result."""
+        with Sandbox(fixture, fixture_env, sca_tool) as sandbox:
+            # Create a mock plugin with handle_sca_tool_response
+            class MockPlugin:
+                def handle_sca_tool_response(self, bom_bench, stdout, stderr, output_file_contents):
+                    # Generate mock SBOM
+                    sbom = {"bomFormat": "CycloneDX", "specVersion": "1.6"}
+                    return json.dumps(sbom, indent=2)
+
+            mock_plugin = MockPlugin()
+
+            # Mock get_tool_plugin to return our mock
+            with patch("bom_bench.sca_tools.get_tool_plugin", return_value=mock_plugin):
+                mise_result = MiseRunResult(
+                    success=True,
+                    exit_code=0,
+                    stdout="package1==1.0.0\npackage2==2.0.0",
+                    stderr="",
+                    duration_seconds=1.0,
+                )
+
+                sandbox._handle_tool_response(mise_result)
+
+                # Check that SBOM was written
+                assert sandbox.output_path.exists()
+                content = sandbox.output_path.read_text()
+                sbom = json.loads(content)
+                assert sbom["bomFormat"] == "CycloneDX"
+                assert sbom["specVersion"] == "1.6"
+
+    def test_handle_tool_response_hook_returns_none(self, fixture, fixture_env, sca_tool):
+        """Test _handle_tool_response when hook returns None."""
+        with Sandbox(fixture, fixture_env, sca_tool) as sandbox:
+            # Create a mock plugin that returns None
+            class MockPlugin:
+                def handle_sca_tool_response(self, bom_bench, stdout, stderr, output_file_contents):
+                    return None  # Use default behavior
+
+            mock_plugin = MockPlugin()
+
+            # Pre-create output file
+            sandbox.output_path.write_text("original content")
+
+            with patch("bom_bench.sca_tools.get_tool_plugin", return_value=mock_plugin):
+                mise_result = MiseRunResult(
+                    success=True,
+                    exit_code=0,
+                    stdout="output",
+                    stderr="",
+                    duration_seconds=1.0,
+                )
+
+                sandbox._handle_tool_response(mise_result)
+
+                # Original content should be unchanged
+                assert sandbox.output_path.read_text() == "original content"
+
+    def test_handle_tool_response_receives_correct_args(self, fixture, fixture_env, sca_tool):
+        """Test _handle_tool_response passes correct arguments to hook."""
+        with Sandbox(fixture, fixture_env, sca_tool) as sandbox:
+            # Pre-create output file
+            sandbox.output_path.write_text("existing output")
+
+            received_args = {}
+
+            class MockPlugin:
+                def handle_sca_tool_response(self, bom_bench, stdout, stderr, output_file_contents):
+                    received_args["bom_bench"] = bom_bench
+                    received_args["stdout"] = stdout
+                    received_args["stderr"] = stderr
+                    received_args["output_file_contents"] = output_file_contents
+                    return None
+
+            mock_plugin = MockPlugin()
+
+            with patch("bom_bench.sca_tools.get_tool_plugin", return_value=mock_plugin):
+                mise_result = MiseRunResult(
+                    success=True,
+                    exit_code=0,
+                    stdout="test stdout",
+                    stderr="test stderr",
+                    duration_seconds=1.0,
+                )
+
+                sandbox._handle_tool_response(mise_result)
+
+                # Verify correct arguments were passed
+                assert received_args["stdout"] == "test stdout"
+                assert received_args["stderr"] == "test stderr"
+                assert received_args["output_file_contents"] == "existing output"
+                # Check bom_bench module has generate_cyclonedx_sbom
+                assert hasattr(received_args["bom_bench"], "generate_cyclonedx_sbom")

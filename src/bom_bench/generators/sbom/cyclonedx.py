@@ -87,7 +87,7 @@ def generate_cyclonedx_sbom(
 
     # Add external reference to bom-bench
     bom_bench_ref = ExternalReference(  # pyright: ignore  # type: ignore
-        type=ExternalReferenceType.BUILD_SYSTEM, url=XsUri("https://github.com/your-org/bom-bench")
+        type=ExternalReferenceType.BUILD_SYSTEM, url=XsUri("https://github.com/elson/bom-bench")
     )
     bom.metadata.component.external_references.add(bom_bench_ref)  # pyright: ignore  # type: ignore
 

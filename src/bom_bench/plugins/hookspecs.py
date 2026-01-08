@@ -137,3 +137,43 @@ class SCAToolSpec:
                 }
         """
         ...
+
+    @hookspec
+    def handle_sca_tool_response(
+        self,
+        bom_bench: ModuleType,
+        stdout: str,
+        stderr: str,
+        output_file_contents: str | None,
+    ) -> str | None:  # type: ignore[empty-body]
+        """Parse SCA tool response and return CycloneDX 1.6 JSON SBOM.
+
+        Optional hook for SCA tool plugins to parse non-CycloneDX tool output
+        and convert it to CycloneDX 1.6 JSON format.
+
+        This hook is called directly on the plugin module that registered the
+        tool (not via pm.hook), so only the specific tool's plugin is invoked.
+
+        Args:
+            bom_bench: The bom_bench module with helper functions:
+                - generate_cyclonedx_sbom(scenario_name, expected_packages): Creates CycloneDX SBOM
+            stdout: Standard output from the SCA tool execution
+            stderr: Standard error from the SCA tool execution
+            output_file_contents: Contents of the default output file if generated,
+                                  or None if no output file was created
+
+        Returns:
+            CycloneDX 1.6 JSON SBOM as a string, or None to use default behavior
+            (keep the tool's original output file unchanged)
+
+        Example implementation:
+            @hookimpl
+            def handle_sca_tool_response(bom_bench, stdout, stderr, output_file_contents):
+                # Parse custom tool output (e.g., from stdout or custom format file)
+                packages = parse_my_tool_output(stdout)
+
+                # Generate CycloneDX SBOM using bom_bench helper
+                sbom = bom_bench.generate_cyclonedx_sbom("project", packages)
+                return json.dumps(sbom, indent=2)
+        """
+        ...
