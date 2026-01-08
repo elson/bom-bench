@@ -16,9 +16,8 @@ First, fetch and understand the issue:
 ```
 Use the `gh issue` tool to:
 - Get issue details (title, description, acceptance criteria)
-- Check linked issues, projects etc
+- Check linked issues, prs etc
 - Review any comments or attachments
-- Assign yourself to the issue
 ```
 
 Summarize:
@@ -32,11 +31,11 @@ Before coding:
 - Search for related code
 - Understand the current implementation
 - Identify files that need changes
-
+.
 ### 3. Create a Branch
 
 ```bash
-git checkout -b {initials}/{issue-id}-{brief-description}
+git checkout -b {user-name}/{issue-id}-{brief-description}
 ```
 
 ### 4. Implement the Changes
@@ -85,9 +84,9 @@ Claude:
    Found: src/screens/Profile/ProfileScreen.tsx
    Found: src/components/Avatar/Avatar.tsx
 
-3. Creating branch: cw/ISSUE-7-avatar-upload
+3. Creating branch: claude/ISSUE-7-avatar-upload
 
-4. [Implements feature with TDD approach]
+4. [Implements feature following project standard practices]
 
 5. Updating Issue status...
    Adding comment: "Implementation complete, PR ready for review"
