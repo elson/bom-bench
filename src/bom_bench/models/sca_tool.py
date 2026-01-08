@@ -8,6 +8,7 @@ from enum import Enum
 from pathlib import Path
 from typing import TYPE_CHECKING
 
+from expandvars import expand
 from rich.panel import Panel
 from rich.text import Text
 
@@ -110,7 +111,7 @@ class SCAToolConfig:
     def format_command(self, output_path: str, project_dir: str) -> str:
         """Format the command and args with actual paths.
 
-        Expands ${OUTPUT_PATH} and ${PROJECT_DIR} in args using expandvars.
+        Replaces ${OUTPUT_PATH} and ${PROJECT_DIR} placeholders in args.
 
         Args:
             output_path: Path where SBOM will be written
@@ -119,25 +120,15 @@ class SCAToolConfig:
         Returns:
             Formatted command string ready for execution
         """
-        import os
-
-        from expandvars import expandvars
-
         if not self.args:
             return self.command
 
-        old_env = {k: os.environ.get(k) for k in ("OUTPUT_PATH", "PROJECT_DIR")}
-        os.environ["OUTPUT_PATH"] = output_path
-        os.environ["PROJECT_DIR"] = project_dir
-
-        try:
-            formatted_args = [expandvars(arg) for arg in self.args]
-        finally:
-            for k, v in old_env.items():
-                if v is None:
-                    os.environ.pop(k, None)
-                else:
-                    os.environ[k] = v
+        formatted_args = []
+        for arg in self.args:
+            formatted_arg = expand(
+                arg, environ={"OUTPUT_PATH": output_path, "PROJECT_DIR": project_dir}
+            )
+            formatted_args.append(formatted_arg)
 
         return f"{self.command} {' '.join(formatted_args)}"
 
