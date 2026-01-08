@@ -103,7 +103,7 @@ def register_fixture_sets(bom_bench) -> list[dict]:
             {"name": "python", "version": "3.12"},
             {"name": "uv", "version": "0.5.11"},
         ],
-        "env_vars": {
+        "env": {
             "UV_INDEX_URL": "http://localhost:3141/simple",
         },
         "registry_url": "http://localhost:3141",

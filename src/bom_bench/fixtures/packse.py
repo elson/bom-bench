@@ -316,7 +316,7 @@ def register_fixture_sets(bom_bench: ModuleType) -> list[dict]:
                     {"name": "uv", "version": UV_VERSION},
                     {"name": "python", "version": PYTHON_VERSION},
                 ],
-                "env_vars": {},
+                "env": {},
                 "registry_url": PACKSE_INDEX_URL,
             },
             "fixtures": fixtures,
