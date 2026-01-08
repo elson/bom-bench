@@ -139,7 +139,10 @@ class Sandbox:
             mise_result: The result from running the SCA tool via mise
         """
         import bom_bench
+        from bom_bench.logging import get_logger
         from bom_bench.sca_tools import get_tool_plugin
+
+        logger = get_logger(__name__)
 
         tool_plugin = get_tool_plugin(self.sca_tool.name)
         if tool_plugin is None:
@@ -149,22 +152,30 @@ class Sandbox:
         if not hasattr(tool_plugin, "handle_sca_tool_response"):
             return
 
-        # Read output file contents if it exists
-        output_file_contents = None
-        if self.output_path.exists():
-            output_file_contents = self.output_path.read_text()
+        try:
+            # Read output file contents if it exists
+            output_file_contents = None
+            if self.output_path.exists():
+                output_file_contents = self.output_path.read_text()
 
-        # Call the hook directly on the plugin
-        parsed_sbom = tool_plugin.handle_sca_tool_response(
-            bom_bench=bom_bench,
-            stdout=mise_result.stdout,
-            stderr=mise_result.stderr,
-            output_file_contents=output_file_contents,
-        )
+            # Call the hook directly on the plugin
+            parsed_sbom = tool_plugin.handle_sca_tool_response(  # type: ignore[attr-defined]
+                bom_bench=bom_bench,
+                stdout=mise_result.stdout,
+                stderr=mise_result.stderr,
+                output_file_contents=output_file_contents,
+            )
 
-        # If hook returned a parsed SBOM, write it to output path
-        if parsed_sbom is not None:
-            self.output_path.write_text(parsed_sbom)
+            # If hook returned a parsed SBOM, write it to output path
+            if parsed_sbom is not None:
+                self.output_path.write_text(parsed_sbom)
+
+        except Exception as e:
+            # Log error but don't fail the entire benchmark
+            logger.error(
+                f"Error in handle_sca_tool_response hook for {self.sca_tool.name}: {e}",
+                exc_info=True,
+            )
 
     def _generate_mise_toml(self) -> None:
         """Generate mise.toml with combined environment."""

@@ -11,7 +11,7 @@ class TestEnvIntegration:
         monkeypatch.setenv("MY_API_KEY", "secret123")
 
         import bom_bench.sca_tools as sca_tools
-        from bom_bench.plugins import reset_plugins
+        from bom_bench.plugins import pm, reset_plugins
 
         sca_tools._reset_tools()
         reset_plugins()
@@ -27,16 +27,25 @@ class TestEnvIntegration:
                     "env": {"API_KEY": "$MY_API_KEY"},
                 }
 
-        class MockPM:
-            def get_plugins(self):
-                return [MockPlugin()]
+        # Register the mock plugin with the real pluggy manager
+        from bom_bench import hookimpl
 
-        sca_tools._register_tools(MockPM())
+        # Add hookimpl decorator to the method
+        MockPlugin.register_sca_tools = hookimpl(MockPlugin.register_sca_tools)
+
+        mock_plugin = MockPlugin()
+        pm.register(mock_plugin, name="test_mock_env_plugin")
+
+        # Re-register tools with the updated plugin manager
+        sca_tools._register_tools(pm)
 
         # Verify env was expanded but args were not
         tool_data = sca_tools._registered_tool_data["test-tool"]
         assert tool_data["env"]["API_KEY"] == "secret123"
         assert tool_data["args"] == ["--key", "${OUTPUT_PATH}"]
+
+        # Cleanup
+        pm.unregister(mock_plugin)
 
     def test_fixture_env_expansion(self, monkeypatch, tmp_path):
         """Test that fixture set env vars are expanded at load time."""
