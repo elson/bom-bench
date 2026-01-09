@@ -30,6 +30,7 @@ logger = get_logger(__name__)
 DEFAULT_PLUGINS = (
     "bom_bench.sca_tools.cdxgen",
     "bom_bench.sca_tools.syft",
+    "bom_bench.sca_tools.snyk",
     "bom_bench.fixtures.packse",
 )
 
