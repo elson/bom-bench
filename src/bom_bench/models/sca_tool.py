@@ -215,6 +215,23 @@ class PurlMetrics:
             actual_purls=actual_purls,
         )
 
+    def to_dict(self) -> dict:
+        """Convert to dictionary for serialization.
+
+        Returns:
+            Dict with all metrics fields, PURLs sorted as lists
+        """
+        return {
+            "true_positives": self.true_positives,
+            "false_positives": self.false_positives,
+            "false_negatives": self.false_negatives,
+            "precision": self.precision,
+            "recall": self.recall,
+            "f1_score": self.f1_score,
+            "expected_purls": sorted(self.expected_purls),
+            "actual_purls": sorted(self.actual_purls),
+        }
+
 
 @dataclass
 class BenchmarkResult:
@@ -246,6 +263,24 @@ class BenchmarkResult:
 
     error_message: str | None = None
     """Error message if benchmark failed"""
+
+    def to_dict(self) -> dict:
+        """Convert to dictionary for serialization.
+
+        Returns:
+            Dict with all result fields
+        """
+        return {
+            "scenario_name": self.scenario_name,
+            "package_manager": self.package_manager,
+            "tool_name": self.tool_name,
+            "status": self.status.value,
+            "metrics": self.metrics.to_dict() if self.metrics else None,
+            "expected_satisfiable": self.expected_satisfiable,
+            "expected_sbom_path": str(self.expected_sbom_path) if self.expected_sbom_path else None,
+            "actual_sbom_path": str(self.actual_sbom_path) if self.actual_sbom_path else None,
+            "error_message": self.error_message,
+        }
 
 
 @dataclass
@@ -352,6 +387,33 @@ class BenchmarkSummary:
         self.median_precision = statistics.median(precisions)
         self.median_recall = statistics.median(recalls)
         self.median_f1_score = statistics.median(f1_scores)
+
+    def to_dict(self) -> dict:
+        """Convert to dictionary for serialization.
+
+        Returns:
+            Dict with summary fields and list of result dicts
+        """
+        return {
+            "fixture_set": self.package_manager,
+            "tool_name": self.tool_name,
+            "total_scenarios": self.total_scenarios,
+            "successful": self.successful,
+            "sbom_failed": self.sbom_failed,
+            "unsatisfiable": self.unsatisfiable,
+            "parse_errors": self.parse_errors,
+            "missing_expected": self.missing_expected,
+            "mean_precision": self.mean_precision,
+            "mean_recall": self.mean_recall,
+            "mean_f1_score": self.mean_f1_score,
+            "median_precision": self.median_precision,
+            "median_recall": self.median_recall,
+            "median_f1_score": self.median_f1_score,
+            "total_true_positives": self.total_true_positives,
+            "total_false_positives": self.total_false_positives,
+            "total_false_negatives": self.total_false_negatives,
+            "results": [r.to_dict() for r in self.results],
+        }
 
     def print_summary(self) -> None:
         """Print a formatted summary using Rich panel."""
