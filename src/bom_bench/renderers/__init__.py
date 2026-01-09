@@ -23,40 +23,27 @@ def render_results(
 
     by_tool: dict[str, list[dict]] = {}
     for summary_dict in all_dicts:
-        tool = summary_dict["tool_name"]
-        by_tool.setdefault(tool, []).append(summary_dict)
+        by_tool.setdefault(summary_dict["tool_name"], []).append(summary_dict)
 
     for tool_name, tool_summaries in by_tool.items():
         tool_dir = output_dir / tool_name
         tool_dir.mkdir(parents=True, exist_ok=True)
 
-        results = pm.hook.register_sca_tool_result_renderer(
+        for result in pm.hook.register_sca_tool_result_renderer(
             bom_bench=bom_bench,
             tool_name=tool_name,
             summaries=tool_summaries,
-        )
-
-        for result in results:
+        ):
             if result:
-                _write_result(tool_dir, result)
+                filepath = tool_dir / result["filename"]
+                filepath.write_text(result["content"])
+                logger.info(f"Wrote {filepath}")
 
-    results = pm.hook.register_benchmark_result_renderer(
+    for result in pm.hook.register_benchmark_result_renderer(
         bom_bench=bom_bench,
         all_summaries=all_dicts,
-    )
-
-    for result in results:
+    ):
         if result:
-            _write_result(output_dir, result)
-
-
-def _write_result(directory: Path, result: dict) -> None:
-    """Write renderer output to file.
-
-    Args:
-        directory: Directory to write file to
-        result: Dict with 'filename' and 'content' keys
-    """
-    filepath = directory / result["filename"]
-    filepath.write_text(result["content"])
-    logger.info(f"Wrote {filepath}")
+            filepath = output_dir / result["filename"]
+            filepath.write_text(result["content"])
+            logger.info(f"Wrote {filepath}")

@@ -7,6 +7,11 @@ import statistics
 from bom_bench import hookimpl
 
 
+def _format_metric(values: list[float], stat_func) -> str:
+    """Format a metric value or return N/A if no data."""
+    return f"{stat_func(values):.4f}" if values else "N/A"
+
+
 @hookimpl
 def register_benchmark_result_renderer(all_summaries: list[dict]) -> dict:
     """Render benchmark results as CSV.
@@ -42,24 +47,23 @@ def register_benchmark_result_renderer(all_summaries: list[dict]) -> dict:
         by_tool.setdefault(s["tool_name"], []).append(s)
 
     for tool, summaries in by_tool.items():
-        total = sum(s["total_scenarios"] for s in summaries)
-        successful = sum(s["successful"] for s in summaries)
-        precisions = [s["mean_precision"] for s in summaries if s["successful"] > 0]
-        recalls = [s["mean_recall"] for s in summaries if s["successful"] > 0]
-        f1s = [s["mean_f1_score"] for s in summaries if s["successful"] > 0]
+        successful_summaries = [s for s in summaries if s["successful"] > 0]
+        precisions = [s["mean_precision"] for s in successful_summaries]
+        recalls = [s["mean_recall"] for s in successful_summaries]
+        f1s = [s["mean_f1_score"] for s in successful_summaries]
 
         writer.writerow(
             [
                 tool,
                 len(summaries),
-                total,
-                successful,
-                f"{statistics.mean(precisions):.4f}" if precisions else "N/A",
-                f"{statistics.mean(recalls):.4f}" if recalls else "N/A",
-                f"{statistics.mean(f1s):.4f}" if f1s else "N/A",
-                f"{statistics.median(precisions):.4f}" if precisions else "N/A",
-                f"{statistics.median(recalls):.4f}" if recalls else "N/A",
-                f"{statistics.median(f1s):.4f}" if f1s else "N/A",
+                sum(s["total_scenarios"] for s in summaries),
+                sum(s["successful"] for s in summaries),
+                _format_metric(precisions, statistics.mean),
+                _format_metric(recalls, statistics.mean),
+                _format_metric(f1s, statistics.mean),
+                _format_metric(precisions, statistics.median),
+                _format_metric(recalls, statistics.median),
+                _format_metric(f1s, statistics.median),
             ]
         )
 
