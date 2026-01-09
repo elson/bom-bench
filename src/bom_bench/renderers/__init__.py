@@ -35,9 +35,12 @@ def render_results(
             summaries=tool_summaries,
         ):
             if result:
-                filepath = tool_dir / result["filename"]
-                filepath.write_text(result["content"])
-                logger.info(f"Wrote {filepath}")
+                try:
+                    filepath = tool_dir / result["filename"]
+                    filepath.write_text(result["content"])
+                    logger.info(f"Wrote {filepath}")
+                except OSError as e:
+                    logger.error(f"Failed to write {filepath}: {e}")
 
     for result in pm.hook.register_benchmark_result_renderer(
         bom_bench=bom_bench,
