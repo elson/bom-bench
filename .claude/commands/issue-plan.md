@@ -26,6 +26,9 @@ Use `gh issue view` to:
 - Check linked issues, prs etc.
 - Review any comments or attachments.
 
+Assign:
+- Assign yourself to the issue
+
 Summarize:
 - What needs to be done.
 - Acceptance criteria.

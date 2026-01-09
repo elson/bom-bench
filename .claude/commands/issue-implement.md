@@ -19,6 +19,9 @@ Use `gh issue view` to:
 - Review any comments or attachments
 - IMPORTANT: Check if an implementation plan has already been added in the comments
 
+Assign:
+- Assign yourself to the issue
+
 Summarize:
 - What needs to be done
 - Acceptance criteria
