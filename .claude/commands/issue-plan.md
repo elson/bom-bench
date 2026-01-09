@@ -43,6 +43,7 @@ Explore:
 Think hard:
 - Create a detailed plan for implementing the issue requirements.
 - Post the complete, unabridged plan as a comment on the issue.
+- **IMPORTANT!** Do not summarize the plan when commenting.
 
 ## Example Workflow
 
@@ -51,6 +52,7 @@ Me: /issue-plan 7
 
 Claude:
 1. Fetching issue #7 from GitHub...
+   `gh issue view 7`
    Title: Add user profile avatar upload
    Description: Users should be able to upload a profile picture...
    Acceptance Criteria:
@@ -63,5 +65,7 @@ Claude:
    Found: src/components/Avatar/Avatar.tsx
 
 3. Creating plan...
-   Adding comment: "Plan complete, comment added ready for review"
+   Saved plan to local memory
+   Adding full plan as issue comment
+   `gh issue comment 7 --body "$(cat /Users/alice/.claude/plans/abstract-floating-axolotl.md)"`
 ```
