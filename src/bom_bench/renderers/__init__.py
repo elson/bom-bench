@@ -4,13 +4,14 @@ from pathlib import Path
 
 import bom_bench
 from bom_bench.logging import get_logger
+from bom_bench.models.sca_tool import BenchmarkSummary
 from bom_bench.plugins import pm
 
 logger = get_logger(__name__)
 
 
 def render_results(
-    summaries: list,
+    summaries: list[BenchmarkSummary],
     output_dir: Path,
 ) -> None:
     """Invoke all registered renderers and write output files.
@@ -47,6 +48,9 @@ def render_results(
         all_summaries=all_dicts,
     ):
         if result:
-            filepath = output_dir / result["filename"]
-            filepath.write_text(result["content"])
-            logger.info(f"Wrote {filepath}")
+            try:
+                filepath = output_dir / result["filename"]
+                filepath.write_text(result["content"])
+                logger.info(f"Wrote {filepath}")
+            except OSError as e:
+                logger.error(f"Failed to write {filepath}: {e}")

@@ -3,6 +3,7 @@
 Orchestrates running SCA tools against fixtures using sandboxes.
 """
 
+from collections.abc import Callable
 from pathlib import Path
 
 from bom_bench.console import console
@@ -50,6 +51,7 @@ class BenchmarkRunner:
         tools: list[str],
         fixture_sets: list[str] | None = None,
         fixtures: list[str] | None = None,
+        progress_callback: Callable | None = None,
     ) -> list[BenchmarkSummary]:
         """Run benchmarks for specified tools and fixtures.
 
@@ -57,6 +59,8 @@ class BenchmarkRunner:
             tools: List of SCA tool names to run
             fixture_sets: Optional list of fixture set names to use
             fixtures: Optional list of specific fixture names to run
+            progress_callback: Optional callback called after each fixture execution
+                             Signature: callback(tool_name, fixture_set_name, fixture_name, result)
 
         Returns:
             List of BenchmarkSummary objects for each tool/fixture set
@@ -111,6 +115,9 @@ class BenchmarkRunner:
                     )
                     summary.add_result(result)
                     self._log_result(result)
+
+                    if progress_callback:
+                        progress_callback(tool_name, fixture_set.name, fixture.name, result)
 
                 # Calculate aggregates
                 summary.calculate_aggregates()

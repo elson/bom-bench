@@ -164,10 +164,9 @@ def benchmark(
     """
     from bom_bench.config import DATA_DIR
     from bom_bench.fixtures.loader import FixtureSetLoader
-    from bom_bench.models.sca_tool import BenchmarkSummary
     from bom_bench.plugins import initialize_plugins
     from bom_bench.runner import BenchmarkRunner
-    from bom_bench.sca_tools import get_registered_tools, get_tool_config
+    from bom_bench.sca_tools import get_registered_tools
 
     _setup_logging_from_options(verbose, quiet, log_level)
     initialize_plugins()
@@ -208,42 +207,22 @@ def benchmark(
     progress.update(progress_task, total=total_tasks)
 
     runner = BenchmarkRunner(output_dir=output_dir)
-    summaries = []
+
+    def progress_callback(tool_name: str, fixture_set_name: str, fixture_name: str, result):
+        """Update progress display after each fixture execution."""
+        status_progress.update(
+            status_task,
+            description=f"[cyan]{tool_name}[/cyan] / {fixture_set_name} / {fixture_name}",
+        )
+        progress.update(progress_task, advance=1)
 
     with Live(layout, console=console):
-        for tool_name in tool_list:
-            tool_config = get_tool_config(tool_name)
-            if tool_config is None:
-                logger.warning(f"Tool '{tool_name}' not found or has no config")
-                continue
-
-            for fixture_set in all_fixture_sets:
-                fixtures_to_run = _filter_fixtures(fixture_set.fixtures, fixture_name_list)
-                if not fixtures_to_run:
-                    continue
-
-                summary = BenchmarkSummary(
-                    package_manager=fixture_set.name,
-                    tool_name=tool_name,
-                )
-
-                for fixture in fixtures_to_run:
-                    status_progress.update(
-                        status_task,
-                        description=f"[cyan]{tool_name}[/cyan] / {fixture_set.name} / {fixture.name}",
-                    )
-                    result = runner.executor.execute(
-                        fixture=fixture,
-                        fixture_set_env=fixture_set.environment,
-                        tool_config=tool_config,
-                        fixture_set_name=fixture_set.name,
-                        output_dir=output_dir,
-                    )
-                    summary.add_result(result)
-                    progress.update(progress_task, advance=1)
-
-                summary.calculate_aggregates()
-                summaries.append(summary)
+        summaries = runner.run(
+            tools=tool_list,
+            fixture_sets=fixture_set_list,
+            fixtures=fixture_name_list,
+            progress_callback=progress_callback,
+        )
 
     console.print()
     for summary in summaries:

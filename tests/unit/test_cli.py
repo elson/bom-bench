@@ -241,104 +241,74 @@ class TestBenchmark:
 
     @patch("bom_bench.plugins.initialize_plugins")
     @patch("bom_bench.sca_tools.get_registered_tools")
-    @patch("bom_bench.sca_tools.get_tool_config")
     @patch("bom_bench.fixtures.loader.FixtureSetLoader")
     @patch("bom_bench.runner.BenchmarkRunner")
     def test_benchmark_successful_run(
-        self, mock_runner_class, mock_loader_class, mock_get_config, mock_get_tools, mock_init
+        self, mock_runner_class, mock_loader_class, mock_get_tools, mock_init
     ):
         """Test successful benchmark execution."""
         mock_get_tools.return_value = {"cdxgen": MagicMock()}
-        mock_config = MagicMock()
-        mock_get_config.return_value = mock_config
 
         mock_fixture = MagicMock()
         mock_fixture.name = "test-fixture"
         mock_fixture.satisfiable = True
 
-        mock_env = MagicMock()
         mock_fs = MagicMock()
         mock_fs.name = "test-set"
         mock_fs.fixtures = [mock_fixture]
-        mock_fs.environment = mock_env
 
         mock_loader = MagicMock()
         mock_loader.load_all.return_value = [mock_fs]
         mock_loader_class.return_value = mock_loader
-
-        mock_result = MagicMock()
-        mock_result.success = True
-
-        mock_executor = MagicMock()
-        mock_executor.execute.return_value = mock_result
-
-        mock_runner = MagicMock()
-        mock_runner.executor = mock_executor
-        mock_runner_class.return_value = mock_runner
 
         mock_summary = MagicMock()
         mock_summary.sbom_failed = 0
         mock_summary.parse_errors = 0
 
-        with patch("bom_bench.models.sca_tool.BenchmarkSummary") as mock_summary_class:
-            mock_summary_instance = MagicMock()
-            mock_summary_instance.sbom_failed = 0
-            mock_summary_instance.parse_errors = 0
-            mock_summary_class.return_value = mock_summary_instance
+        mock_runner = MagicMock()
+        mock_runner.run.return_value = [mock_summary]
+        mock_runner_class.return_value = mock_runner
 
-            result = runner.invoke(app, ["benchmark"])
+        result = runner.invoke(app, ["benchmark"])
 
-            assert result.exit_code == 0
-            mock_executor.execute.assert_called_once()
-            mock_summary_instance.add_result.assert_called_once_with(mock_result)
-            mock_summary_instance.calculate_aggregates.assert_called_once()
+        assert result.exit_code == 0
+        mock_runner.run.assert_called_once()
+        mock_summary.print_summary.assert_called_once()
 
     @patch("bom_bench.plugins.initialize_plugins")
     @patch("bom_bench.sca_tools.get_registered_tools")
-    @patch("bom_bench.sca_tools.get_tool_config")
     @patch("bom_bench.fixtures.loader.FixtureSetLoader")
     @patch("bom_bench.runner.BenchmarkRunner")
     def test_benchmark_with_errors(
-        self, mock_runner_class, mock_loader_class, mock_get_config, mock_get_tools, mock_init
+        self, mock_runner_class, mock_loader_class, mock_get_tools, mock_init
     ):
         """Test benchmark execution with errors exits with code 1."""
         mock_get_tools.return_value = {"cdxgen": MagicMock()}
-        mock_config = MagicMock()
-        mock_get_config.return_value = mock_config
 
         mock_fixture = MagicMock()
         mock_fixture.name = "test-fixture"
         mock_fixture.satisfiable = True
 
-        mock_env = MagicMock()
         mock_fs = MagicMock()
         mock_fs.name = "test-set"
         mock_fs.fixtures = [mock_fixture]
-        mock_fs.environment = mock_env
 
         mock_loader = MagicMock()
         mock_loader.load_all.return_value = [mock_fs]
         mock_loader_class.return_value = mock_loader
 
-        mock_result = MagicMock()
-        mock_result.success = False
-
-        mock_executor = MagicMock()
-        mock_executor.execute.return_value = mock_result
+        mock_summary = MagicMock()
+        mock_summary.sbom_failed = 1
+        mock_summary.parse_errors = 0
 
         mock_runner = MagicMock()
-        mock_runner.executor = mock_executor
+        mock_runner.run.return_value = [mock_summary]
         mock_runner_class.return_value = mock_runner
 
-        with patch("bom_bench.models.sca_tool.BenchmarkSummary") as mock_summary_class:
-            mock_summary_instance = MagicMock()
-            mock_summary_instance.sbom_failed = 1
-            mock_summary_instance.parse_errors = 0
-            mock_summary_class.return_value = mock_summary_instance
+        result = runner.invoke(app, ["benchmark"])
 
-            result = runner.invoke(app, ["benchmark"])
-
-            assert result.exit_code == 1
+        assert result.exit_code == 1
+        mock_runner.run.assert_called_once()
 
     @patch("bom_bench.plugins.initialize_plugins")
     @patch("bom_bench.sca_tools.get_registered_tools")
