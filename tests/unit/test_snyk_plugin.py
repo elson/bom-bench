@@ -164,6 +164,31 @@ class TestExtractDependencies:
         assert len(packages) == 1
         assert packages[0] == {"name": "simple", "version": "1.0.0"}
 
+    def test_extract_whitespace_only_values(self):
+        """Test extracting filters out whitespace-only name/version."""
+        dep_tree = {
+            "name": "  ",
+            "version": "  ",
+            "dependencies": {
+                "valid": {"name": "valid-pkg", "version": "1.0.0"},
+                "whitespace": {"name": " \t ", "version": " \n "},
+            },
+        }
+
+        packages = _extract_dependencies(dep_tree)
+
+        assert len(packages) == 1
+        assert packages[0]["name"] == "valid-pkg"
+
+    def test_extract_strips_whitespace(self):
+        """Test that leading/trailing whitespace is stripped."""
+        dep_tree = {"name": "  package  ", "version": "  1.0.0  "}
+
+        packages = _extract_dependencies(dep_tree)
+
+        assert len(packages) == 1
+        assert packages[0] == {"name": "package", "version": "1.0.0"}
+
 
 class TestParseSnykOutput:
     """Tests for _parse_snyk_output function."""
@@ -251,6 +276,36 @@ class TestParseSnykOutput:
 
         assert len(packages) == 1
         assert packages[0]["name"] == "pkg"
+
+    def test_parse_malformed_json(self):
+        """Test parsing malformed JSON returns empty list."""
+        output = """{"name": "test", "invalid": json}"""
+
+        packages = _parse_snyk_output(output)
+
+        assert packages == []
+
+    def test_parse_incomplete_json(self):
+        """Test parsing incomplete JSON returns empty list."""
+        output = """{"name": "test", "version": """
+
+        packages = _parse_snyk_output(output)
+
+        assert packages == []
+
+    def test_parse_empty_string(self):
+        """Test parsing empty string returns empty list."""
+        packages = _parse_snyk_output("")
+
+        assert packages == []
+
+    def test_parse_non_json_text(self):
+        """Test parsing non-JSON text returns empty list."""
+        output = "Error: Could not find package.json"
+
+        packages = _parse_snyk_output(output)
+
+        assert packages == []
 
 
 class TestHandleScaToolResponse:
@@ -340,6 +395,7 @@ class TestHandleScaToolResponse:
             output_file_contents=output_contents,
         )
 
+        assert result is not None
         sbom = json.loads(result)
         names = [c["name"] for c in sbom["components"]]
         assert "from-file" in names
