@@ -177,3 +177,85 @@ class SCAToolSpec:
                 return json.dumps(sbom, indent=2)
         """
         ...
+
+
+class RendererSpec:
+    """Hook specifications for result renderer plugins.
+
+    Plugins implement these hooks to generate output files from benchmark results.
+    """
+
+    @hookspec
+    def register_sca_tool_result_renderer(
+        self,
+        bom_bench: ModuleType,
+        tool_name: str,
+        summaries: list[dict],
+    ) -> dict | None:  # type: ignore[empty-body]
+        """Render results for a single SCA tool.
+
+        Called after benchmarking completes for a specific SCA tool.
+        Generates output files written to output/benchmarks/{tool_name}/.
+
+        Args:
+            bom_bench: The bom_bench module with helper functions
+            tool_name: Name of the SCA tool
+            summaries: List of BenchmarkSummary dicts (one per fixture set)
+                Each summary contains:
+                - fixture_set: Name of fixture set
+                - tool_name: SCA tool name
+                - total_scenarios: Total fixtures run
+                - successful/sbom_failed/unsatisfiable: Status counts
+                - mean/median metrics: Precision, recall, F1
+                - results: List of BenchmarkResult dicts with metrics
+
+        Returns:
+            Dict with 'filename' and 'content' keys, or None to skip rendering.
+            The file will be written to output/benchmarks/{tool_name}/{filename}
+
+        Example implementation:
+            @hookimpl
+            def register_sca_tool_result_renderer(tool_name, summaries):
+                output = {"tool": tool_name, "fixture_sets": summaries}
+                return {
+                    "filename": "results.json",
+                    "content": json.dumps(output, indent=2),
+                }
+        """
+        ...
+
+    @hookspec
+    def register_benchmark_result_renderer(
+        self,
+        bom_bench: ModuleType,
+        all_summaries: list[dict],
+    ) -> dict | None:  # type: ignore[empty-body]
+        """Render aggregate results for entire benchmark run.
+
+        Called after all benchmarks complete across all tools.
+        Generates output files written to output/benchmarks/.
+
+        Args:
+            bom_bench: The bom_bench module with helper functions
+            all_summaries: All BenchmarkSummary dicts from the run
+                Each summary contains tool-specific results for one fixture set.
+                Multiple summaries per tool (one per fixture set).
+
+        Returns:
+            Dict with 'filename' and 'content' keys, or None to skip rendering.
+            The file will be written to output/benchmarks/{filename}
+
+        Example implementation:
+            @hookimpl
+            def register_benchmark_result_renderer(all_summaries):
+                # Group by tool
+                by_tool = {}
+                for s in all_summaries:
+                    by_tool.setdefault(s["tool_name"], []).append(s)
+
+                return {
+                    "filename": "benchmark_results.json",
+                    "content": json.dumps({"tools": by_tool}, indent=2),
+                }
+        """
+        ...
