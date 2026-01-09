@@ -44,7 +44,10 @@ wheels/
 htmlcov/
 
 # Data sources (packse, pnpm-tests, gradle-testkit, etc.)
-data/*/
+data/
 
 # Generated outputs per package manager (uv, pip, pnpm, gradle, etc.)
-output/*/
+output/
+
+# macos system files
+.DS_Store
