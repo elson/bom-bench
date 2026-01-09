@@ -20,8 +20,7 @@ def register_benchmark_result_renderer(all_summaries: list[dict]) -> dict:
     """
     by_tool = {}
     for s in all_summaries:
-        tool = s["tool_name"]
-        by_tool.setdefault(tool, []).append(s)
+        by_tool.setdefault(s["tool_name"], []).append(s)
 
     return {
         "filename": "benchmark_results.json",

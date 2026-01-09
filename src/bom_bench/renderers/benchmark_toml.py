@@ -1,10 +1,18 @@
 """Benchmark TOML renderer plugin."""
 
 import statistics
+from typing import Any
 
 import tomlkit
 
 from bom_bench import hookimpl
+
+
+def _add_metrics(section: Any, values: list[float], name: str) -> None:
+    """Add mean and median metrics to a TOML section if values exist."""
+    if values:
+        section[f"mean_{name}"] = round(statistics.mean(values), 4)
+        section[f"median_{name}"] = round(statistics.median(values), 4)
 
 
 @hookimpl
@@ -31,21 +39,10 @@ def register_benchmark_result_renderer(all_summaries: list[dict]) -> dict:
         section["total_scenarios"] = sum(s["total_scenarios"] for s in summaries)
         section["successful"] = sum(s["successful"] for s in summaries)
 
-        precisions = [s["mean_precision"] for s in summaries if s["successful"] > 0]
-        recalls = [s["mean_recall"] for s in summaries if s["successful"] > 0]
-        f1s = [s["mean_f1_score"] for s in summaries if s["successful"] > 0]
-
-        if precisions:
-            section["mean_precision"] = round(statistics.mean(precisions), 4)
-            section["median_precision"] = round(statistics.median(precisions), 4)
-
-        if recalls:
-            section["mean_recall"] = round(statistics.mean(recalls), 4)
-            section["median_recall"] = round(statistics.median(recalls), 4)
-
-        if f1s:
-            section["mean_f1_score"] = round(statistics.mean(f1s), 4)
-            section["median_f1_score"] = round(statistics.median(f1s), 4)
+        successful_summaries = [s for s in summaries if s["successful"] > 0]
+        _add_metrics(section, [s["mean_precision"] for s in successful_summaries], "precision")
+        _add_metrics(section, [s["mean_recall"] for s in successful_summaries], "recall")
+        _add_metrics(section, [s["mean_f1_score"] for s in successful_summaries], "f1_score")
 
         doc[tool] = section
 
