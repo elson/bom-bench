@@ -58,8 +58,8 @@ def _extract_dependencies(dep_tree: dict) -> list[dict]:
     packages = []
 
     if "name" in dep_tree and "version" in dep_tree:
-        name = dep_tree["name"]
-        version = dep_tree["version"]
+        name = str(dep_tree["name"]).strip()
+        version = str(dep_tree["version"]).strip()
         if name and version:
             packages.append({"name": name, "version": version})
 
@@ -77,8 +77,11 @@ def _parse_snyk_output(raw_output: str) -> list[dict]:
     - First object: dependency tree
     - Second object: vulnerabilities (ignored)
     """
-    decoder = json.JSONDecoder()
-    first_obj, _ = decoder.raw_decode(raw_output.strip())
+    try:
+        decoder = json.JSONDecoder()
+        first_obj, _ = decoder.raw_decode(raw_output.strip())
+    except (json.JSONDecodeError, ValueError):
+        return []
 
     if first_obj.get("ok") is False:
         return []
