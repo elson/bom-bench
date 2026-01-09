@@ -10,6 +10,7 @@ from bom_bench.fixtures.loader import FixtureSetLoader
 from bom_bench.logging import get_logger
 from bom_bench.models.sandbox import SandboxConfig
 from bom_bench.models.sca_tool import BenchmarkResult, BenchmarkStatus, BenchmarkSummary
+from bom_bench.renderers import render_results
 from bom_bench.runner.executor import FixtureExecutor
 from bom_bench.sca_tools import get_tool_config
 
@@ -117,6 +118,9 @@ class BenchmarkRunner:
 
                 # Print summary
                 summary.print_summary()
+
+        # Render results to files
+        render_results(summaries, self.output_dir)
 
         return summaries
 
