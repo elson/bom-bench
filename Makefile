@@ -20,11 +20,8 @@ test:
 	uv run pytest tests/ -v
 
 # Run tests with coverage
-test-cov:
+coverage:
 	uv run pytest tests/ --cov=src/bom_bench --cov-report=term-missing
-
-# Run tests with coverage and show report
-coverage: test-cov
 
 # Generate HTML coverage report
 coverage-html:
@@ -62,6 +59,6 @@ clean:
 	find . -type f -name .coverage -delete 2>/dev/null || true
 	rm -rf htmlcov/ .coverage.* 2>/dev/null || true
 
-# Run bom-bench
-run:
+# Run benchmark
+benchmark:
 	uv run bom-bench benchmark
