@@ -3,11 +3,12 @@
 import csv
 import io
 import statistics
+from collections.abc import Callable
 
 from bom_bench import hookimpl
 
 
-def _format_metric(values: list[float], stat_func) -> str:
+def _format_metric(values: list[float], stat_func: Callable[[list[float]], float]) -> str:
     """Format a metric value or return N/A if no data."""
     return f"{stat_func(values):.4f}" if values else "N/A"
 
