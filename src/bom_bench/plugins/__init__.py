@@ -20,7 +20,7 @@ import importlib
 import pluggy
 
 from bom_bench.logging import get_logger
-from bom_bench.plugins.hookspecs import FixtureSetSpec, SCAToolSpec
+from bom_bench.plugins.hookspecs import FixtureSetSpec, RendererSpec, SCAToolSpec
 
 logger = get_logger(__name__)
 
@@ -39,6 +39,7 @@ DEFAULT_PLUGINS = (
 pm = pluggy.PluginManager("bom_bench")
 pm.add_hookspecs(FixtureSetSpec)
 pm.add_hookspecs(SCAToolSpec)
+pm.add_hookspecs(RendererSpec)
 
 # Track initialization state
 _initialized: bool = False
