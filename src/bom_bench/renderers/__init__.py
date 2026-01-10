@@ -50,10 +50,14 @@ def render_results(
     ]
     overall_dicts = [s.to_dict() for s in overall_summaries]
 
+    # Convert all summaries to dicts for detailed renderers
+    all_summary_dicts = [s.to_dict() for s in summaries]
+
     # Render benchmark-level results (aggregated across all fixture sets)
     for result in pm.hook.register_benchmark_result_renderer(
         bom_bench=bom_bench,
         overall_summaries=overall_dicts,
+        summaries=all_summary_dicts,
     ):
         if result:
             try:

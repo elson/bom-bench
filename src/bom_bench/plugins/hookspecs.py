@@ -229,6 +229,7 @@ class RendererSpec:
         self,
         bom_bench: ModuleType,
         overall_summaries: list[dict],
+        summaries: list[dict],
     ) -> dict | None:  # type: ignore[empty-body]
         """Render aggregate results for entire benchmark run.
 
@@ -245,6 +246,9 @@ class RendererSpec:
                 - successful: Total successful scenarios
                 - mean_precision/recall/f1_score: Aggregated means
                 - median_precision/recall/f1_score: Aggregated medians
+            summaries: List of all BenchmarkSummary dicts (all tools, all fixture sets)
+                Each contains detailed results with individual scenario metrics.
+                Use this for detailed renderers that need per-scenario data.
 
         Returns:
             Dict with 'filename' and 'content' keys, or None to skip rendering.

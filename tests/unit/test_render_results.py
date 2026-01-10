@@ -121,3 +121,7 @@ class TestRenderResults:
             # Overall summary should have aggregated data
             assert call_kwargs["overall_summaries"][0]["tool_name"] == "cdxgen"
             assert call_kwargs["overall_summaries"][0]["fixture_sets"] == 1
+            # Check detailed summaries are also passed
+            assert isinstance(call_kwargs["summaries"], list)
+            assert isinstance(call_kwargs["summaries"][0], dict)
+            assert call_kwargs["summaries"][0]["successful"] == 5
