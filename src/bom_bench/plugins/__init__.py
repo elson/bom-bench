@@ -37,6 +37,7 @@ DEFAULT_PLUGINS = (
     "bom_bench.renderers.sca_tool_summary_csv",
     "bom_bench.renderers.sca_tool_summary_toml",
     "bom_bench.renderers.benchmark_results_json",
+    "bom_bench.renderers.benchmark_results_csv",
     "bom_bench.renderers.benchmark_summary_csv",
     "bom_bench.renderers.benchmark_summary_toml",
 )
