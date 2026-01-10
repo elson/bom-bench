@@ -114,7 +114,10 @@ class TestRenderResults:
             assert call_kwargs["summaries"][0]["successful"] == 5
             assert call_kwargs["summaries"][0]["total_scenarios"] == 10
 
-            # Check benchmark renderer was passed dict
+            # Check benchmark renderer was passed overall summary dicts
             call_kwargs = mock_pm.hook.register_benchmark_result_renderer.call_args.kwargs
-            assert isinstance(call_kwargs["all_summaries"], list)
-            assert isinstance(call_kwargs["all_summaries"][0], dict)
+            assert isinstance(call_kwargs["overall_summaries"], list)
+            assert isinstance(call_kwargs["overall_summaries"][0], dict)
+            # Overall summary should have aggregated data
+            assert call_kwargs["overall_summaries"][0]["tool_name"] == "cdxgen"
+            assert call_kwargs["overall_summaries"][0]["fixture_sets"] == 1

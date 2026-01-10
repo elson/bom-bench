@@ -2,7 +2,7 @@
 
 import json
 
-from bom_bench.renderers.sca_tool_json import register_sca_tool_result_renderer
+from bom_bench.renderers.sca_tool_results_json import register_sca_tool_result_renderer
 
 
 class TestSCAToolJSONRenderer:
