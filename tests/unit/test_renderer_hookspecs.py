@@ -46,4 +46,4 @@ class TestRendererHookspecs:
 
         assert "self" in params
         assert "bom_bench" in params
-        assert "all_summaries" in params
+        assert "overall_summaries" in params

@@ -455,3 +455,91 @@ class BenchmarkSummary:
             expand=False,
         )
         console.print(panel)
+
+
+@dataclass
+class BenchmarkOverallSummary:
+    """Overall benchmark metrics aggregated across all fixture sets for a tool."""
+
+    tool_name: str
+    """SCA tool name"""
+
+    fixture_sets: int = 0
+    """Number of fixture sets run"""
+
+    total_scenarios: int = 0
+    """Total scenarios across all fixture sets"""
+
+    successful: int = 0
+    """Total successful scenarios"""
+
+    mean_precision: float = 0.0
+    """Mean precision across all successful fixture sets"""
+
+    mean_recall: float = 0.0
+    """Mean recall across all successful fixture sets"""
+
+    mean_f1_score: float = 0.0
+    """Mean F1 score across all successful fixture sets"""
+
+    median_precision: float = 0.0
+    """Median precision across all successful fixture sets"""
+
+    median_recall: float = 0.0
+    """Median recall across all successful fixture sets"""
+
+    median_f1_score: float = 0.0
+    """Median F1 score across all successful fixture sets"""
+
+    @classmethod
+    def from_summaries(
+        cls, tool_name: str, summaries: list[BenchmarkSummary]
+    ) -> BenchmarkOverallSummary:
+        """Aggregate multiple BenchmarkSummary instances for a single tool.
+
+        Args:
+            tool_name: Name of the SCA tool
+            summaries: List of BenchmarkSummary instances (one per fixture set)
+
+        Returns:
+            BenchmarkOverallSummary with aggregated metrics
+        """
+        overall = cls(tool_name=tool_name)
+        overall.fixture_sets = len(summaries)
+        overall.total_scenarios = sum(s.total_scenarios for s in summaries)
+        overall.successful = sum(s.successful for s in summaries)
+
+        successful_summaries = [s for s in summaries if s.successful > 0]
+        if successful_summaries:
+            precisions = [s.mean_precision for s in successful_summaries]
+            recalls = [s.mean_recall for s in successful_summaries]
+            f1_scores = [s.mean_f1_score for s in successful_summaries]
+
+            overall.mean_precision = statistics.mean(precisions)
+            overall.mean_recall = statistics.mean(recalls)
+            overall.mean_f1_score = statistics.mean(f1_scores)
+
+            overall.median_precision = statistics.median(precisions)
+            overall.median_recall = statistics.median(recalls)
+            overall.median_f1_score = statistics.median(f1_scores)
+
+        return overall
+
+    def to_dict(self) -> dict:
+        """Convert to dictionary for serialization.
+
+        Returns:
+            Dict with all overall summary fields
+        """
+        return {
+            "tool_name": self.tool_name,
+            "fixture_sets": self.fixture_sets,
+            "total_scenarios": self.total_scenarios,
+            "successful": self.successful,
+            "mean_precision": self.mean_precision,
+            "mean_recall": self.mean_recall,
+            "mean_f1_score": self.mean_f1_score,
+            "median_precision": self.median_precision,
+            "median_recall": self.median_recall,
+            "median_f1_score": self.median_f1_score,
+        }

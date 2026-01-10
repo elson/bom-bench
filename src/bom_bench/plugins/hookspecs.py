@@ -228,7 +228,7 @@ class RendererSpec:
     def register_benchmark_result_renderer(
         self,
         bom_bench: ModuleType,
-        all_summaries: list[dict],
+        overall_summaries: list[dict],
     ) -> dict | None:  # type: ignore[empty-body]
         """Render aggregate results for entire benchmark run.
 
@@ -237,9 +237,14 @@ class RendererSpec:
 
         Args:
             bom_bench: The bom_bench module with helper functions
-            all_summaries: All BenchmarkSummary dicts from the run
-                Each summary contains tool-specific results for one fixture set.
-                Multiple summaries per tool (one per fixture set).
+            overall_summaries: List of BenchmarkOverallSummary dicts (one per tool)
+                Each contains pre-computed aggregated metrics across all fixture sets:
+                - tool_name: SCA tool name
+                - fixture_sets: Number of fixture sets
+                - total_scenarios: Total across all fixture sets
+                - successful: Total successful scenarios
+                - mean_precision/recall/f1_score: Aggregated means
+                - median_precision/recall/f1_score: Aggregated medians
 
         Returns:
             Dict with 'filename' and 'content' keys, or None to skip rendering.
@@ -247,15 +252,12 @@ class RendererSpec:
 
         Example implementation:
             @hookimpl
-            def register_benchmark_result_renderer(all_summaries):
-                # Group by tool
-                by_tool = {}
-                for s in all_summaries:
-                    by_tool.setdefault(s["tool_name"], []).append(s)
-
+            def register_benchmark_result_renderer(overall_summaries):
+                # All aggregation already done, just format
+                data = {"tools": {s["tool_name"]: s for s in overall_summaries}}
                 return {
-                    "filename": "benchmark_results.json",
-                    "content": json.dumps({"tools": by_tool}, indent=2),
+                    "filename": "benchmark_results.csv",
+                    "content": format_as_csv(data),
                 }
         """
         ...
