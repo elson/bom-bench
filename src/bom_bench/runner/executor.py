@@ -1,5 +1,6 @@
 """Single fixture execution against an SCA tool."""
 
+from dataclasses import replace
 from pathlib import Path
 
 from bom_bench.benchmarking.comparison import (
@@ -54,22 +55,26 @@ class FixtureExecutor:
         Returns:
             BenchmarkResult with comparison metrics
         """
+        # base result used for all early/late returns
+        base_result = BenchmarkResult(
+            status=BenchmarkStatus.SUCCESS,
+            scenario_name=fixture.name,
+            package_manager="fixture",
+            tool_name=tool_config.name,
+        )
+
         # Check if fixture is satisfiable
         if not fixture.satisfiable:
-            return BenchmarkResult(
-                scenario_name=fixture.name,
-                package_manager="fixture",
-                tool_name=tool_config.name,
+            return replace(
+                base_result,
                 status=BenchmarkStatus.UNSATISFIABLE,
                 expected_satisfiable=False,
             )
 
         # Check if expected SBOM exists
         if fixture.files.expected_sbom is None:
-            return BenchmarkResult(
-                scenario_name=fixture.name,
-                package_manager="fixture",
-                tool_name=tool_config.name,
+            return replace(
+                base_result,
                 status=BenchmarkStatus.MISSING_EXPECTED,
                 error_message="No expected SBOM path",
             )
@@ -91,30 +96,24 @@ class FixtureExecutor:
             sandbox_result = sandbox.run()
 
         if not sandbox_result.success:
-            return BenchmarkResult(
-                scenario_name=fixture.name,
-                package_manager="fixture",
-                tool_name=tool_config.name,
+            return replace(
+                base_result,
                 status=BenchmarkStatus.SBOM_GENERATION_FAILED,
                 error_message=sandbox_result.error_message,
             )
 
         # Load actual SBOM
         if sandbox_result.actual_sbom_path is None:
-            return BenchmarkResult(
-                scenario_name=fixture.name,
-                package_manager="fixture",
-                tool_name=tool_config.name,
+            return replace(
+                base_result,
                 status=BenchmarkStatus.SBOM_GENERATION_FAILED,
                 error_message="No SBOM path in result",
             )
 
         actual_sbom = load_actual_sbom(sandbox_result.actual_sbom_path)
         if actual_sbom is None:
-            return BenchmarkResult(
-                scenario_name=fixture.name,
-                package_manager="fixture",
-                tool_name=tool_config.name,
+            return replace(
+                base_result,
                 status=BenchmarkStatus.PARSE_ERROR,
                 error_message="Failed to parse actual SBOM",
                 actual_sbom_path=sandbox_result.actual_sbom_path,
@@ -127,19 +126,15 @@ class FixtureExecutor:
         )
 
         if not satisfiable:
-            return BenchmarkResult(
-                scenario_name=fixture.name,
-                package_manager="fixture",
-                tool_name=tool_config.name,
+            return replace(
+                base_result,
                 status=BenchmarkStatus.UNSATISFIABLE,
                 expected_satisfiable=False,
             )
 
         if expected_sbom is None:
-            return BenchmarkResult(
-                scenario_name=fixture.name,
-                package_manager="fixture",
-                tool_name=tool_config.name,
+            return replace(
+                base_result,
                 status=BenchmarkStatus.MISSING_EXPECTED,
                 error_message="Failed to load expected SBOM",
             )
@@ -149,11 +144,8 @@ class FixtureExecutor:
         actual_purls = extract_purls_from_cyclonedx(actual_sbom)
         metrics = PurlMetrics.calculate(expected_purls, actual_purls)
 
-        return BenchmarkResult(
-            scenario_name=fixture.name,
-            package_manager="fixture",
-            tool_name=tool_config.name,
-            status=BenchmarkStatus.SUCCESS,
+        return replace(
+            base_result,
             metrics=metrics,
             expected_sbom_path=fixture.files.expected_sbom,
             actual_sbom_path=sandbox_result.actual_sbom_path,
