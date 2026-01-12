@@ -294,17 +294,15 @@ def _load_cached_fixtures(cache_dir: Path) -> list[dict]:
 
 
 @hookimpl
-def register_fixture_sets(bom_bench: ModuleType) -> list[dict]:
+def register_fixture_sets(bom_bench: ModuleType, data_dir: Path) -> list[dict]:
     """Register the packse fixture set.
 
     Uses dependency injection - receives bom_bench module for helpers.
     """
-    from bom_bench.config import DATA_DIR
+    packse_data_dir = data_dir / "packse"
+    cache_dir = data_dir / "fixture_sets" / "packse"
 
-    data_dir = DATA_DIR / "packse"
-    cache_dir = DATA_DIR / "fixture_sets" / "packse"
-
-    fixtures = _generate_fixtures(bom_bench, data_dir, cache_dir)
+    fixtures = _generate_fixtures(bom_bench, packse_data_dir, cache_dir)
 
     return [
         {

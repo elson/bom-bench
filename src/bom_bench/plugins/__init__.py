@@ -32,6 +32,7 @@ DEFAULT_PLUGINS = (
     "bom_bench.sca_tools.syft",
     "bom_bench.sca_tools.snyk",
     "bom_bench.fixtures.packse",
+    "bom_bench.fixtures.npm",
     "bom_bench.renderers.sca_tool_results_json",
     "bom_bench.renderers.sca_tool_results_csv",
     "bom_bench.renderers.sca_tool_summary_csv",
