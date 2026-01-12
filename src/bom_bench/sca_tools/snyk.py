@@ -2,10 +2,9 @@
 
 Snyk is a security testing tool that can analyze dependencies and identify
 vulnerabilities. This plugin uses the Snyk CLI's `snyk test` command with
---print-deps and --json flags to extract dependency information.
+--print-graph and --json flags to extract dependency information.
 
-Note: Snyk's JSON output format is non-standard (two concatenated JSON objects),
-requiring custom parsing logic.
+Note: Snyk's JSON output format support is inconsistent, requiring custom parsing logic.
 
 Usage:
     bom-bench benchmark --tools snyk
