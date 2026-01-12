@@ -193,16 +193,25 @@ class TestExtractDependencies:
 class TestParseSnykOutput:
     """Tests for _parse_snyk_output function."""
 
-    def test_parse_valid_concatenated_json(self):
+    def test_parse_valid_print_graph_json(self):
         """Test parsing valid concatenated JSON output."""
-        output = """{"name": "agilemetrics", "version": "1.0.1", "dependencies": {"package1": {"name": "package1", "version": "2.0.0"}}}{"vulnerabilities": []}"""
+        output = """DepGraph data:
+{"schemaVersion":"1.3.0","pkgManager":{"name":"npm"},"pkgs":[{"id":"package.json@","info":{"name":"package.json"}},{"id":"linked-dep@file:node_modules/@isaacs/testing-link-dep/target","info":{"name":"linked-dep","version":"file:node_modules/@isaacs/testing-link-dep/target"}},{"id":"@isaacs/testing-link-dep@1.0.0","info":{"name":"@isaacs/testing-link-dep","version":"1.0.0"}},{"id":"@isaacs/testing-link-dev-dep@1.0.1","info":{"name":"@isaacs/testing-link-dev-dep","version":"1.0.1"}}],"graph":{"rootNodeId":"root-node","nodes":[{"nodeId":"root-node","pkgId":"package.json@","deps":[{"nodeId":"@isaacs/testing-link-dep@1.0.0"},{"nodeId":"@isaacs/testing-link-dev-dep@1.0.1"}]},{"nodeId":"linked-dep@file:node_modules/@isaacs/testing-link-dep/target","pkgId":"linked-dep@file:node_modules/@isaacs/testing-link-dep/target","deps":[],"info":{"labels":{"scope":"prod"}}},{"nodeId":"@isaacs/testing-link-dep@1.0.0","pkgId":"@isaacs/testing-link-dep@1.0.0","deps":[{"nodeId":"linked-dep@file:node_modules/@isaacs/testing-link-dep/target"}],"info":{"labels":{"scope":"prod"}}},{"nodeId":"@isaacs/testing-link-dev-dep@1.0.1","pkgId":"@isaacs/testing-link-dev-dep@1.0.1","deps":[],"info":{"labels":{"scope":"prod"}}}]}}
+DepGraph target:
+package-lock.json
+DepGraph end
+
+[]
+"""
 
         packages = _parse_snyk_output(output)
 
-        assert len(packages) == 2
+        assert len(packages) == 4
         names = [p["name"] for p in packages]
-        assert "agilemetrics" in names
-        assert "package1" in names
+        assert "package.json" in names
+        assert "linked-dep" in names
+        assert "@isaacs/testing-link-dep" in names
+        assert "@isaacs/testing-link-dev-dep" in names
 
     def test_parse_error_response(self):
         """Test parsing error response with ok: false."""
@@ -216,66 +225,161 @@ class TestParseSnykOutput:
 
         assert packages == []
 
-    def test_parse_complex_nested_structure(self):
-        """Test parsing complex nested dependency structure from issue example."""
-        output = """{
-            "name": "agilemetrics",
-            "version": "1.0.1",
-            "dependencies": {
-                "@dansmaculotte/nuxt-segment": {
-                    "name": "@dansmaculotte/nuxt-segment",
-                    "version": "0.2.5",
-                    "labels": {"scope": "prod"},
-                    "dependencies": {
-                        "@dansmaculotte/vue-segment": {
-                            "name": "@dansmaculotte/vue-segment",
-                            "version": "0.2.6",
-                            "labels": {"scope": "prod"}
-                        }
-                    }
-                }
-            }
-        }{"vulnerabilities": [{"id": "SNYK-123"}]}"""
-
-        packages = _parse_snyk_output(output)
-
-        assert len(packages) == 3
-        names = [p["name"] for p in packages]
-        assert "agilemetrics" in names
-        assert "@dansmaculotte/nuxt-segment" in names
-        assert "@dansmaculotte/vue-segment" in names
-
     def test_parse_removes_duplicates(self):
         """Test that duplicate packages are removed."""
         output = """{
-            "name": "root",
-            "version": "1.0.0",
-            "dependencies": {
-                "shared": {"name": "shared", "version": "2.0.0"},
-                "dep1": {
-                    "name": "dep1",
-                    "version": "1.0.0",
-                    "dependencies": {
-                        "shared": {"name": "shared", "version": "2.0.0"}
-                    }
-                }
-            }
-        }{"vulnerabilities": []}"""
+  "schemaVersion": "1.3.0",
+  "pkgManager": { "name": "npm" },
+  "pkgs": [
+    { "id": "package.json@", "info": { "name": "package.json" } },
+    {
+      "id": "@isaacs/testing-link-dep@1.0.0",
+      "info": { "name": "@isaacs/testing-link-dep", "version": "1.0.0" }
+    },
+    {
+      "id": "@isaacs/testing-link-dep@1.0.0",
+      "info": { "name": "@isaacs/testing-link-dep", "version": "1.0.0" }
+    }
+  ],
+  "graph": {
+    "rootNodeId": "root-node",
+    "nodes": [
+      {
+        "nodeId": "root-node",
+        "pkgId": "package.json@",
+        "deps": [
+          { "nodeId": "@isaacs/testing-link-dep@1.0.0" },
+          { "nodeId": "@isaacs/testing-link-dep@1.0.0" }
+        ]
+      },
+      {
+        "nodeId": "@isaacs/testing-link-dep@1.0.0",
+        "pkgId": "@isaacs/testing-link-dep@1.0.0",
+        "deps": [],
+        "info": { "labels": { "scope": "prod" } }
+      },
+      {
+        "nodeId": "@isaacs/testing-link-dep@1.0.0",
+        "pkgId": "@isaacs/testing-link-dep@1.0.0",
+        "deps": [],
+        "info": { "labels": { "scope": "prod" } }
+      }
+    ]
+  }
+}"""
 
         packages = _parse_snyk_output(output)
 
-        assert len(packages) == 3
+        assert len(packages) == 2
         names = [p["name"] for p in packages]
-        assert names.count("shared") == 1
+        assert names.count("@isaacs/testing-link-dep") == 1
+
+    def test_parse_allows_multiple_versions(self):
+        """Test that multiple versions of same package are allowed."""
+        output = """{
+  "schemaVersion": "1.3.0",
+  "pkgManager": { "name": "npm" },
+  "pkgs": [
+    { "id": "package.json@", "info": { "name": "package.json" } },
+    {
+      "id": "@isaacs/testing-link-dep@1.0.0",
+      "info": { "name": "@isaacs/testing-link-dep", "version": "1.0.0" }
+    },
+    {
+      "id": "@isaacs/testing-link-dep@2.0.0",
+      "info": { "name": "@isaacs/testing-link-dep", "version": "2.0.0" }
+    }
+  ],
+  "graph": {
+    "rootNodeId": "root-node",
+    "nodes": [
+      {
+        "nodeId": "root-node",
+        "pkgId": "package.json@",
+        "deps": [
+          { "nodeId": "@isaacs/testing-link-dep@1.0.0" },
+          { "nodeId": "@isaacs/testing-link-dep@2.0.0" }
+        ]
+      },
+      {
+        "nodeId": "@isaacs/testing-link-dep@1.0.0",
+        "pkgId": "@isaacs/testing-link-dep@1.0.0",
+        "deps": [],
+        "info": { "labels": { "scope": "prod" } }
+      },
+      {
+        "nodeId": "@isaacs/testing-link-dep@2.0.0",
+        "pkgId": "@isaacs/testing-link-dep@2.0.0",
+        "deps": [],
+        "info": { "labels": { "scope": "prod" } }
+      }
+    ]
+  }
+}
+"""
+        packages = _parse_snyk_output(output)
+        assert len(packages) == 3
+        versions = [p["version"] for p in packages if p["name"] == "@isaacs/testing-link-dep"]
+        assert "1.0.0" in versions
+        assert "2.0.0" in versions
+
+    def test_parse_pm_purl_type_mapping(self):
+        """Test that package manager to purl_type mapping works."""
+        output = """{
+            "schemaVersion": "1.3.0",
+            "pkgManager": { "name": "uv" },
+            "pkgs": [
+                {
+                "id": "python-pkg@1.2.3",
+                "info": { "name": "python-pkg", "version": "1.2.3" }
+                }
+            ],
+            "graph": {}
+            }"""
+
+        packages = _parse_snyk_output(output)
+        assert len(packages) == 1
+        for pkg in packages:
+            if pkg["name"] == "python-pkg":
+                assert pkg["purl_type"] == "pypi"
 
     def test_parse_whitespace_handling(self):
         """Test parsing handles leading/trailing whitespace."""
-        output = """  \n  {"name": "pkg", "version": "1.0.0"}{"vulnerabilities": []}  \n  """
+        output = """  \n  {
+  "schemaVersion": "1.3.0",
+  "pkgManager": { "name": "npm" },
+  "pkgs": [
+    { "id": "package.json@", "info": { "name": "package.json" } },
+    {
+      "id": "@isaacs/testing-link-dep@1.0.0",
+      "info": { "name": "@isaacs/testing-link-dep", "version": "1.0.0" }
+    }
+  ],
+  "graph": {
+    "rootNodeId": "root-node",
+    "nodes": [
+      {
+        "nodeId": "root-node",
+        "pkgId": "package.json@",
+        "deps": [
+          { "nodeId": "@isaacs/testing-link-dep@1.0.0" }
+        ]
+      },
+      {
+        "nodeId": "@isaacs/testing-link-dep@1.0.0",
+        "pkgId": "@isaacs/testing-link-dep@1.0.0",
+        "deps": [],
+        "info": { "labels": { "scope": "prod" } }
+      }
+    ]
+  }
+}
+  \n  """
 
         packages = _parse_snyk_output(output)
 
-        assert len(packages) == 1
-        assert packages[0]["name"] == "pkg"
+        assert len(packages) == 2
+        assert packages[0]["name"] == "package.json"
 
     def test_parse_malformed_json(self):
         """Test parsing malformed JSON returns empty list."""
@@ -287,7 +391,7 @@ class TestParseSnykOutput:
 
     def test_parse_incomplete_json(self):
         """Test parsing incomplete JSON returns empty list."""
-        output = """{"name": "test", "version": """
+        output = """{"schemaVersion":"1.3.0","pkgManager":{"name": """
 
         packages = _parse_snyk_output(output)
 
@@ -342,12 +446,34 @@ class TestHandleScaToolResponse:
     def test_handle_response_with_output_file(self, mock_bom_bench):
         """Test handling response when output is in file."""
         output_contents = """{
-            "name": "project",
-            "version": "1.0.0",
-            "dependencies": {
-                "dep1": {"name": "dep1", "version": "2.0.0"}
+            "schemaVersion": "1.3.0",
+            "pkgManager": { "name": "npm" },
+            "pkgs": [
+                { "id": "package.json@", "info": { "name": "package.json" } },
+                {
+                "id": "@isaacs/testing-link-dep@1.0.0",
+                "info": { "name": "@isaacs/testing-link-dep", "version": "1.0.0" }
+                }
+            ],
+            "graph": {
+                "rootNodeId": "root-node",
+                "nodes": [
+                {
+                    "nodeId": "root-node",
+                    "pkgId": "package.json@",
+                    "deps": [
+                    { "nodeId": "@isaacs/testing-link-dep@1.0.0" }
+                    ]
+                },
+                {
+                    "nodeId": "@isaacs/testing-link-dep@1.0.0",
+                    "pkgId": "@isaacs/testing-link-dep@1.0.0",
+                    "deps": [],
+                    "info": { "labels": { "scope": "prod" } }
+                }
+                ]
             }
-        }{"vulnerabilities": []}"""
+            }"""
 
         result = handle_sca_tool_response(
             bom_bench=mock_bom_bench,
@@ -364,12 +490,34 @@ class TestHandleScaToolResponse:
     def test_handle_response_with_stdout(self, mock_bom_bench):
         """Test handling response when output is in stdout."""
         stdout = """{
-            "name": "project",
-            "version": "1.0.0",
-            "dependencies": {
-                "dep1": {"name": "dep1", "version": "2.0.0"}
+            "schemaVersion": "1.3.0",
+            "pkgManager": { "name": "npm" },
+            "pkgs": [
+                { "id": "package.json@", "info": { "name": "package.json" } },
+                {
+                "id": "@isaacs/testing-link-dep@1.0.0",
+                "info": { "name": "@isaacs/testing-link-dep", "version": "1.0.0" }
+                }
+            ],
+            "graph": {
+                "rootNodeId": "root-node",
+                "nodes": [
+                {
+                    "nodeId": "root-node",
+                    "pkgId": "package.json@",
+                    "deps": [
+                    { "nodeId": "@isaacs/testing-link-dep@1.0.0" }
+                    ]
+                },
+                {
+                    "nodeId": "@isaacs/testing-link-dep@1.0.0",
+                    "pkgId": "@isaacs/testing-link-dep@1.0.0",
+                    "deps": [],
+                    "info": { "labels": { "scope": "prod" } }
+                }
+                ]
             }
-        }{"vulnerabilities": []}"""
+            }"""
 
         result = handle_sca_tool_response(
             bom_bench=mock_bom_bench,
@@ -385,8 +533,22 @@ class TestHandleScaToolResponse:
 
     def test_handle_response_prefers_output_file(self, mock_bom_bench):
         """Test that output_file_contents is preferred over stdout."""
-        output_contents = """{"name": "from-file", "version": "1.0.0"}{"vulnerabilities": []}"""
-        stdout = """{"name": "from-stdout", "version": "2.0.0"}{"vulnerabilities": []}"""
+        output_contents = """{
+            "schemaVersion": "1.3.0",
+            "pkgManager": { "name": "npm" },
+            "pkgs": [
+                { "id": "from-file@1", "info": { "name": "from-file", "version": "1" }}
+            ],
+            "graph": {}
+            }"""
+        stdout = """{
+            "schemaVersion": "1.3.0",
+            "pkgManager": { "name": "npm" },
+            "pkgs": [
+                { "id": "from-stdout@1", "info": { "name": "from-stdout", "version": "1" }}
+            ],
+            "graph": {}
+            }"""
 
         result = handle_sca_tool_response(
             bom_bench=mock_bom_bench,
@@ -444,7 +606,14 @@ class TestHandleScaToolResponse:
 
     def test_handle_response_generates_valid_json(self, mock_bom_bench):
         """Test that response hook generates valid JSON string."""
-        output_contents = """{"name": "test", "version": "1.0.0"}{"vulnerabilities": []}"""
+        output_contents = """{
+            "schemaVersion": "1.3.0",
+            "pkgManager": { "name": "npm" },
+            "pkgs": [
+                { "id": "from-file@1", "info": { "name": "from-file", "version": "1" }}
+            ],
+            "graph": {}
+            }"""
 
         result = handle_sca_tool_response(
             bom_bench=mock_bom_bench,
