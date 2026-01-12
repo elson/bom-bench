@@ -380,10 +380,14 @@ class TestNpmPlugin:
 
         mock_bom_bench.generate_sbom_file.assert_called_once()
         call_args = mock_bom_bench.generate_sbom_file.call_args
-        assert call_args[1]["name"] == "test-fixture"
-        assert call_args[1]["sbom_path"] == sbom_path
-        assert call_args[1]["purl_type"] == "npm"
-        assert len(call_args[1]["packages"]) == 2
+        # Check positional arguments
+        assert call_args[0][0] == "test-fixture"  # scenario_name
+        assert call_args[0][1] == sbom_path  # output_path
+        pkg_list = call_args[0][2]  # packages
+        assert len(pkg_list) == 2
+        assert pkg_list[0]["purl_type"] == "npm"
+        assert pkg_list[0]["name"] == "lodash"
+        assert pkg_list[1]["name"] == "express"
 
     def test_clone_npm_cli_not_exists(self, tmp_path: Path):
         mock_logger = Mock()

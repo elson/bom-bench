@@ -15,18 +15,25 @@ from packageurl import PackageURL
 from bom_bench.models.scenario import ExpectedPackage
 
 
-def normalize_package_name(name: str) -> str:
-    """Normalize Python package name for PURL.
-
-    Per PEP 503, package names should be lowercase with hyphens.
+def normalize_package_name(name: str, purl_type: str = "pypi") -> str:
+    """Normalize package name for PURL based on ecosystem.
 
     Args:
         name: Original package name
+        purl_type: Package URL type (pypi, npm, etc.)
 
     Returns:
         Normalized package name
     """
-    return name.lower().replace("_", "-")
+    if purl_type == "pypi":
+        # Per PEP 503, Python package names should be lowercase with hyphens
+        return name.lower().replace("_", "-")
+    elif purl_type == "npm":
+        # npm package names are case-sensitive, no normalization needed
+        return name
+    else:
+        # Default: no normalization
+        return name
 
 
 def _get_package_name(package: ExpectedPackage | dict) -> str:
@@ -39,19 +46,28 @@ def _get_package_version(package: ExpectedPackage | dict) -> str:
     return package["version"] if isinstance(package, dict) else package.version
 
 
+def _get_purl_type(package: ExpectedPackage | dict) -> str:
+    """Get PURL type from package dict, defaulting to pypi."""
+    if isinstance(package, dict):
+        return package.get("purl_type", "pypi")
+    return "pypi"
+
+
 def create_purl(package: ExpectedPackage | dict) -> PackageURL:
-    """Create Package URL (PURL) for a Python package.
+    """Create Package URL (PURL) for a package.
 
     Args:
         package: Expected package (dict or ExpectedPackage)
+                 If dict, may include 'purl_type' key (defaults to 'pypi')
 
     Returns:
         PackageURL object for the package
     """
     name = _get_package_name(package)
     version = _get_package_version(package)
-    normalized_name = normalize_package_name(name)
-    purl = PackageURL(type="pypi", name=normalized_name, version=version)
+    purl_type = _get_purl_type(package)
+    normalized_name = normalize_package_name(name, purl_type)
+    purl = PackageURL(type=purl_type, name=normalized_name, version=version)
     return purl
 
 
@@ -99,10 +115,11 @@ def generate_cyclonedx_sbom(
         purl = create_purl(package)
         name = _get_package_name(package)
         version = _get_package_version(package)
+        purl_type = _get_purl_type(package)
 
         component = Component(  # pyright: ignore  # type: ignore
             type=ComponentType.LIBRARY,
-            name=normalize_package_name(name),
+            name=normalize_package_name(name, purl_type),
             version=version,
             purl=purl,
         )

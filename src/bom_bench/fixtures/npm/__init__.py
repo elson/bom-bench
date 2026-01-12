@@ -188,12 +188,19 @@ def _generate_expected_sbom(
     sbom_path: Path,
 ) -> None:
     """Generate expected CycloneDX SBOM from ArboristNode resolved packages."""
-    pkg_list = [{"name": pkg.name, "version": pkg.version} for pkg in packages]
+    # Deduplicate packages by (name, version)
+    seen = set()
+    unique_packages = []
+    for pkg in packages:
+        key = (pkg.name, pkg.version)
+        if key not in seen:
+            seen.add(key)
+            unique_packages.append({"name": pkg.name, "version": pkg.version, "purl_type": "npm"})
+
     bom_bench.generate_sbom_file(
-        name=fixture_name,
-        sbom_path=sbom_path,
-        packages=pkg_list,
-        purl_type="npm",
+        fixture_name,
+        sbom_path,
+        unique_packages,
     )
 
 

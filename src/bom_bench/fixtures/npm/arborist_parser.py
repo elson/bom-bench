@@ -48,11 +48,12 @@ def _split_exports(content: str) -> dict[str, str]:
     in_template = False
 
     for line in lines:
-        if line.startswith("exports[`"):
+        if line.startswith("exports[`") or line.startswith("exports['"):
             if current_key and current_value:
                 exports[current_key] = "\n".join(current_value)
 
-            key_end = line.find("`]")
+            quote_char = "`" if line.startswith("exports[`") else "'"
+            key_end = line.find(f"{quote_char}]")
             if key_end > 0:
                 current_key = line[9:key_end]
                 current_value = []
@@ -111,16 +112,16 @@ def _parse_arborist_content(content: str) -> list[ResolvedPackage]:
             resolved = _extract_string_value(line)
             if resolved and "registry.npmjs.org" in resolved:
                 current["resolved"] = resolved
-                if current.get("name") and current.get("version"):
-                    packages.append(
-                        ResolvedPackage(
-                            name=current["name"],
-                            version=current["version"],
-                            resolved=current["resolved"],
-                        )
-                    )
-                current = {}
         elif line.startswith("}") or "ArboristNode" in line:
+            # Check if we have a complete package before resetting
+            if current.get("name") and current.get("version") and current.get("resolved"):
+                packages.append(
+                    ResolvedPackage(
+                        name=current["name"],
+                        version=current["version"],
+                        resolved=current["resolved"],
+                    )
+                )
             current = {}
 
     return packages
