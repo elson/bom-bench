@@ -7,6 +7,7 @@ from unittest.mock import Mock, patch
 from bom_bench.fixtures.npm import (
     _clone_npm_cli,
     _compute_source_hash,
+    _extract_packages_from_lock,
     _generate_expected_sbom,
     _is_cache_valid,
     _load_cached_fixtures,
@@ -367,6 +368,41 @@ class TestNpmPlugin:
         fixtures = _load_cached_fixtures(tmp_path)
         assert len(fixtures) == 0
 
+    def test_extract_packages_from_lock(self):
+        lock_data = {
+            "lockfileVersion": 3,
+            "dependencies": {
+                "express": {
+                    "version": "4.18.2",
+                    "resolved": "https://registry.npmjs.org/express/-/express-4.18.2.tgz",
+                    "integrity": "sha512-...",
+                },
+                "lodash": {
+                    "version": "4.17.21",
+                    "resolved": "https://registry.npmjs.org/lodash/-/lodash-4.17.21.tgz",
+                },
+                "local-dep": {
+                    "version": "file:../local",
+                    "resolved": "file:../local",
+                },
+            },
+        }
+
+        packages = _extract_packages_from_lock(lock_data)
+
+        assert len(packages) == 2
+        assert packages[0].name == "express"
+        assert packages[0].version == "4.18.2"
+        assert packages[1].name == "lodash"
+        assert packages[1].version == "4.17.21"
+
+    def test_extract_packages_from_lock_empty(self):
+        lock_data = {"lockfileVersion": 3, "dependencies": {}}
+
+        packages = _extract_packages_from_lock(lock_data)
+
+        assert len(packages) == 0
+
     def test_generate_expected_sbom(self, tmp_path: Path):
         mock_bom_bench = Mock()
         mock_bom_bench.generate_sbom_file = Mock()
@@ -496,7 +532,16 @@ class TestNpmPlugin:
         parsed = {
             "name": "with-lock",
             "package_json": {"name": "test"},
-            "package_lock": {"lockfileVersion": 3},
+            "package_lock": {
+                "lockfileVersion": 3,
+                "dependencies": {
+                    "express": {
+                        "version": "4.18.2",
+                        "resolved": "https://registry.npmjs.org/express/-/express-4.18.2.tgz",
+                        "integrity": "sha512-...",
+                    }
+                },
+            },
         }
         packages = [ResolvedPackage("express", "4.18.2", "https://registry.npmjs.org/express")]
 

@@ -114,6 +114,29 @@ def _clone_npm_cli(logger, npm_cli_dir: Path) -> Path:
     return npm_cli_dir
 
 
+def _extract_packages_from_lock(lock_data: dict) -> list[ResolvedPackage]:
+    """Extract resolved packages from package-lock.json.
+
+    Args:
+        lock_data: Parsed package-lock.json content
+
+    Returns:
+        List of ResolvedPackage objects from the lock file
+    """
+    packages = []
+    dependencies = lock_data.get("dependencies", {})
+
+    for name, info in dependencies.items():
+        version = info.get("version")
+        resolved = info.get("resolved")
+
+        # Only include packages with registry URLs (skip file: and link: dependencies)
+        if version and resolved and "registry.npmjs.org" in resolved:
+            packages.append(ResolvedPackage(name=name, version=version, resolved=resolved))
+
+    return packages
+
+
 def _process_fixture(
     case_file: Path,
     fixture_to_test: dict[str, str],
@@ -124,10 +147,11 @@ def _process_fixture(
 ) -> dict | None:
     """Process a single reify-case fixture.
 
-    Ground truth ALWAYS comes from ArboristNode tap data.
-    Fixtures without matching tap snapshot entries are skipped.
+    Ground truth source depends on whether fixture has a lock file:
+    - WITH lock file: Ground truth from lock file (what SCA tools should find)
+    - WITHOUT lock file: Ground truth from tap snapshot (resolved dependencies)
 
-    DO NOT generate lock files - fixtures without lockfiles are intentional.
+    Fixtures without matching tap snapshot entries are skipped for validation.
     """
     fixture_name = case_file.stem
 
@@ -139,15 +163,30 @@ def _process_fixture(
         logger.debug(f"Skipping {fixture_name}: could not parse")
         return None
 
-    test_name = fixture_to_test.get(fixture_name)
-    if not test_name or test_name not in snapshot_ground_truth:
-        logger.debug(f"Skipping {fixture_name}: no tap snapshot ground truth")
-        return None
+    # Determine ground truth source
+    if parsed["package_lock"]:
+        # Use lock file as ground truth for SCA tool benchmarking
+        packages = _extract_packages_from_lock(parsed["package_lock"])
+        if not packages:
+            logger.debug(f"Skipping {fixture_name}: no packages in lock file")
+            return None
+        ground_truth_source = "lock file"
+    else:
+        # Use tap snapshot for fixtures without lock files
+        test_name = fixture_to_test.get(fixture_name)
+        if not test_name or test_name not in snapshot_ground_truth:
+            logger.debug(f"Skipping {fixture_name}: no tap snapshot ground truth")
+            return None
 
-    packages = snapshot_ground_truth[test_name]
-    if not packages:
-        logger.debug(f"Skipping {fixture_name}: empty package list in snapshot")
-        return None
+        packages = snapshot_ground_truth[test_name]
+        if not packages:
+            logger.debug(f"Skipping {fixture_name}: empty package list in snapshot")
+            return None
+        ground_truth_source = "tap snapshot"
+
+    logger.debug(
+        f"Generated fixture: {fixture_name} with {len(packages)} packages (from {ground_truth_source})"
+    )
 
     fixture_dir = cache_dir / fixture_name
     fixture_dir.mkdir(parents=True, exist_ok=True)
