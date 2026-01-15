@@ -7,11 +7,11 @@ from unittest.mock import Mock, patch
 from bom_bench.fixtures.npm import (
     _clone_npm_cli,
     _compute_source_hash,
-    _extract_packages_from_lock,
     _generate_expected_sbom,
     _is_cache_valid,
     _load_cached_fixtures,
     _load_fixtures,
+    _process_saved_fixture,
     _save_cache_manifest,
     register_fixture_sets,
 )
@@ -197,41 +197,6 @@ class TestNpmPlugin:
         fixtures = _load_cached_fixtures(tmp_path)
         assert len(fixtures) == 0
 
-    def test_extract_packages_from_lock(self):
-        lock_data = {
-            "lockfileVersion": 3,
-            "dependencies": {
-                "express": {
-                    "version": "4.18.2",
-                    "resolved": "https://registry.npmjs.org/express/-/express-4.18.2.tgz",
-                    "integrity": "sha512-...",
-                },
-                "lodash": {
-                    "version": "4.17.21",
-                    "resolved": "https://registry.npmjs.org/lodash/-/lodash-4.17.21.tgz",
-                },
-                "local-dep": {
-                    "version": "file:../local",
-                    "resolved": "file:../local",
-                },
-            },
-        }
-
-        packages = _extract_packages_from_lock(lock_data)
-
-        assert len(packages) == 2
-        assert packages[0].name == "express"
-        assert packages[0].version == "4.18.2"
-        assert packages[1].name == "lodash"
-        assert packages[1].version == "4.17.21"
-
-    def test_extract_packages_from_lock_empty(self):
-        lock_data = {"lockfileVersion": 3, "dependencies": {}}
-
-        packages = _extract_packages_from_lock(lock_data)
-
-        assert len(packages) == 0
-
     def test_generate_expected_sbom(self, tmp_path: Path):
         mock_bom_bench = Mock()
         mock_bom_bench.generate_sbom_file = Mock()
@@ -320,3 +285,192 @@ class TestNpmPlugin:
 
         assert len(fixtures) == 1
         assert fixtures[0]["name"] == "test-fixture"
+
+
+class TestProcessSavedFixture:
+    """Tests for _process_saved_fixture to verify it follows the plan requirements."""
+
+    def test_always_uses_tap_snapshot_for_ground_truth(self, tmp_path: Path):
+        """Verify that tap snapshot is ALWAYS used for ground truth, even when lock file exists."""
+        from bom_bench.fixtures.npm.fixture_mapper import FixtureMappingEntry
+
+        # Setup saved directory with both lock file and package.json
+        saved_dir = tmp_path / "saved"
+        saved_dir.mkdir()
+        (saved_dir / "package.json").write_text(json.dumps({"name": "test"}))
+        (saved_dir / "package-lock.json").write_text(
+            json.dumps(
+                {
+                    "dependencies": {
+                        "wrong-pkg": {
+                            "version": "1.0.0",
+                            "resolved": "https://registry.npmjs.org/wrong",
+                        }
+                    }
+                }
+            )
+        )
+
+        # Setup cache dir
+        cache_dir = tmp_path / "cache"
+
+        # Setup snapshot ground truth (this should be used, not the lock file)
+        snapshot_ground_truth = {
+            "test-name": [
+                ResolvedPackage("correct-pkg", "2.0.0", "https://registry.npmjs.org/correct")
+            ]
+        }
+
+        mapping_entry = FixtureMappingEntry(
+            fixture_name="test-fixture",
+            test_name="test-name",
+            saved_dir=saved_dir,
+            snapshot_prefix="test/arborist/reify.js TAP test-name",
+        )
+
+        mock_bom_bench = Mock()
+        mock_bom_bench.generate_sbom_file = Mock()
+        mock_logger = Mock()
+
+        result = _process_saved_fixture(
+            mapping_entry, snapshot_ground_truth, mock_bom_bench, mock_logger, cache_dir
+        )
+
+        # Verify fixture was created
+        assert result is not None
+        assert result["name"] == "test-fixture"
+
+        # Verify SBOM generation used snapshot ground truth, NOT lock file
+        mock_bom_bench.generate_sbom_file.assert_called_once()
+        packages = mock_bom_bench.generate_sbom_file.call_args[0][2]
+        assert len(packages) == 1
+        assert packages[0]["name"] == "correct-pkg"  # From snapshot, not lock file
+        assert packages[0]["version"] == "2.0.0"
+
+    def test_copies_node_modules_directory(self, tmp_path: Path):
+        """Verify that node_modules/ directory is copied from saved dir to cache."""
+        from bom_bench.fixtures.npm.fixture_mapper import FixtureMappingEntry
+
+        # Setup saved directory with node_modules
+        saved_dir = tmp_path / "saved"
+        saved_dir.mkdir()
+        (saved_dir / "package.json").write_text(json.dumps({"name": "test"}))
+
+        # Create node_modules with some packages
+        node_modules = saved_dir / "node_modules"
+        node_modules.mkdir()
+        (node_modules / "express").mkdir()
+        (node_modules / "express" / "package.json").write_text(
+            json.dumps({"name": "express", "version": "4.18.2"})
+        )
+        (node_modules / "lodash").mkdir()
+        (node_modules / "lodash" / "package.json").write_text(
+            json.dumps({"name": "lodash", "version": "4.17.21"})
+        )
+
+        cache_dir = tmp_path / "cache"
+        snapshot_ground_truth = {
+            "test-name": [
+                ResolvedPackage("express", "4.18.2", "https://registry.npmjs.org/express")
+            ]
+        }
+
+        mapping_entry = FixtureMappingEntry(
+            fixture_name="test-fixture",
+            test_name="test-name",
+            saved_dir=saved_dir,
+            snapshot_prefix="test/arborist/reify.js TAP test-name",
+        )
+
+        mock_bom_bench = Mock()
+        mock_bom_bench.generate_sbom_file = Mock()
+        mock_logger = Mock()
+
+        result = _process_saved_fixture(
+            mapping_entry, snapshot_ground_truth, mock_bom_bench, mock_logger, cache_dir
+        )
+
+        # Verify node_modules was copied to cache
+        assert result is not None
+        cached_node_modules = cache_dir / "test-fixture" / "node_modules"
+        assert cached_node_modules.exists()
+        assert cached_node_modules.is_dir()
+
+        # Verify package contents were copied
+        assert (cached_node_modules / "express" / "package.json").exists()
+        assert (cached_node_modules / "lodash" / "package.json").exists()
+
+        # Verify files dict includes node_modules
+        assert "node_modules" in result["files"]
+        assert result["files"]["node_modules"] == str(cached_node_modules)
+
+    def test_skips_fixture_without_snapshot_ground_truth(self, tmp_path: Path):
+        """Verify that fixtures without snapshot ground truth are skipped."""
+        from bom_bench.fixtures.npm.fixture_mapper import FixtureMappingEntry
+
+        saved_dir = tmp_path / "saved"
+        saved_dir.mkdir()
+        (saved_dir / "package.json").write_text(json.dumps({"name": "test"}))
+
+        cache_dir = tmp_path / "cache"
+        snapshot_ground_truth = {}  # Empty - no ground truth for this test
+
+        mapping_entry = FixtureMappingEntry(
+            fixture_name="test-fixture",
+            test_name="missing-test",
+            saved_dir=saved_dir,
+            snapshot_prefix="test/arborist/reify.js TAP missing-test",
+        )
+
+        mock_bom_bench = Mock()
+        mock_logger = Mock()
+
+        result = _process_saved_fixture(
+            mapping_entry, snapshot_ground_truth, mock_bom_bench, mock_logger, cache_dir
+        )
+
+        # Should return None (skipped)
+        assert result is None
+        mock_logger.debug.assert_called()
+        debug_msg = mock_logger.debug.call_args[0][0]
+        assert "no tap snapshot ground truth" in debug_msg
+
+    def test_copies_lock_file_when_present(self, tmp_path: Path):
+        """Verify that package-lock.json is copied when present (but not used for ground truth)."""
+        from bom_bench.fixtures.npm.fixture_mapper import FixtureMappingEntry
+
+        saved_dir = tmp_path / "saved"
+        saved_dir.mkdir()
+        (saved_dir / "package.json").write_text(json.dumps({"name": "test"}))
+        lock_content = {"lockfileVersion": 3, "dependencies": {}}
+        (saved_dir / "package-lock.json").write_text(json.dumps(lock_content))
+
+        cache_dir = tmp_path / "cache"
+        snapshot_ground_truth = {
+            "test-name": [ResolvedPackage("pkg", "1.0.0", "https://registry.npmjs.org/pkg")]
+        }
+
+        mapping_entry = FixtureMappingEntry(
+            fixture_name="test-fixture",
+            test_name="test-name",
+            saved_dir=saved_dir,
+            snapshot_prefix="test/arborist/reify.js TAP test-name",
+        )
+
+        mock_bom_bench = Mock()
+        mock_bom_bench.generate_sbom_file = Mock()
+        mock_logger = Mock()
+
+        result = _process_saved_fixture(
+            mapping_entry, snapshot_ground_truth, mock_bom_bench, mock_logger, cache_dir
+        )
+
+        # Verify lock file was copied
+        assert result is not None
+        cached_lock = cache_dir / "test-fixture" / "package-lock.json"
+        assert cached_lock.exists()
+        assert "lock_file" in result["files"]
+
+        # Verify lock file content
+        copied_lock = json.loads(cached_lock.read_text())
+        assert copied_lock == lock_content

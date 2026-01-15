@@ -167,51 +167,45 @@ def _process_saved_fixture(
         logger.debug(f"Skipping {fixture_name}: invalid package.json")
         return None
 
-    # Check for lock file
-    package_lock_path = saved_dir / "package-lock.json"
-    package_lock = None
-    if package_lock_path.exists():
-        try:
-            package_lock = json.loads(package_lock_path.read_text())
-        except json.JSONDecodeError:
-            logger.debug(f"Skipping {fixture_name}: invalid package-lock.json")
-            return None
+    # ALWAYS use tap snapshot for ground truth (as per plan)
+    if test_name not in snapshot_ground_truth:
+        logger.debug(f"Skipping {fixture_name}: no tap snapshot ground truth")
+        return None
 
-    # Determine ground truth source
-    if package_lock:
-        # Use lock file as ground truth
-        packages = _extract_packages_from_lock(package_lock)
-        if not packages:
-            logger.debug(f"Skipping {fixture_name}: no packages in lock file")
-            return None
-        ground_truth_source = "lock file"
-    else:
-        # Use tap snapshot for fixtures without lock files
-        if test_name not in snapshot_ground_truth:
-            logger.debug(f"Skipping {fixture_name}: no tap snapshot ground truth")
-            return None
-
-        packages = snapshot_ground_truth[test_name]
-        if not packages:
-            logger.debug(f"Skipping {fixture_name}: empty package list in snapshot")
-            return None
-        ground_truth_source = "tap snapshot"
+    packages = snapshot_ground_truth[test_name]
+    if not packages:
+        logger.debug(f"Skipping {fixture_name}: empty package list in snapshot")
+        return None
 
     logger.debug(
-        f"Generated fixture: {fixture_name} with {len(packages)} packages (from {ground_truth_source})"
+        f"Generated fixture: {fixture_name} with {len(packages)} packages (from tap snapshot)"
     )
 
     # Copy files to cache
     fixture_dir = cache_dir / fixture_name
     fixture_dir.mkdir(parents=True, exist_ok=True)
 
+    # Copy package.json
     manifest_path = fixture_dir / "package.json"
     manifest_path.write_text(json.dumps(package_json, indent=2))
 
+    # Copy package-lock.json if it exists (but don't use it for ground truth)
+    package_lock_path = saved_dir / "package-lock.json"
     lock_path = None
-    if package_lock:
-        lock_path = fixture_dir / "package-lock.json"
-        lock_path.write_text(json.dumps(package_lock, indent=2))
+    if package_lock_path.exists():
+        try:
+            package_lock = json.loads(package_lock_path.read_text())
+            lock_path = fixture_dir / "package-lock.json"
+            lock_path.write_text(json.dumps(package_lock, indent=2))
+        except json.JSONDecodeError:
+            logger.debug(f"Skipping lock file for {fixture_name}: invalid JSON")
+
+    # Copy node_modules/ directory if it exists
+    node_modules_src = saved_dir / "node_modules"
+    node_modules_path = None
+    if node_modules_src.exists() and node_modules_src.is_dir():
+        node_modules_path = fixture_dir / "node_modules"
+        shutil.copytree(node_modules_src, node_modules_path, dirs_exist_ok=True)
 
     # Generate expected SBOM
     sbom_path = fixture_dir / "expected.cdx.json"
@@ -220,6 +214,7 @@ def _process_saved_fixture(
     meta_path = fixture_dir / "meta.json"
     meta_path.write_text(json.dumps({"satisfiable": True}, indent=2))
 
+    # Build files dict
     files = {
         "manifest": str(manifest_path),
         "expected_sbom": str(sbom_path),
@@ -227,35 +222,14 @@ def _process_saved_fixture(
     }
     if lock_path:
         files["lock_file"] = str(lock_path)
+    if node_modules_path:
+        files["node_modules"] = str(node_modules_path)
 
     return {
         "name": fixture_name,
         "satisfiable": True,
         "files": files,
     }
-
-
-def _extract_packages_from_lock(lock_data: dict) -> list[ResolvedPackage]:
-    """Extract resolved packages from package-lock.json.
-
-    Args:
-        lock_data: Parsed package-lock.json content
-
-    Returns:
-        List of ResolvedPackage objects from the lock file
-    """
-    packages = []
-    dependencies = lock_data.get("dependencies", {})
-
-    for name, info in dependencies.items():
-        version = info.get("version")
-        resolved = info.get("resolved")
-
-        # Only include packages with registry URLs (skip file: and link: dependencies)
-        if version and resolved and "registry.npmjs.org" in resolved:
-            packages.append(ResolvedPackage(name=name, version=version, resolved=resolved))
-
-    return packages
 
 
 def _generate_expected_sbom(
