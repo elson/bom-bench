@@ -16,7 +16,7 @@ Generate package manager manifests and lock files from test scenarios for benchm
 - **SBOM Generation from Lock Files**: CycloneDX 1.6 SBOMs generated from resolved dependencies
 - **Comprehensive CLI**: Multiple entry points, rich filtering options
 - **SCA Tool Benchmarking**: Run SCA tools via plugins, compare results with precision/recall metrics
-- **Fully Tested**: 230+ unit and integration tests
+- **Fully Tested**: 389 unit and integration tests with 100% coverage
 
 ## Quick Start
 
