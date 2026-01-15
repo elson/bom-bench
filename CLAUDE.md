@@ -248,8 +248,7 @@ src/bom_bench/
 │       ├── __init__.py          # Main plugin entry point
 │       ├── test_runner.py       # Runs arborist tests with --save-fixture
 │       ├── fixture_mapper.py    # Maps test directories to snapshot entries
-│       ├── arborist_parser.py   # Parses snapshot files for ground truth
-│       └── test_runner.py       # Runs arborist tests with --save-fixture
+│       └── arborist_parser.py   # Parses snapshot files for ground truth
 ├── sca_tools/
 │   ├── __init__.py     # SCA wrapper functions, tool registry
 │   ├── cdxgen.py       # CycloneDX generator plugin

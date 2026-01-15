@@ -2,6 +2,7 @@
 
 import hashlib
 import json
+import shutil
 import subprocess
 from pathlib import Path
 from types import ModuleType
@@ -15,6 +16,7 @@ from .test_runner import run_arborist_tests
 NPM_CLI_TAG = "v10.9.2"
 NPM_CLI_REPO = "https://github.com/npm/cli.git"
 NODE_VERSION = "22"
+CACHE_HASH_LENGTH = 16
 
 
 @hookimpl
@@ -62,7 +64,8 @@ def _load_fixtures(
 
     if not test_result.success:
         logger.warning(
-            f"Test run completed with exit code {test_result.exit_code}. "
+            f"Test run failed with exit code {test_result.exit_code}. "
+            f"stderr: {test_result.stderr}. "
             f"Continuing with available fixtures..."
         )
 
@@ -104,8 +107,6 @@ def _clone_npm_cli(logger, npm_cli_dir: Path) -> Path:
         )
         if result.returncode == 0 and NPM_CLI_TAG in result.stdout:
             return npm_cli_dir
-        import shutil
-
         shutil.rmtree(npm_cli_dir)
 
     logger.info(f"Cloning npm/cli at {NPM_CLI_TAG}...")
@@ -294,7 +295,7 @@ def _compute_source_hash(repo_path: Path) -> str:
     if snapshot.exists():
         hasher.update(snapshot.read_bytes())
 
-    return hasher.hexdigest()[:16]
+    return hasher.hexdigest()[:CACHE_HASH_LENGTH]
 
 
 def _is_cache_valid(cache_dir: Path, current_hash: str) -> bool:
@@ -305,7 +306,7 @@ def _is_cache_valid(cache_dir: Path, current_hash: str) -> bool:
     try:
         data = json.loads(manifest.read_text())
         return data.get("hash") == current_hash
-    except Exception:
+    except (json.JSONDecodeError, FileNotFoundError, OSError):
         return False
 
 
