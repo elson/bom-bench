@@ -12,7 +12,6 @@ from bom_bench.fixtures.npm import (
     _is_cache_valid,
     _load_cached_fixtures,
     _load_fixtures,
-    _process_fixture,
     _save_cache_manifest,
     register_fixture_sets,
 )
@@ -24,182 +23,6 @@ from bom_bench.fixtures.npm.arborist_parser import (
     _split_exports,
     parse_snapshot_file,
 )
-from bom_bench.fixtures.npm.js_parser import (
-    _parse_value,
-    create_js_parser,
-    get_node_text,
-    parse_fixture_test_mapping,
-    parse_reify_case,
-)
-
-
-class TestJsParser:
-    def test_create_js_parser(self):
-        parser = create_js_parser()
-        assert parser is not None
-
-    def test_get_node_text(self):
-        parser = create_js_parser()
-        source = b'const x = "hello";'
-        tree = parser.parse(source)
-        node = tree.root_node
-        text = get_node_text(node, source)
-        assert text == 'const x = "hello";'
-
-    def test_parse_reify_case_basic(self, tmp_path: Path):
-        js_content = """
-        const t = require('tap')
-        t.test('test name', async t => {
-            const dir = t.testdir({
-                'package.json': JSON.stringify({
-                    name: 'test-pkg',
-                    version: '1.0.0',
-                    dependencies: {
-                        lodash: '^4.17.0'
-                    }
-                })
-            })
-        })
-        """
-        js_file = tmp_path / "test-case.js"
-        js_file.write_text(js_content)
-
-        result = parse_reify_case(js_file)
-
-        assert result is not None
-        assert result["name"] == "test-case"
-        assert result["package_json"]["name"] == "test-pkg"
-        assert result["package_json"]["version"] == "1.0.0"
-        assert result["package_lock"] is None
-
-    def test_parse_reify_case_with_lock(self, tmp_path: Path):
-        js_content = """
-        t.testdir({
-            'package.json': JSON.stringify({
-                name: 'test',
-                version: '1.0.0'
-            }),
-            'package-lock.json': JSON.stringify({
-                lockfileVersion: 3,
-                packages: {}
-            })
-        })
-        """
-        js_file = tmp_path / "with-lock.js"
-        js_file.write_text(js_content)
-
-        result = parse_reify_case(js_file)
-
-        assert result is not None
-        assert result["package_json"] is not None
-        assert result["package_lock"] is not None
-        assert result["package_lock"]["lockfileVersion"] == 3
-
-    def test_parse_reify_case_no_package_json(self, tmp_path: Path):
-        js_content = "const x = 42;"
-        js_file = tmp_path / "invalid.js"
-        js_file.write_text(js_content)
-
-        result = parse_reify_case(js_file)
-
-        assert result is None
-
-    def test_parse_value_string(self):
-        parser = create_js_parser()
-        source = b'const x = "hello world";'
-        tree = parser.parse(source)
-
-        def find_node(node, node_type):
-            if node.type == node_type:
-                return node
-            for child in node.children:
-                result = find_node(child, node_type)
-                if result:
-                    return result
-            return None
-
-        string_node = find_node(tree.root_node, "string")
-        assert string_node is not None
-        value = _parse_value(string_node, source)
-        assert value == "hello world"
-
-    def test_parse_value_number(self):
-        parser = create_js_parser()
-        source = b"const x = 42;"
-        tree = parser.parse(source)
-
-        def find_node(node, node_type):
-            if node.type == node_type:
-                return node
-            for child in node.children:
-                result = find_node(child, node_type)
-                if result:
-                    return result
-            return None
-
-        number_node = find_node(tree.root_node, "number")
-        assert number_node is not None
-        value = _parse_value(number_node, source)
-        assert value == 42
-
-    def test_parse_value_boolean(self):
-        parser = create_js_parser()
-        source = b"const x = true;"
-        tree = parser.parse(source)
-
-        def find_node(node, node_type):
-            if node.type == node_type:
-                return node
-            for child in node.children:
-                result = find_node(child, node_type)
-                if result:
-                    return result
-            return None
-
-        true_node = find_node(tree.root_node, "true")
-        assert true_node is not None
-        assert _parse_value(true_node, source) is True
-
-        source = b"const y = false;"
-        tree = parser.parse(source)
-        false_node = find_node(tree.root_node, "false")
-        assert false_node is not None
-        assert _parse_value(false_node, source) is False
-
-    def test_parse_value_null(self):
-        parser = create_js_parser()
-        source = b"const x = null;"
-        tree = parser.parse(source)
-
-        def find_node(node, node_type):
-            if node.type == node_type:
-                return node
-            for child in node.children:
-                result = find_node(child, node_type)
-                if result:
-                    return result
-            return None
-
-        null_node = find_node(tree.root_node, "null")
-        assert null_node is not None
-        assert _parse_value(null_node, source) is None
-
-    def test_parse_fixture_test_mapping(self, tmp_path: Path):
-        test_content = """
-        t.test('basic test', async t => {
-            const dir = fixture(t, 'basic-fixture')
-        })
-        t.test('another test', async t => {
-            fixture(t, 'another-fixture')
-        })
-        """
-        test_file = tmp_path / "reify.js"
-        test_file.write_text(test_content)
-
-        mapping = parse_fixture_test_mapping(test_file)
-
-        assert mapping.get("basic-fixture") == "basic test"
-        assert mapping.get("another-fixture") == "another test"
 
 
 class TestArboristParser:
@@ -289,10 +112,10 @@ ArboristNode {
 
 class TestNpmPlugin:
     def test_compute_source_hash(self, tmp_path: Path):
-        reify_cases = tmp_path / "workspaces/arborist/test/fixtures/reify-cases"
-        reify_cases.mkdir(parents=True)
-        (reify_cases / "test1.js").write_text("content1")
-        (reify_cases / "test2.js").write_text("content2")
+        test_dir = tmp_path / "workspaces/arborist/test/arborist"
+        test_dir.mkdir(parents=True)
+        test_file = test_dir / "reify.js"
+        test_file.write_text("test content")
 
         snapshot_dir = tmp_path / "workspaces/arborist/tap-snapshots/test/arborist"
         snapshot_dir.mkdir(parents=True)
@@ -302,9 +125,15 @@ class TestNpmPlugin:
         hash1 = _compute_source_hash(tmp_path)
         assert len(hash1) == 16
 
-        (reify_cases / "test3.js").write_text("content3")
+        # Changing test file should change hash
+        test_file.write_text("modified test content")
         hash2 = _compute_source_hash(tmp_path)
         assert hash1 != hash2
+
+        # Changing snapshot should also change hash
+        snapshot_file.write_text("modified snapshot")
+        hash3 = _compute_source_hash(tmp_path)
+        assert hash2 != hash3
 
     def test_is_cache_valid_no_manifest(self, tmp_path: Path):
         assert not _is_cache_valid(tmp_path, "somehash")
@@ -452,111 +281,6 @@ class TestNpmPlugin:
             for call in mock_run.call_args_list:
                 args = call[0][0] if call[0] else []
                 assert "clone" not in args
-
-    def test_process_fixture_skip_malformed(self, tmp_path: Path):
-        case_file = tmp_path / "malformed-json.js"
-        case_file.write_text("")
-
-        result = _process_fixture(case_file, {}, {}, Mock(), Mock(), tmp_path)
-
-        assert result is None
-
-    def test_process_fixture_skip_fail(self, tmp_path: Path):
-        case_file = tmp_path / "test-fail.js"
-        case_file.write_text("")
-
-        result = _process_fixture(case_file, {}, {}, Mock(), Mock(), tmp_path)
-
-        assert result is None
-
-    def test_process_fixture_no_package_json(self, tmp_path: Path):
-        case_file = tmp_path / "valid-name.js"
-        case_file.write_text("const x = 1;")
-
-        with patch("bom_bench.fixtures.npm.parse_reify_case", return_value=None):
-            result = _process_fixture(case_file, {}, {}, Mock(), Mock(), tmp_path)
-
-        assert result is None
-
-    def test_process_fixture_no_snapshot(self, tmp_path: Path):
-        case_file = tmp_path / "no-snapshot.js"
-        case_file.write_text("")
-        mock_logger = Mock()
-
-        parsed = {"name": "no-snapshot", "package_json": {"name": "test"}, "package_lock": None}
-
-        with patch("bom_bench.fixtures.npm.parse_reify_case", return_value=parsed):
-            result = _process_fixture(case_file, {}, {}, Mock(), mock_logger, tmp_path)
-
-        assert result is None
-
-    def test_process_fixture_success(self, tmp_path: Path):
-        case_file = tmp_path / "success.js"
-        case_file.write_text("")
-        mock_logger = Mock()
-        mock_bom_bench = Mock()
-        mock_bom_bench.generate_sbom_file = Mock()
-        cache_dir = tmp_path / "cache"
-
-        parsed = {
-            "name": "success",
-            "package_json": {"name": "test", "version": "1.0.0"},
-            "package_lock": None,
-        }
-        packages = [ResolvedPackage("lodash", "4.17.21", "https://registry.npmjs.org/lodash")]
-
-        with patch("bom_bench.fixtures.npm.parse_reify_case", return_value=parsed):
-            result = _process_fixture(
-                case_file,
-                {"success": "success test"},
-                {"success test": packages},
-                mock_bom_bench,
-                mock_logger,
-                cache_dir,
-            )
-
-        assert result is not None
-        assert result["name"] == "success"
-        assert result["satisfiable"] is True
-        assert "manifest" in result["files"]
-        assert "expected_sbom" in result["files"]
-
-    def test_process_fixture_with_lockfile(self, tmp_path: Path):
-        case_file = tmp_path / "with-lock.js"
-        case_file.write_text("")
-        mock_logger = Mock()
-        mock_bom_bench = Mock()
-        mock_bom_bench.generate_sbom_file = Mock()
-        cache_dir = tmp_path / "cache"
-
-        parsed = {
-            "name": "with-lock",
-            "package_json": {"name": "test"},
-            "package_lock": {
-                "lockfileVersion": 3,
-                "dependencies": {
-                    "express": {
-                        "version": "4.18.2",
-                        "resolved": "https://registry.npmjs.org/express/-/express-4.18.2.tgz",
-                        "integrity": "sha512-...",
-                    }
-                },
-            },
-        }
-        packages = [ResolvedPackage("express", "4.18.2", "https://registry.npmjs.org/express")]
-
-        with patch("bom_bench.fixtures.npm.parse_reify_case", return_value=parsed):
-            result = _process_fixture(
-                case_file,
-                {"with-lock": "lock test"},
-                {"lock test": packages},
-                mock_bom_bench,
-                mock_logger,
-                cache_dir,
-            )
-
-        assert result is not None
-        assert "lock_file" in result["files"]
 
     def test_register_fixture_sets(self, tmp_path: Path):
         mock_bom_bench = Mock()

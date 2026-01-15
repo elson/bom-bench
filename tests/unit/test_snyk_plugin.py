@@ -70,124 +70,96 @@ class TestExtractDependencies:
 
     def test_extract_simple_dependency(self):
         """Test extracting a single dependency."""
-        dep_tree = {"name": "package1", "version": "1.0.0"}
+        pkgs = [{"info": {"name": "package1", "version": "1.0.0"}}]
 
-        packages = _extract_dependencies(dep_tree)
+        packages = _extract_dependencies(pkgs, "npm")
 
         assert len(packages) == 1
-        assert packages[0] == {"name": "package1", "version": "1.0.0"}
+        assert packages[0] == {"name": "package1", "version": "1.0.0", "purl_type": "npm"}
 
-    def test_extract_nested_dependencies(self):
-        """Test extracting nested dependencies."""
-        dep_tree = {
-            "name": "root",
-            "version": "1.0.0",
-            "dependencies": {
-                "dep1": {"name": "dep1", "version": "2.0.0"},
-                "dep2": {"name": "dep2", "version": "3.0.0"},
-            },
-        }
+    def test_extract_multiple_dependencies(self):
+        """Test extracting multiple dependencies."""
+        pkgs = [
+            {"info": {"name": "root", "version": "1.0.0"}},
+            {"info": {"name": "dep1", "version": "2.0.0"}},
+            {"info": {"name": "dep2", "version": "3.0.0"}},
+        ]
 
-        packages = _extract_dependencies(dep_tree)
+        packages = _extract_dependencies(pkgs, "pypi")
 
         assert len(packages) == 3
         names = [p["name"] for p in packages]
         assert "root" in names
         assert "dep1" in names
         assert "dep2" in names
+        assert all(p["purl_type"] == "pypi" for p in packages)
 
-    def test_extract_deeply_nested_dependencies(self):
-        """Test extracting arbitrarily deeply nested dependencies."""
-        dep_tree = {
-            "name": "root",
-            "version": "1.0.0",
-            "dependencies": {
-                "dep1": {
-                    "name": "dep1",
-                    "version": "2.0.0",
-                    "dependencies": {
-                        "dep2": {
-                            "name": "dep2",
-                            "version": "3.0.0",
-                            "dependencies": {"dep3": {"name": "dep3", "version": "4.0.0"}},
-                        }
-                    },
-                }
-            },
-        }
+    def test_extract_with_different_purl_types(self):
+        """Test extracting with different purl types."""
+        pkgs = [
+            {"info": {"name": "dep1", "version": "2.0.0"}},
+            {"info": {"name": "dep2", "version": "3.0.0"}},
+        ]
 
-        packages = _extract_dependencies(dep_tree)
+        packages_maven = _extract_dependencies(pkgs, "maven")
+        packages_golang = _extract_dependencies(pkgs, "golang")
 
-        assert len(packages) == 4
-        names = [p["name"] for p in packages]
-        assert "root" in names
-        assert "dep1" in names
-        assert "dep2" in names
-        assert "dep3" in names
+        assert len(packages_maven) == 2
+        assert all(p["purl_type"] == "maven" for p in packages_maven)
 
-    def test_extract_with_labels(self):
-        """Test extracting dependencies that have labels field."""
-        dep_tree = {
-            "name": "@dansmaculotte/nuxt-segment",
-            "version": "0.2.5",
-            "labels": {"scope": "prod"},
-            "dependencies": {
-                "@dansmaculotte/vue-segment": {
-                    "name": "@dansmaculotte/vue-segment",
-                    "version": "0.2.6",
-                    "labels": {"scope": "prod"},
-                }
-            },
-        }
+        assert len(packages_golang) == 2
+        assert all(p["purl_type"] == "golang" for p in packages_golang)
 
-        packages = _extract_dependencies(dep_tree)
+    def test_extract_with_scoped_packages(self):
+        """Test extracting scoped package names."""
+        pkgs = [
+            {"info": {"name": "@dansmaculotte/nuxt-segment", "version": "0.2.5"}},
+            {"info": {"name": "@dansmaculotte/vue-segment", "version": "0.2.6"}},
+        ]
+
+        packages = _extract_dependencies(pkgs, "npm")
 
         assert len(packages) == 2
         assert packages[0]["name"] == "@dansmaculotte/nuxt-segment"
         assert packages[1]["name"] == "@dansmaculotte/vue-segment"
 
-    def test_extract_empty_dependencies(self):
-        """Test extracting from tree with no dependencies."""
-        dep_tree = {"name": "standalone", "version": "1.0.0", "dependencies": {}}
+    def test_extract_empty_list(self):
+        """Test extracting from empty list."""
+        pkgs = []
 
-        packages = _extract_dependencies(dep_tree)
+        packages = _extract_dependencies(pkgs, "npm")
 
-        assert len(packages) == 1
-        assert packages[0] == {"name": "standalone", "version": "1.0.0"}
+        assert len(packages) == 0
 
-    def test_extract_missing_dependencies_field(self):
-        """Test extracting when dependencies field is missing."""
-        dep_tree = {"name": "simple", "version": "1.0.0"}
+    def test_extract_missing_info_field(self):
+        """Test extracting when info field is missing."""
+        pkgs = [{"name": "simple", "version": "1.0.0"}]  # No "info" wrapper
 
-        packages = _extract_dependencies(dep_tree)
+        packages = _extract_dependencies(pkgs, "npm")
 
-        assert len(packages) == 1
-        assert packages[0] == {"name": "simple", "version": "1.0.0"}
+        assert len(packages) == 0  # Should skip packages without info field
 
-    def test_extract_whitespace_only_values(self):
-        """Test extracting filters out whitespace-only name/version."""
-        dep_tree = {
-            "name": "  ",
-            "version": "  ",
-            "dependencies": {
-                "valid": {"name": "valid-pkg", "version": "1.0.0"},
-                "whitespace": {"name": " \t ", "version": " \n "},
-            },
-        }
+    def test_extract_filters_empty_names(self):
+        """Test extracting filters out empty or whitespace-only names."""
+        pkgs = [
+            {"info": {"name": "valid-pkg", "version": "1.0.0"}},
+            {"info": {"name": "", "version": "1.0.0"}},
+            {"info": {"name": "  ", "version": "1.0.0"}},
+        ]
 
-        packages = _extract_dependencies(dep_tree)
+        packages = _extract_dependencies(pkgs, "npm")
 
         assert len(packages) == 1
         assert packages[0]["name"] == "valid-pkg"
 
     def test_extract_strips_whitespace(self):
         """Test that leading/trailing whitespace is stripped."""
-        dep_tree = {"name": "  package  ", "version": "  1.0.0  "}
+        pkgs = [{"info": {"name": "  package  ", "version": "  1.0.0  "}}]
 
-        packages = _extract_dependencies(dep_tree)
+        packages = _extract_dependencies(pkgs, "npm")
 
         assert len(packages) == 1
-        assert packages[0] == {"name": "package", "version": "1.0.0"}
+        assert packages[0] == {"name": "package", "version": "1.0.0", "purl_type": "npm"}
 
 
 class TestParseSnykOutput:

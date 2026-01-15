@@ -9,7 +9,8 @@ from types import ModuleType
 from bom_bench import hookimpl
 
 from .arborist_parser import ResolvedPackage, parse_snapshot_file
-from .js_parser import parse_fixture_test_mapping, parse_reify_case
+from .fixture_mapper import build_fixture_mapping
+from .test_runner import run_arborist_tests
 
 NPM_CLI_TAG = "v10.9.2"
 NPM_CLI_REPO = "https://github.com/npm/cli.git"
@@ -55,19 +56,30 @@ def _load_fixtures(
         logger.info("Using cached npm fixtures")
         return _load_cached_fixtures(cache_dir)
 
+    # Run arborist tests with --save-fixture to generate test output directories
+    logger.info("Running arborist tests to generate fixtures...")
+    test_result = run_arborist_tests(repo_path)
+
+    if not test_result.success:
+        logger.warning(
+            f"Test run completed with exit code {test_result.exit_code}. "
+            f"Continuing with available fixtures..."
+        )
+
+    logger.info(f"Tests completed in {test_result.duration_seconds:.1f}s")
+
+    # Build mapping from saved fixture directories to snapshot entries
     snapshot_path = repo_path / "workspaces/arborist/tap-snapshots/test/arborist/reify.js.test.cjs"
     snapshot_ground_truth = parse_snapshot_file(snapshot_path)
 
-    test_file = repo_path / "workspaces/arborist/test/arborist/reify.js"
-    fixture_to_test = parse_fixture_test_mapping(test_file)
+    fixture_mapping = build_fixture_mapping(snapshot_path, test_result.fixtures_dir)
+    logger.info(f"Found {len(fixture_mapping)} saved fixture directories")
 
-    reify_cases_dir = repo_path / "workspaces/arborist/test/fixtures/reify-cases"
+    # Process each saved fixture
     fixtures = []
-
-    for case_file in sorted(reify_cases_dir.glob("*.js")):
-        fixture = _process_fixture(
-            case_file,
-            fixture_to_test,
+    for _fixture_name, mapping_entry in sorted(fixture_mapping.items()):
+        fixture = _process_saved_fixture(
+            mapping_entry,
             snapshot_ground_truth,
             bom_bench,
             logger,
@@ -114,6 +126,114 @@ def _clone_npm_cli(logger, npm_cli_dir: Path) -> Path:
     return npm_cli_dir
 
 
+def _process_saved_fixture(
+    mapping_entry,
+    snapshot_ground_truth: dict[str, list[ResolvedPackage]],
+    bom_bench: ModuleType,
+    logger,
+    cache_dir: Path,
+) -> dict | None:
+    """Process a saved fixture directory from test output.
+
+    Args:
+        mapping_entry: FixtureMappingEntry with fixture info
+        snapshot_ground_truth: Parsed snapshot file with expected packages
+        bom_bench: bom_bench module for SBOM generation
+        logger: Logger instance
+        cache_dir: Directory to cache processed fixtures
+
+    Returns:
+        Fixture dict or None if skipped
+    """
+    fixture_name = mapping_entry.fixture_name
+    saved_dir = mapping_entry.saved_dir
+    test_name = mapping_entry.test_name
+
+    # Skip malformed/unsatisfiable fixtures
+    if any(x in fixture_name for x in ["malformed", "-fail", "unresolvable"]):
+        return None
+
+    # Check if saved directory has required files
+    package_json_path = saved_dir / "package.json"
+    if not package_json_path.exists():
+        logger.debug(f"Skipping {fixture_name}: no package.json in saved directory")
+        return None
+
+    # Read package.json
+    try:
+        package_json = json.loads(package_json_path.read_text())
+    except json.JSONDecodeError:
+        logger.debug(f"Skipping {fixture_name}: invalid package.json")
+        return None
+
+    # Check for lock file
+    package_lock_path = saved_dir / "package-lock.json"
+    package_lock = None
+    if package_lock_path.exists():
+        try:
+            package_lock = json.loads(package_lock_path.read_text())
+        except json.JSONDecodeError:
+            logger.debug(f"Skipping {fixture_name}: invalid package-lock.json")
+            return None
+
+    # Determine ground truth source
+    if package_lock:
+        # Use lock file as ground truth
+        packages = _extract_packages_from_lock(package_lock)
+        if not packages:
+            logger.debug(f"Skipping {fixture_name}: no packages in lock file")
+            return None
+        ground_truth_source = "lock file"
+    else:
+        # Use tap snapshot for fixtures without lock files
+        if test_name not in snapshot_ground_truth:
+            logger.debug(f"Skipping {fixture_name}: no tap snapshot ground truth")
+            return None
+
+        packages = snapshot_ground_truth[test_name]
+        if not packages:
+            logger.debug(f"Skipping {fixture_name}: empty package list in snapshot")
+            return None
+        ground_truth_source = "tap snapshot"
+
+    logger.debug(
+        f"Generated fixture: {fixture_name} with {len(packages)} packages (from {ground_truth_source})"
+    )
+
+    # Copy files to cache
+    fixture_dir = cache_dir / fixture_name
+    fixture_dir.mkdir(parents=True, exist_ok=True)
+
+    manifest_path = fixture_dir / "package.json"
+    manifest_path.write_text(json.dumps(package_json, indent=2))
+
+    lock_path = None
+    if package_lock:
+        lock_path = fixture_dir / "package-lock.json"
+        lock_path.write_text(json.dumps(package_lock, indent=2))
+
+    # Generate expected SBOM
+    sbom_path = fixture_dir / "expected.cdx.json"
+    _generate_expected_sbom(bom_bench, fixture_name, packages, sbom_path)
+
+    meta_path = fixture_dir / "meta.json"
+    meta_path.write_text(json.dumps({"satisfiable": True}, indent=2))
+
+    files = {
+        "manifest": str(manifest_path),
+        "expected_sbom": str(sbom_path),
+        "meta": str(meta_path),
+    }
+    if lock_path:
+        files["lock_file"] = str(lock_path)
+
+    return {
+        "name": fixture_name,
+        "satisfiable": True,
+        "files": files,
+    }
+
+
 def _extract_packages_from_lock(lock_data: dict) -> list[ResolvedPackage]:
     """Extract resolved packages from package-lock.json.
 
@@ -135,89 +255,6 @@ def _extract_packages_from_lock(lock_data: dict) -> list[ResolvedPackage]:
             packages.append(ResolvedPackage(name=name, version=version, resolved=resolved))
 
     return packages
-
-
-def _process_fixture(
-    case_file: Path,
-    fixture_to_test: dict[str, str],
-    snapshot_ground_truth: dict[str, list[ResolvedPackage]],
-    bom_bench: ModuleType,
-    logger,
-    cache_dir: Path,
-) -> dict | None:
-    """Process a single reify-case fixture.
-
-    Ground truth source depends on whether fixture has a lock file:
-    - WITH lock file: Ground truth from lock file (what SCA tools should find)
-    - WITHOUT lock file: Ground truth from tap snapshot (resolved dependencies)
-
-    Fixtures without matching tap snapshot entries are skipped for validation.
-    """
-    fixture_name = case_file.stem
-
-    if any(x in fixture_name for x in ["malformed", "-fail", "unresolvable"]):
-        return None
-
-    parsed = parse_reify_case(case_file)
-    if not parsed or not parsed["package_json"]:
-        logger.debug(f"Skipping {fixture_name}: could not parse")
-        return None
-
-    # Determine ground truth source
-    if parsed["package_lock"]:
-        # Use lock file as ground truth for SCA tool benchmarking
-        packages = _extract_packages_from_lock(parsed["package_lock"])
-        if not packages:
-            logger.debug(f"Skipping {fixture_name}: no packages in lock file")
-            return None
-        ground_truth_source = "lock file"
-    else:
-        # Use tap snapshot for fixtures without lock files
-        test_name = fixture_to_test.get(fixture_name)
-        if not test_name or test_name not in snapshot_ground_truth:
-            logger.debug(f"Skipping {fixture_name}: no tap snapshot ground truth")
-            return None
-
-        packages = snapshot_ground_truth[test_name]
-        if not packages:
-            logger.debug(f"Skipping {fixture_name}: empty package list in snapshot")
-            return None
-        ground_truth_source = "tap snapshot"
-
-    logger.debug(
-        f"Generated fixture: {fixture_name} with {len(packages)} packages (from {ground_truth_source})"
-    )
-
-    fixture_dir = cache_dir / fixture_name
-    fixture_dir.mkdir(parents=True, exist_ok=True)
-
-    manifest_path = fixture_dir / "package.json"
-    manifest_path.write_text(json.dumps(parsed["package_json"], indent=2))
-
-    lock_path: Path | None = None
-    if parsed["package_lock"]:
-        lock_path = fixture_dir / "package-lock.json"
-        lock_path.write_text(json.dumps(parsed["package_lock"], indent=2))
-
-    sbom_path = fixture_dir / "expected.cdx.json"
-    _generate_expected_sbom(bom_bench, fixture_name, packages, sbom_path)
-
-    meta_path = fixture_dir / "meta.json"
-    meta_path.write_text(json.dumps({"satisfiable": True}, indent=2))
-
-    files = {
-        "manifest": str(manifest_path),
-        "expected_sbom": str(sbom_path),
-        "meta": str(meta_path),
-    }
-    if lock_path:
-        files["lock_file"] = str(lock_path)
-
-    return {
-        "name": fixture_name,
-        "satisfiable": True,
-        "files": files,
-    }
 
 
 def _generate_expected_sbom(
@@ -246,12 +283,17 @@ def _generate_expected_sbom(
 def _compute_source_hash(repo_path: Path) -> str:
     """Compute hash of source files for cache invalidation."""
     hasher = hashlib.sha256()
-    reify_cases = repo_path / "workspaces/arborist/test/fixtures/reify-cases"
-    for f in sorted(reify_cases.glob("*.js")):
-        hasher.update(f.read_bytes())
+
+    # Hash test file (generates fixtures)
+    test_file = repo_path / "workspaces/arborist/test/arborist/reify.js"
+    if test_file.exists():
+        hasher.update(test_file.read_bytes())
+
+    # Hash snapshot file (expected output)
     snapshot = repo_path / "workspaces/arborist/tap-snapshots/test/arborist/reify.js.test.cjs"
     if snapshot.exists():
         hasher.update(snapshot.read_bytes())
+
     return hasher.hexdigest()[:16]
 
 
