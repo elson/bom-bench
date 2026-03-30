@@ -24,7 +24,7 @@ Generate package manager manifests and lock files from test scenarios for benchm
 
 ```bash
 # Clone repository
-git clone https://github.com/your-org/bom-bench
+git clone https://github.com/elson/bom-bench
 cd bom-bench
 
 # Install with uv
