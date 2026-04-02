@@ -437,10 +437,7 @@ class TestGenerateFixtures:
 
 class TestRegisterFixtureSets:
     def test_returns_fixture_set_structure(self):
-        with (
-            patch("bom_bench.fixtures.packse._generate_fixtures") as mock_gen,
-            patch("bom_bench.config.DATA_DIR", Path("/mock/data")),
-        ):
+        with patch("bom_bench.fixtures.packse._generate_fixtures") as mock_gen:
             mock_gen.return_value = [
                 {
                     "name": "test-fixture",
@@ -450,7 +447,8 @@ class TestRegisterFixtureSets:
             ]
 
             mock_bom_bench = MagicMock()
-            result = register_fixture_sets(mock_bom_bench)
+            data_dir = Path("/mock/data")
+            result = register_fixture_sets(mock_bom_bench, data_dir)
 
             assert len(result) == 1
             fixture_set = result[0]

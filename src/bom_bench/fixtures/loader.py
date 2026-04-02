@@ -6,6 +6,7 @@ Loads fixture sets from plugins via the register_fixture_sets hook.
 from __future__ import annotations
 
 import bom_bench
+from bom_bench.config import DATA_DIR
 from bom_bench.models.fixture import FixtureSet
 from bom_bench.plugins import pm as default_pm
 from bom_bench.utils import expandvars_dict
@@ -41,7 +42,7 @@ class FixtureSetLoader:
         """
         fixture_sets = []
 
-        results = self.pm.hook.register_fixture_sets(bom_bench=bom_bench)
+        results = self.pm.hook.register_fixture_sets(bom_bench=bom_bench, data_dir=DATA_DIR)
 
         for plugin_result in results:
             if plugin_result is None:

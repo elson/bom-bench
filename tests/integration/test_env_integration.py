@@ -61,7 +61,7 @@ class TestEnvIntegration:
 
         # Create a mock plugin manager
         class MockHook:
-            def register_fixture_sets(self, bom_bench):
+            def register_fixture_sets(self, bom_bench, data_dir):
                 return [
                     [
                         {

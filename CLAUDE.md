@@ -192,7 +192,9 @@ Skip specific hooks: `SKIP=pyright git commit`
 1. **Fixture Set Plugins** (`fixtures/`)
    - Single hook: `register_fixture_sets(bom_bench)` → Returns list of fixture set dicts
    - Each fixture set contains: name, ecosystem, environment config (mise tools), and fixtures
-   - Example: `packse.py` provides Python dependency resolution test scenarios
+   - Examples:
+     - `packse.py` - Python dependency resolution test scenarios
+     - `npm/` - npm/Node.js arborist dependency resolution test cases
 
 2. **SCA Tool Plugins** (`sca_tools/`)
    - Single hook: `register_sca_tools()` → Returns dict with tool info and declarative config
@@ -241,7 +243,12 @@ src/bom_bench/
 ├── fixtures/
 │   ├── __init__.py     # Fixture loading utilities
 │   ├── loader.py       # FixtureSetLoader with caching
-│   └── packse.py       # Packse fixture set plugin
+│   ├── packse.py       # Packse fixture set plugin (Python)
+│   └── npm/            # npm fixture set plugin
+│       ├── __init__.py          # Main plugin entry point
+│       ├── test_runner.py       # Runs arborist tests with --save-fixture
+│       ├── fixture_mapper.py    # Maps test directories to snapshot entries
+│       └── arborist_parser.py   # Parses snapshot files for ground truth
 ├── sca_tools/
 │   ├── __init__.py     # SCA wrapper functions, tool registry
 │   ├── cdxgen.py       # CycloneDX generator plugin
@@ -412,6 +419,43 @@ Plugins support environment variable interpolation in return values:
 - Normalize PURLs (lowercase, strip qualifiers)
 - Calculate set operations: TP = intersection, FP = actual - expected, FN = expected - actual
 - Metrics: precision = TP/(TP+FP), recall = TP/(TP+FN), F1 = harmonic mean
+
+### npm Fixture Plugin Implementation
+
+The npm plugin generates fixtures from npm/cli arborist dependency resolution tests:
+
+**Architecture:**
+1. **test_runner.py**: Executes `npx tap test/arborist/reify.js --save-fixture`
+   - Installs npm dependencies with `npm ci`
+   - Runs tests with `--save-fixture` to preserve output directories
+   - Returns test execution result (success, exit code, duration)
+
+2. **fixture_mapper.py**: Maps saved test directories to snapshot entries
+   - Scans `test/arborist/tap-testdir-reify-*` directories from test output
+   - Converts directory names to test names for snapshot matching
+   - No JS parsing required - uses simple name normalization
+
+3. **arborist_parser.py**: Parses snapshot file for ground truth
+   - Extracts expected package lists from `reify.js.test.cjs` snapshots
+   - Maps test names to resolved packages
+
+4. **Main flow** (`npm/__init__.py`):
+   - Runs tests to generate fixture directories
+   - Builds mapping from saved directories to snapshots
+   - Extracts `package.json`, `package-lock.json` from saved output
+   - Uses tap snapshots for ground truth SBOMs
+   - Caches results based on hash of test file and snapshots
+
+**Key advantages:**
+- Fixtures use actual post-test state (consistent lock files + expected SBOMs)
+- Eliminates inconsistencies from test modifications
+- No complex JS parsing - directory names provide mapping
+- Cache invalidation based on test file changes (not static reify-cases)
+
+**Hash computation:**
+- Hashes `test/arborist/reify.js` (test logic)
+- Hashes `tap-snapshots/.../reify.js.test.cjs` (expected output)
+- Regenerates fixtures if either changes
 
 ## Common Pitfalls to Avoid
 

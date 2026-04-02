@@ -21,6 +21,7 @@ Example plugin implementation:
         }
 """
 
+from pathlib import Path
 from types import ModuleType
 
 import pluggy
@@ -40,6 +41,7 @@ class FixtureSetSpec:
     def register_fixture_sets(
         self,
         bom_bench: ModuleType,
+        data_dir: Path,
     ) -> list[dict]:  # type: ignore[empty-body]
         """Register fixture sets provided by this plugin.
 
@@ -48,6 +50,7 @@ class FixtureSetSpec:
 
         Args:
             bom_bench: The bom_bench module with helper functions for dependency injection
+            data_dir: Path to the data directory for caching fixtures
 
         Returns:
             List of dicts with fixture set info:
@@ -66,7 +69,8 @@ class FixtureSetSpec:
 
         Example implementation:
             @hookimpl
-            def register_fixture_sets(bom_bench):
+            def register_fixture_sets(bom_bench, data_dir):
+                cache_dir = data_dir / "fixture_sets" / "my_fixtures"
                 return [{
                     "name": "packse",
                     "description": "Python dependency resolution scenarios",
